@@ -1,0 +1,4 @@
+Prerequisites:
+- libtiff
+
+Ubuntu: sudo apt-get install libtiff5-dev
