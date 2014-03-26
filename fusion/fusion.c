@@ -1,17 +1,151 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
+#include <stdint-gcc.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <assert.h>
+#include <getopt.h>
+
 #include <tiffio.h>
 
 int main(int argc, char *argv[]);
-int dbg_tif_test(const char *in_img, char *out_img);
+
+void rgb2gray(double *rgb, size_t npixels, double* ret_gray);
+void ones(double *arr, size_t len);
+
+void exposure_fusion(double* I, int r, int c, int N, double m[3], double* R);
+void load_images(char * path, double reduce);
+
+void tiff2rgb(uint32 *tiff, size_t npixels, double* ret_rgb);
+int debug_tiff_test(const char *in_img, char *out_img);
 
 
 int main(int argc, char *argv[]){
-    //dbg_tif_test("gradient.tif", "out.tif");
+    //getopt for command-line parsing. See the getopt(3) manpage
+    int c;
+    while(true){
+        static struct option long_options[] = {
+            {"testlibtiff", no_argument, 0, 't'},
+            {0,0,0,0}
+        };
+
+        int option_index = 0;
+        c = getopt_long(argc, argv, "t", long_options, &option_index);
+        if(c == -1){ // -1 indicates end of options reached
+            break;
+        }
+        switch(c){
+            case 0: // the long option with name long_options[option_index].name is found
+                printf("getopt error on long option %s\n", long_options[option_index].name);
+                break;
+            case 't':
+                printf("getopt: testlibtiff\n");
+                debug_tiff_test("gradient.tif", "out.tif");
+                break;
+            case '?':
+                printf("getopt: error on character %c\n", optopt);
+                break;
+            default:
+                printf("getopt: general error\n");
+                abort();
+        }
+    }
+    int num_opts = optind-1;
+    int num_args_remaining = argc-optind;
+
+    if(num_opts == 0){
+        //no options
+        printf("Usage ./fusion -t\n");
+        return 0;
+    }
+    if(num_args_remaining > 0){ //get rest of arguments (optind is defined in getopt.h and used by getopt)
+        //use arguments
+    }
     return 0;
 }
 
-int dbg_tif_test(const char *in_img, char *out_img){
+//
+// Exposure Fusion functionality
+//
+
+/**
+ * @brief Implementation of exposure_fusion.m
+ * @param I represents a stack of N color images (at double precision).
+ *        Dimensions are (height x width x 3 x N).
+ * @param r height of image
+ * @param c width of image
+ * @param N number of images
+ * @param m 3-tuple that controls the per-pixel measures. The elements
+ *        control contrast, saturation and well-exposedness,
+ *        respectively.
+ */
+void exposure_fusion(double* I, int r, int c, int N, double m[3], double* R){
+    size_t W_len = r*c*N;
+    double *W = malloc(W_len*sizeof(double));
+    assert(W != NULL);
+    ones(W, W_len);
+    //TODO
+}
+
+//
+// Helper functions
+//
+
+void load_images(char * path, double reduce){
+    //TODO
+}
+
+//
+// MATLAB-equivalent functionality
+//
+
+/**
+ * @brief Implementation of the MATLAB rgb2gray function
+ *
+ * See: http://www.mathworks.com/help/images/ref/rgb2gray.html
+ *
+ * @param rgb Input image
+ * @param npixels Size of image in pixels
+ * @param gray (out) Output image
+ */
+void rgb2gray(double *rgb, size_t npixels, double* ret_gray){
+    for(int i = 0; i < npixels; i++){
+        double r = rgb[i*3];
+        double g = rgb[i*3+1];
+        double b = rgb[i*3+2];
+        ret_gray[i] = 0.2989 * r + 0.5870 * g + 0.1140 * b; //retain luminance, discard hue and saturation
+    }
+}
+
+void ones(double *arr, size_t len){
+    for(int i = 0; i < len; i++){
+        arr[i] = (double)1.0;
+    }
+}
+
+//
+// TIFF functionality
+//
+
+/**
+ * @brief Converts a TIFF image to an RGB array of doubles.
+ * @param tiff The TIFF image in ABGR format (MSB to LSB)
+ * @param pixels Size of image in pixels
+ * @param rgb (out) Output image, array of npixels*3 doubles
+ */
+void tiff2rgb(uint32 *tiff, size_t npixels, double* ret_rgb){
+    for(int i = 0; i < npixels; i++){
+        unsigned char r = TIFFGetR(tiff[i*4]);
+        unsigned char g = TIFFGetG(tiff[i*4]);
+        unsigned char b = TIFFGetB(tiff[i*4]);
+        ret_rgb[i*3] = r;
+        ret_rgb[i*3+1] = g;
+        ret_rgb[i*3+2] = b;
+    }
+}
+
+int debug_tiff_test(const char *in_img, char *out_img){
     TIFF* tif = TIFFOpen(in_img, "r");
 
     if (tif) {
