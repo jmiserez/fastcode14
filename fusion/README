@@ -1,6 +1,24 @@
 Usage
 ===========
 $ make
-$ ./main
+$ ./fusion -t      (for now just testing)
+
+- Compile everything:
+$ make all
+or
+$ make
+
+- Clean everything:
+$ cleanall
+
+- Compile only libs:
+$ make libs
+
+- Clean only our c code:
+$ clean
+
+- Clean only libs:
+$ cleanlibs
+
 
 
