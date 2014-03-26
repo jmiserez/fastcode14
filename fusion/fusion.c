@@ -7,7 +7,7 @@ int dbg_tif_test(const char *in_img, char *out_img);
 
 
 int main(int argc, char *argv[]){
-    dbg_tif_test("gradient.tif", "out.tif");
+    //dbg_tif_test("gradient.tif", "out.tif");
     return 0;
 }
 

@@ -1,5 +1,5 @@
 #Makefile
-TARGET = main
+TARGET = fusion
 LIBS = -ltiff
 LIBTIFFSRCDIR = ./libs/tiff-4.0.3
 LIBTIFFBUILDDIR = ./libs/tiff-4.0.3-build
