@@ -2,8 +2,17 @@
 #include <string.h>
 #include <tiffio.h>
 
-int main(void){
-    TIFF* tif = TIFFOpen("gradient.tif", "r");
+int main(int argc, char *argv[]);
+int dbg_tif_test(const char *in_img, char *out_img);
+
+
+int main(int argc, char *argv[]){
+    dbg_tif_test("gradient.tif", "out.tif");
+    return 0;
+}
+
+int dbg_tif_test(const char *in_img, char *out_img){
+    TIFF* tif = TIFFOpen(in_img, "r");
 
     if (tif) {
         uint32 w, h;
@@ -31,7 +40,7 @@ int main(void){
             _TIFFfree(raster);
         }
         TIFFClose(tif);
-        TIFF *out= TIFFOpen("new.tif", "w");
+        TIFF *out= TIFFOpen(out_img, "w");
         int samplesperpixel = 4;
         int width = 256;
         int height = 256;
@@ -41,7 +50,7 @@ int main(void){
                 image[i*256*4+k+0] = ((i+k)/6+k-i) % 256; //R
                 image[i*256*4+k+1] = ((i+k)/4+i-k) % 256; //G
                 image[i*256*4+k+2] = (i+k)/2+k % 256;  //B
-                image[i*256*4+k+3] = 255; //A
+                image[i*256*4+k+3] = i; //A
             }
         }
         TIFFSetField(out, TIFFTAG_IMAGEWIDTH, width);
