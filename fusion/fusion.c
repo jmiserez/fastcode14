@@ -14,9 +14,8 @@ int main(int argc, char *argv[]);
 void rgb2gray(double *rgb, size_t npixels, double* ret_gray);
 void ones(double *arr, size_t len);
 
-void exposure_fusion(double* I, int r, int c, int N, double m[3], double* R);
-void load_images(char * path, double reduce);
-
+void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R);
+void load_images(char **path, int nimages, uint32_t **ret_stack, uint32_t *ret_widths, uint32_t *ret_heights);
 void tiff2rgb(uint32 *tiff, size_t npixels, double* ret_rgb);
 int debug_tiff_test(const char *in_img, char *out_img);
 
@@ -54,13 +53,20 @@ int main(int argc, char *argv[]){
     int num_opts = optind-1;
     int num_args_remaining = argc-optind;
 
-    if(num_opts == 0){
-        //no options
-        printf("Usage ./fusion -t\n");
+    if(num_opts == 0 && num_args_remaining == 0){
+        printf("Usage: ./fusion <options> <paths of images>\n");
         return 0;
     }
     if(num_args_remaining > 0){ //get rest of arguments (optind is defined in getopt.h and used by getopt)
         //use arguments
+        printf("num_opts: %d, remaining: %d\n", num_opts, num_args_remaining);
+
+        char** argv_start = &argv[optind];
+        uint32_t *images = NULL;
+        uint32_t *width = malloc(num_args_remaining*sizeof(uint32_t));
+        uint32_t *height = malloc(num_args_remaining*sizeof(uint32_t));
+        load_images(argv_start,num_args_remaining, &images, width, height);
+        assert(images != NULL);
     }
     return 0;
 }
@@ -80,7 +86,7 @@ int main(int argc, char *argv[]){
  *        control contrast, saturation and well-exposedness,
  *        respectively.
  */
-void exposure_fusion(double* I, int r, int c, int N, double m[3], double* R){
+void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     size_t W_len = r*c*N;
     double *W = malloc(W_len*sizeof(double));
     assert(W != NULL);
@@ -92,9 +98,7 @@ void exposure_fusion(double* I, int r, int c, int N, double m[3], double* R){
 // Helper functions
 //
 
-void load_images(char * path, double reduce){
-    //TODO
-}
+
 
 //
 // MATLAB-equivalent functionality
@@ -128,8 +132,46 @@ void ones(double *arr, size_t len){
 // TIFF functionality
 //
 
+
 /**
- * @brief Converts a TIFF image to an RGB array of doubles.
+ * @brief Load a series of images
+ * @param path A list of image paths to load
+ * @param nimages Number of images to load
+ * @param reduce Factor by which to reduce the image sizes
+ * @param ret_stack (out) Stack of images
+ */
+void load_images(char **path, int nimages, uint32_t **ret_stack, uint32_t *ret_widths, uint32_t *ret_heights){
+    for(int i = 0; i < nimages; i++){
+        TIFF* tif = TIFFOpen(path[i], "r");
+        assert(tif != NULL);
+        uint32_t width, height;
+        uint32_t* raster;
+
+        TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &width);
+        TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &height);
+        size_t npixels = width * height;
+
+        ret_widths[i] = width;
+        ret_heights[i] = height;
+
+        raster = (uint32_t*) _TIFFmalloc(npixels * sizeof (uint32_t));
+        assert(raster != NULL);
+        uint32_t *ret_img = (uint32_t*) malloc(npixels * sizeof (uint32_t));
+        assert(ret_img != NULL);
+
+        if (TIFFReadRGBAImageOriented(tif, width, height, raster, ORIENTATION_TOPLEFT, 0)) { //same as any image viewer
+            for(int k = 0; k < npixels; k++){
+                ret_img[k] = raster[k];
+            }
+        }
+        ret_stack[i] = ret_img;
+        _TIFFfree(raster);
+        TIFFClose(tif);
+    }
+}
+
+/**
+ * @brief Converts a TIFF image to an RGB array of doubles, omitting the A channel.
  * @param tiff The TIFF image in ABGR format (MSB to LSB)
  * @param pixels Size of image in pixels
  * @param rgb (out) Output image, array of npixels*3 doubles
@@ -142,6 +184,58 @@ void tiff2rgb(uint32 *tiff, size_t npixels, double* ret_rgb){
         ret_rgb[i*3] = r;
         ret_rgb[i*3+1] = g;
         ret_rgb[i*3+2] = b;
+    }
+}
+/**
+ * @brief Converts a TIFF image to an RGB array of unsigned 8 bit ints, omitting the A channel.
+ * @param tiff
+ * @param npixels
+ * @param ret_rgb
+ */
+void tiff2rgb8(uint32 *tiff, size_t npixels, uint8_t* ret_rgb){
+    for(int i = 0; i < npixels; i++){
+        unsigned char r = TIFFGetR(tiff[i*4]);
+        unsigned char g = TIFFGetG(tiff[i*4]);
+        unsigned char b = TIFFGetB(tiff[i*4]);
+        ret_rgb[i*3] = r;
+        ret_rgb[i*3+1] = g;
+        ret_rgb[i*3+2] = b;
+    }
+}
+/**
+ * @brief Separates a TIFF image into it's channels, omitting the A channel.
+ * @param tiff
+ * @param npixels
+ * @param ret_r
+ * @param ret_g
+ * @param ret_b
+ */
+void tiff2channels(uint32 *tiff, size_t npixels, double* ret_r, double* ret_g, double* ret_b){
+    for(int i = 0; i < npixels; i++){
+        unsigned char r = TIFFGetR(tiff[i*4]);
+        unsigned char g = TIFFGetG(tiff[i*4]);
+        unsigned char b = TIFFGetB(tiff[i*4]);
+        ret_r[i] = r;
+        ret_g[i] = g;
+        ret_b[i] = b;
+    }
+}
+/**
+ * @brief Separates a TIFF image into it's channels, omitting the A channel.
+ * @param tiff
+ * @param npixels
+ * @param ret_r
+ * @param ret_g
+ * @param ret_b
+ */
+void tiff2channels8(uint32 *tiff, size_t npixels, uint8_t* ret_r, uint8_t* ret_g, uint8_t* ret_b){
+    for(int i = 0; i < npixels; i++){
+        unsigned char r = TIFFGetR(tiff[i*4]);
+        unsigned char g = TIFFGetG(tiff[i*4]);
+        unsigned char b = TIFFGetB(tiff[i*4]);
+        ret_r[i] = r;
+        ret_g[i] = g;
+        ret_b[i] = b;
     }
 }
 
