@@ -1,0 +1,16 @@
+libs/tiff-4.0.3/libtiff/tif_config.wince.h
+libs/tiff-4.0.3/libtiff/tiffvers.h
+libs/tiff-4.0.3/libtiff/tif_fax3.h
+libs/tiff-4.0.3/libtiff/uvcode.h
+libs/tiff-4.0.3/libtiff/tiffiop.h
+libs/tiff-4.0.3/libtiff/tiffio.h
+libs/tiff-4.0.3/libtiff/tiffconf.wince.h
+libs/tiff-4.0.3/libtiff/t4.h
+libs/tiff-4.0.3/libtiff/tiffconf.vc.h
+libs/tiff-4.0.3/libtiff/tif_dir.h
+libs/tiff-4.0.3/libtiff/tif_predict.h
+libs/tiff-4.0.3/libtiff/tiff.h
+libs/tiff-4.0.3/libtiff/tif_config.vc.h
+libs/tiff-4.0.3-build/libtiff/tif_config.h
+libs/tiff-4.0.3-build/libtiff/tiffconf.h
+
