@@ -57,5 +57,5 @@ in the directory <refImpl>.
 
 This generate a file with the file
      
- <refPath>/A_50-3-1-1-1.tif 
+ <refPath>/Name_50-3-1-1-1.tif 
 
