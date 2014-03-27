@@ -24,3 +24,4 @@ $(TARGET): $(OBJ)
 clean:
 	rm -f *.o
 	rm -f $(TARGET)
+	rm -f debug.tif
