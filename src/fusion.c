@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <getopt.h>
+#include <math.h>
 
 #include <tiffio.h>
 
@@ -18,6 +19,8 @@ void ones(double *arr, size_t len);
 
 void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R);
 void load_images(char **path, int nimages, uint32_t **ret_stack, uint32_t *ret_widths, uint32_t *ret_heights);
+void store_image(char* path, double *R, uint32_t height, uint32_t width);
+
 void tiff2rgb(uint32_t *tiff, size_t npixels, double* ret_rgb);
 int debug_tiff_test(const char *in_img, char *out_img);
 
@@ -120,6 +123,9 @@ void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height){
 
     //run fusion
     exposure_fusion(I, height, width, nimages, m, R);
+
+    store_image("output.tif", R, height, width);
+
 }
 
 //
@@ -138,12 +144,21 @@ void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height){
  *        respectively.
  */
 void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
+    uint32_t width = c;
+    uint32_t height = r;
+    uint32_t npixels = r*c;
+
     size_t W_len = r*c*N;
     double *W = malloc(W_len*sizeof(double));
     assert(W != NULL);
     ones(W, W_len);
     //TODO
 
+
+    for(int i = 0; i < npixels*3; i++){
+        R[i] = I[0][i];
+    }
+    printf("done\n");
 }
 
 
@@ -185,7 +200,6 @@ void ones(double *arr, size_t len){
 // TIFF functionality
 //
 
-
 /**
  * @brief Load a series of images
  * @param path A list of image paths to load
@@ -221,6 +235,35 @@ void load_images(char **path, int nimages, uint32_t **ret_stack, uint32_t *ret_w
         _TIFFfree(raster);
         TIFFClose(tif);
     }
+}
+
+void store_image(char* path, double *R, uint32_t height, uint32_t width){
+    uint32_t npixels = width*height;
+
+    TIFF *out = TIFFOpen(path, "w");
+    uint32_t* raster = (uint32_t*) _TIFFmalloc(npixels * sizeof(uint32_t));
+
+    assert(raster != NULL);
+    for(int i = 0; i < npixels; i++){
+        uint32_t packed = 0;
+        packed |= (uint32_t)(fmin(fmax(0.0, round(R[i*3])), 255.0));
+        packed |= ((uint32_t)(fmin(fmax(0.0, round(R[i*3+1])), 255.0))) << 8;
+        packed |= ((uint32_t)(fmin(fmax(0.0, round(R[i*3+2])), 255.0))) << 16;
+        packed |= ((uint32_t)255) << 24;
+        raster[i] = packed;
+    }
+
+    TIFFSetField(out, TIFFTAG_IMAGEWIDTH, width);
+    TIFFSetField(out, TIFFTAG_IMAGELENGTH, height);
+    TIFFSetField(out, TIFFTAG_SAMPLESPERPIXEL, 4);
+    TIFFSetField(out, TIFFTAG_BITSPERSAMPLE, 8);
+    TIFFSetField(out, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
+    TIFFSetField(out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+    TIFFSetField(out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+
+    TIFFSetField(out, TIFFTAG_ROWSPERSTRIP, height);
+    TIFFWriteEncodedStrip(out, 0, raster, width*height*sizeof(uint32_t));
+    TIFFClose(out);
 }
 
 /**
