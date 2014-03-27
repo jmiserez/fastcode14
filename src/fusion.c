@@ -9,18 +9,21 @@
 
 #include <tiffio.h>
 
+
 int main(int argc, char *argv[]);
+void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height);
 
 void rgb2gray(double *rgb, size_t npixels, double* ret_gray);
 void ones(double *arr, size_t len);
 
 void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R);
 void load_images(char **path, int nimages, uint32_t **ret_stack, uint32_t *ret_widths, uint32_t *ret_heights);
-void tiff2rgb(uint32 *tiff, size_t npixels, double* ret_rgb);
+void tiff2rgb(uint32_t *tiff, size_t npixels, double* ret_rgb);
 int debug_tiff_test(const char *in_img, char *out_img);
 
 
 int main(int argc, char *argv[]){
+
     //getopt for command-line parsing. See the getopt(3) manpage
     int c;
     while(true){
@@ -59,16 +62,64 @@ int main(int argc, char *argv[]){
     }
     if(num_args_remaining > 0){ //get rest of arguments (optind is defined in getopt.h and used by getopt)
         //use arguments
-        printf("num_opts: %d, remaining: %d\n", num_opts, num_args_remaining);
+
+        //load all images specified on the command line
+        //TODO: extract to function
+        uint32_t nimages = num_args_remaining;
+
+        assert(nimages > 0);
 
         char** argv_start = &argv[optind];
-        uint32_t *images = NULL;
-        uint32_t *width = malloc(num_args_remaining*sizeof(uint32_t));
-        uint32_t *height = malloc(num_args_remaining*sizeof(uint32_t));
-        load_images(argv_start,num_args_remaining, &images, width, height);
+        uint32_t **images = malloc(nimages*sizeof(uint32_t*));
+        uint32_t *images_width = malloc(nimages*sizeof(uint32_t));
+        uint32_t *images_height = malloc(nimages*sizeof(uint32_t));
+        load_images(argv_start, nimages, images, images_width, images_height);
+
         assert(images != NULL);
+
+#ifndef NDEBUG
+        for(int i = 0; i < nimages; i++){
+            assert(images_width[i] == images_width[0]);
+            assert(images_height[i] == images_height[0]);
+        }
+#endif
+
+        run(images, nimages, images_width[0], images_height[0]);
+
     }
     return 0;
+}
+
+/**
+ * @brief Run validation and performance benchmarks
+ */
+void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height){
+    // convert raw images to something we can work with
+    uint32_t npixels = width*height;
+    //malloc space for the array of pointers to the converted images
+    double **I = malloc(nimages*sizeof(double*));
+    for(int i = 0; i < nimages; i++){
+        //malloc space for the double image
+        double *converted_image = malloc(3*npixels*sizeof(double));
+        assert(converted_image != NULL);
+
+        tiff2rgb(images[i], npixels, converted_image);
+        I[i] = converted_image;
+    }
+
+    // malloc space for the fused image
+    double *R = malloc(npixels*sizeof(double));
+    assert(R != NULL);
+
+    //TODO: make these parameters changeable
+
+    double m[3];
+    m[0] = 0.5;
+    m[1] = 0.5;
+    m[2] = 0.5;
+
+    //run fusion
+    exposure_fusion(I, height, width, nimages, m, R);
 }
 
 //
@@ -92,7 +143,9 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     assert(W != NULL);
     ones(W, W_len);
     //TODO
+
 }
+
 
 //
 // Helper functions
@@ -176,11 +229,11 @@ void load_images(char **path, int nimages, uint32_t **ret_stack, uint32_t *ret_w
  * @param pixels Size of image in pixels
  * @param rgb (out) Output image, array of npixels*3 doubles
  */
-void tiff2rgb(uint32 *tiff, size_t npixels, double* ret_rgb){
+void tiff2rgb(uint32_t *tiff, size_t npixels, double* ret_rgb){
     for(int i = 0; i < npixels; i++){
-        unsigned char r = TIFFGetR(tiff[i*4]);
-        unsigned char g = TIFFGetG(tiff[i*4]);
-        unsigned char b = TIFFGetB(tiff[i*4]);
+        unsigned char r = TIFFGetR(tiff[i]);
+        unsigned char g = TIFFGetG(tiff[i]);
+        unsigned char b = TIFFGetB(tiff[i]);
         ret_rgb[i*3] = r;
         ret_rgb[i*3+1] = g;
         ret_rgb[i*3+2] = b;
@@ -192,11 +245,11 @@ void tiff2rgb(uint32 *tiff, size_t npixels, double* ret_rgb){
  * @param npixels
  * @param ret_rgb
  */
-void tiff2rgb8(uint32 *tiff, size_t npixels, uint8_t* ret_rgb){
+void tiff2rgb8(uint32_t *tiff, size_t npixels, uint8_t* ret_rgb){
     for(int i = 0; i < npixels; i++){
-        unsigned char r = TIFFGetR(tiff[i*4]);
-        unsigned char g = TIFFGetG(tiff[i*4]);
-        unsigned char b = TIFFGetB(tiff[i*4]);
+        unsigned char r = TIFFGetR(tiff[i]);
+        unsigned char g = TIFFGetG(tiff[i]);
+        unsigned char b = TIFFGetB(tiff[i]);
         ret_rgb[i*3] = r;
         ret_rgb[i*3+1] = g;
         ret_rgb[i*3+2] = b;
@@ -210,11 +263,11 @@ void tiff2rgb8(uint32 *tiff, size_t npixels, uint8_t* ret_rgb){
  * @param ret_g
  * @param ret_b
  */
-void tiff2channels(uint32 *tiff, size_t npixels, double* ret_r, double* ret_g, double* ret_b){
+void tiff2channels(uint32_t *tiff, size_t npixels, double* ret_r, double* ret_g, double* ret_b){
     for(int i = 0; i < npixels; i++){
-        unsigned char r = TIFFGetR(tiff[i*4]);
-        unsigned char g = TIFFGetG(tiff[i*4]);
-        unsigned char b = TIFFGetB(tiff[i*4]);
+        unsigned char r = TIFFGetR(tiff[i]);
+        unsigned char g = TIFFGetG(tiff[i]);
+        unsigned char b = TIFFGetB(tiff[i]);
         ret_r[i] = r;
         ret_g[i] = g;
         ret_b[i] = b;
@@ -228,11 +281,11 @@ void tiff2channels(uint32 *tiff, size_t npixels, double* ret_r, double* ret_g, d
  * @param ret_g
  * @param ret_b
  */
-void tiff2channels8(uint32 *tiff, size_t npixels, uint8_t* ret_r, uint8_t* ret_g, uint8_t* ret_b){
+void tiff2channels8(uint32_t *tiff, size_t npixels, uint8_t* ret_r, uint8_t* ret_g, uint8_t* ret_b){
     for(int i = 0; i < npixels; i++){
-        unsigned char r = TIFFGetR(tiff[i*4]);
-        unsigned char g = TIFFGetG(tiff[i*4]);
-        unsigned char b = TIFFGetB(tiff[i*4]);
+        unsigned char r = TIFFGetR(tiff[i]);
+        unsigned char g = TIFFGetG(tiff[i]);
+        unsigned char b = TIFFGetB(tiff[i]);
         ret_r[i] = r;
         ret_g[i] = g;
         ret_b[i] = b;
@@ -243,15 +296,15 @@ int debug_tiff_test(const char *in_img, char *out_img){
     TIFF* tif = TIFFOpen(in_img, "r");
 
     if (tif) {
-        uint32 w, h;
+        uint32_t w, h;
         size_t npixels;
-        uint32* raster;
+        uint32_t* raster;
 
         TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &w);
         TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &h);
         npixels = w * h;
         printf("w=%d h=%d\n",w,h);
-        raster = (uint32*) _TIFFmalloc(npixels * sizeof (uint32));
+        raster = (uint32_t*) _TIFFmalloc(npixels * sizeof (uint32_t));
         if (raster != NULL) {
             if (TIFFReadRGBAImageOriented(tif, w, h, raster, ORIENTATION_TOPLEFT, 0)) { //same as GIMP and others
                 for(int i = 0; i < npixels; i++){
