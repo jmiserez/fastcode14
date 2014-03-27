@@ -26,9 +26,7 @@ def main():
         refImpl = os.path.abspath(sys.argv[2])
         sourcePath = os.path.abspath(sys.argv[3])
         refPath = os.path.abspath(sys.argv[4])
-    except KeyError as ex:
-        usage(ex)
-    except IOError as ex:
+    except (KeyError, IOError, IndexError) as ex:
         usage(ex)
     
     lc = 0
