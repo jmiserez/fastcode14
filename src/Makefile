@@ -26,7 +26,7 @@ DEP = $(wildcard *.h) $(TIFFLIB)
 $(TIFFLIB): tiff-4.0.2.tar.gz
 	rm -rf tiff-4.0.2
 	tar -xzf tiff-4.0.2.tar.gz
-	cd tiff-4.0.2 && ./configure --enable-static --disable-shared --disable-jpeg --disable-lzma --disable-zlib
+	cd tiff-4.0.2 && ./configure --enable-static --disable-shared --disable-jpeg --disable-lzma --disable-zlib --disable-jbig
 	cd tiff-4.0.2 && make -j16
 
 $(TARGET): $(OBJ) $(TIFFLIB)
