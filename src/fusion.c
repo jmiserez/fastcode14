@@ -183,6 +183,13 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
             elementwise_mult(W,W_len,C,W);
         }
 
+        if(sat_parm > 0){
+            //TODO
+        }
+        if(wexp_parm > 0){
+            //TODO
+        }
+
     }
 
     //TODO: remove this and replace with fused image
