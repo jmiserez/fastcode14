@@ -10,25 +10,45 @@
 
 #include <tiffio.h>
 
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
 
 int main(int argc, char *argv[]);
 void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height);
+
+void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R);
+void contrast(double *im, uint32_t r, uint32_t c, double *C);
+void saturation(double *im, uint32_t npixels, double *C);
+void well_exposedness(double *im, uint32_t npixels, double *C);
+void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t nlev, double **pyr);
+
+uint32_t compute_nlev(uint32_t r, uint32_t c);
+void malloc_foreach(double **dst, size_t size, uint32_t N);
+void malloc_gaussian_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double ***pyr);
+double sum3(double r, double g, double b);
+double stdev3(double r, double g, double b);
+void unzip(double *src, size_t src_len, uint32_t n, double **dst);
+void zip(double **src, size_t src_len, uint32_t n, double *dst);
+void fold(double *src, size_t src_len, double (*func)(double,double), double *dst);
+void fold3(double *src, size_t src_len, double (*func)(double,double,double), double *dst);
 
 void rgb2gray(double *im, size_t npixels, double* dst);
 void ones(double *dst, size_t len);
 void ones_foreach(double **dst, size_t len, uint32_t N);
 void zeros(double *dst, size_t len);
 void zeros_foreach(double **dst, size_t len, uint32_t N);
+void scalar_add(double *src, size_t src_len, double val, double *dst);
 void scalar_mult(double *src, size_t src_len, double val, double *dst);
+void scalar_div(double *src, size_t src_len, double val, double *dst);
 void scalar_pow(double *src, size_t src_len, double val, double *dst);
 void elementwise_mult(double *src1, size_t src1_len, double *src2, double *dst);
+void elementwise_div(double *src1, size_t src1_len, double *src2, double *dst);
+void elementwise_add(double *src1, size_t src1_len, double *src2, double *dst);
+void elementwise_sub(double *src1, size_t src1_len, double *src2, double *dst);
+void elementwise_sqrt(double *src, size_t src_len, double *dst);
+void elementwise_copy(double *src, size_t src_len, double *dst);
 void scalar_abs(double *src, size_t src_len, double *dst);
 void conv3x3_mono_replicate(double* mono, uint32_t r, uint32_t c, double* h, double* dst);
-
-void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R);
-void contrast(double *im, uint32_t r, uint32_t c, double *C);
-
-void malloc_foreach(double **dst, size_t size, uint32_t N);
 
 void load_images(char **path, int nimages, uint32_t **ret_stack, uint32_t *ret_widths, uint32_t *ret_heights);
 void store_image(char* path, double *R, uint32_t height, uint32_t width);
@@ -86,21 +106,27 @@ int main(int argc, char *argv[]){
 
         char** argv_start = &argv[optind];
         uint32_t **images = malloc(nimages*sizeof(uint32_t*));
-        uint32_t *images_width = malloc(nimages*sizeof(uint32_t));
-        uint32_t *images_height = malloc(nimages*sizeof(uint32_t));
-        load_images(argv_start, nimages, images, images_width, images_height);
+        uint32_t *image_widths = malloc(nimages*sizeof(uint32_t));
+        uint32_t *image_heights = malloc(nimages*sizeof(uint32_t));
+        load_images(argv_start, nimages, images, image_widths, image_heights);
 
         assert(images != NULL);
 
 #ifndef NDEBUG
         for(int i = 0; i < nimages; i++){
-            assert(images_width[i] == images_width[0]);
-            assert(images_height[i] == images_height[0]);
+            assert(image_widths[i] == image_widths[0]);
+            assert(image_heights[i] == image_heights[0]);
         }
 #endif
 
-        run(images, nimages, images_width[0], images_height[0]);
+        run(images, nimages, image_widths[0], image_heights[0]);
 
+        for(int i = 0; i < nimages; i++){
+            free(images[i]);
+        }
+        free(images);
+        free(image_widths);
+        free(image_heights);
     }
     return 0;
 }
@@ -124,7 +150,8 @@ void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height){
     }
 
     // malloc space for the fused image
-    double *R = malloc(npixels*sizeof(double));
+    size_t R_len = npixels*3;
+    double *R = malloc(R_len*sizeof(double));
     assert(R != NULL);
 
     //TODO: make these parameters changeable
@@ -137,8 +164,13 @@ void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height){
     //run fusion
     exposure_fusion(I, height, width, nimages, m, R);
 
-    store_image("debug.tif", R, height, width);
+//    store_image("debug.tif", R, height, width);
 
+    free(R);
+    for(int i = 0; i < nimages; i++){
+        free(I[i]);
+    }
+    free(I);
 }
 
 //
@@ -159,44 +191,103 @@ void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height){
 void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     size_t I_len = N;
     size_t I_len2 = r*c*3;
+    size_t npixels = r*c;
 
     double contrast_parm = m[0];
     double sat_parm = m[1];
     double wexp_parm = m[2];
 
+    //W[n] is a weight map (1 value/pixel)
+    //There is one for each of the N images
+    size_t W_len = N;
+    size_t W_len2 = npixels;
+    double** W = malloc(W_len*sizeof(double*));
+    assert(W != NULL);
+    assert(W_len == I_len);
+
     for (int n = 0; n < N; n++){
-        size_t W_len = r*c; //1 value/pixel
-        double* W = malloc(W_len*sizeof(double));
-        assert(W != NULL);
-        ones(W, W_len);
+        W[n] = malloc(W_len2*sizeof(double));
+        assert(W[n] != NULL);
+    }
+
+    //C is used as a temporary variable (1 value/pixel)
+    size_t C_len = npixels;
+    double* C = malloc(C_len*sizeof(double));
+    assert(C != NULL);
+    assert(W_len2 == C_len);
+
+    //for each image, calculate the weight maps
+    for (int n = 0; n < N; n++){
+        ones(W[n], W_len2);
 
         if(contrast_parm > 0){
-            size_t C_len = r*c; //1 value/pixel
-
-            double* C = malloc(C_len*sizeof(double));
-            assert(C != NULL);
-
             contrast(I[n],r,c,C);
             scalar_pow(C,C_len,contrast_parm,C);
-
-            assert(W_len == C_len);
-            elementwise_mult(W,W_len,C,W);
+            elementwise_mult(W[n],W_len2,C,W[n]);
         }
 
         if(sat_parm > 0){
-            //TODO
-        }
-        if(wexp_parm > 0){
-            //TODO
+            saturation(I[n],npixels,C);
+            scalar_pow(C,C_len,sat_parm,C);
+            elementwise_mult(W[n],W_len2,C,W[n]);
         }
 
+        if(wexp_parm > 0){
+            well_exposedness(I[n],npixels,C);
+            scalar_pow(C,C_len,wexp_parm,C);
+            elementwise_mult(W[n],W_len2,C,W[n]);
+        }
+
+        scalar_add(W[n],W_len2,1.0E-12,W[n]);
+
     }
+
+    //normalize weights: the total sum of weights for each pixel should be 1 across all N images
+    elementwise_copy(W[0],W_len2,C);
+    for (int n = 1; n < N; n++){
+        elementwise_add(C,C_len,W[n],C);
+    }
+    for (int n = 0; n < N; n++){
+        elementwise_div(W[n],W_len2,C,W[n]);
+    }
+#ifndef NDEBUG
+    for(int i = 0; i < W_len2; i++){
+        double sum_weight = 0;
+        for (int n = 0; n < W_len; n++){
+            sum_weight += W[n][i];
+        }
+        assert(sum_weight >= 0.99 && sum_weight <= 1.01); //ensure all weights sum to one for each pixel
+    }
+#endif
+    uint32_t nlev = compute_nlev(r,c);
+    assert(nlev != 0);
+
+    //create empty pyramid
+    double **pyr = NULL;
+    malloc_gaussian_pyramid(r,c,3,nlev,&pyr);
+    assert(pyr != NULL);
+
+
+
+    //TODO
+
+    free(C);
+    for(int i = 0; i < nlev; i++){
+        free(pyr[i]);
+    }
+
+    free(pyr);
 
     //TODO: remove this and replace with fused image
-    for(int i = 0; i < I_len2; i++){
-        R[i] = I[1][i]; //just copy
-    }
+    //output image = 2nd input image
+    elementwise_copy(I[0],I_len2,R);
+
     printf("done\n");
+
+    for (int n = 0; n < N; n++){
+        free(W[n]);
+    }
+    free(W);
 }
 
 void contrast(double *im, uint32_t r, uint32_t c, double *C){
@@ -213,16 +304,188 @@ void contrast(double *im, uint32_t r, uint32_t c, double *C){
     assert(mono != NULL);
     rgb2gray(im, r*c, mono);
     conv3x3_mono_replicate(mono,r,c,h,C);
+    free(mono);
+}
+
+
+void saturation(double *im, uint32_t npixels, double *C){
+    //saturation is computed as the standard deviation of the color channels
+    size_t C_len = npixels;
+    zeros(C, C_len);
+
+    // simple version
+    for(int i = 0; i < npixels; i++){
+        double r = im[i*3];
+        double g = im[i*3+1];
+        double b = im[i*3+2];
+        double mu = (r + g + b) / 3.0;
+        C[i] = sqrt(pow(r-mu,2) + pow(g-mu,2) + pow(b-mu,2)/3.0);
+    }
+
+    // Matlab-like literal version (operations on whole matrices)
+    //
+    //    size_t R_len = npixels; //1 value/pixel
+    //    double* R = malloc(R_len*sizeof(double));
+    //    assert(R != NULL);
+    //    size_t G_len = npixels; //1 value/pixel
+    //    double* G = malloc(G_len*sizeof(double));
+    //    assert(G != NULL);
+    //    size_t B_len = npixels; //1 value/pixel
+    //    double* B = malloc(B_len*sizeof(double));
+    //    assert(B != NULL);
+
+    //    double* rgb[] = {
+    //        R, G, B
+    //    };
+
+    //    unzip(im,3*npixels,3,rgb); //split image into 3 channels
+
+    //    size_t mu_len = npixels; //1 value/pixel
+    //    double* mu = malloc(R_len*sizeof(double));
+    //    assert(mu != NULL);
+
+    //    elementwise_add(R,R_len,G,mu);
+    //    elementwise_add(mu,mu_len,B,mu);
+    //    scalar_div(mu,mu_len,3,mu);
+
+    //    elementwise_sub(R,R_len,mu,R);
+    //    elementwise_sub(G,G_len,mu,G);
+    //    elementwise_sub(B,B_len,mu,B);
+
+    //    scalar_pow(R,R_len,2,R);
+    //    scalar_pow(G,G_len,2,G);
+    //    scalar_pow(B,B_len,2,B);
+
+    //    elementwise_add(R,R_len,G,C);
+    //    elementwise_add(C,C_len,B,C);
+    //    scalar_div(C,C_len,3,C);
+
+    //    free(R);
+    //    free(G);
+    //    free(B);
+    //    free(mu);
+}
+
+void well_exposedness(double *im, uint32_t npixels, double *C){
+    size_t C_len = npixels;
+    zeros(C, C_len);
+
+    double sig = 0.2;
+    for(int i = 0; i < npixels; i++){
+        double r = im[i*3];
+        double g = im[i*3+1];
+        double b = im[i*3+2];
+        r = exp(-0.5*pow(r - 0.5,2) / pow(sig,2));
+        g = exp(-0.5*pow(g - 0.5,2) / pow(sig,2));
+        b = exp(-0.5*pow(b - 0.5,2) / pow(sig,2));
+        C[i] = r*g*b;
+    }
+}
+
+void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t nlev, double **pyr){
+    //pyr is an array of nlev arrays containing images of different (!) sizes
+    //at this point pyr is already malloc-ed
+
+    //TODO
+
 }
 
 //
 // Helper functions
 //
 
+/**
+ * Compute the highest possible pyramid
+ */
+uint32_t compute_nlev(uint32_t r, uint32_t c){
+    return (uint32_t)(floor((log2(MIN(r,c)))));
+}
+
 void malloc_foreach(double **dst, size_t size, uint32_t N){
     for(int i = 0; i < N; i++){
         dst[i] = malloc(size);
         assert(dst[i] != NULL);
+    }
+}
+
+/**
+ * Allocate memory for the gaussian pyramid at *pyr
+ */
+void malloc_gaussian_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double ***pyr){
+    size_t pyr_len = nlev;
+    *pyr = (double**) malloc(pyr_len*sizeof(double*));
+    assert(*pyr != NULL);
+
+    uint32_t r_level = r;
+    uint32_t c_level = c;
+
+    for(int i = 0; i < nlev; i++){
+        // width if odd: (W-1)/2+1, otherwise: (W-1)/2
+        r_level = (r_level % 2 == 0) ? (r_level-1)/2 : (r_level-1)/2+1;
+        c_level = (c_level % 2 == 0) ? (c_level-1)/2 : (c_level-1)/2+1;
+
+        size_t L_len = r_level*c_level*channels;
+        double* L = malloc(L_len*sizeof(double));
+        assert(L != NULL);
+
+        (*pyr)[i] = L; //add entry to array of pointers to image levels
+
+    }
+}
+
+//
+// The following functions are for debugging only.
+//
+
+double sum3(double r, double g, double b){
+    return r+g+b;
+}
+double stdev3(double r, double g, double b){
+    double mu = (r+g+b)/3.0;
+    return sqrt((pow(r-mu,2) + pow(g-mu,2) + pow(b-mu,2))/3.0);
+}
+
+/**
+ * @brief Unzip an array of n-tuples into n arrays of 1 tuples
+ */
+void unzip(double *src, size_t src_len, uint32_t n, double **dst){
+    assert(src_len % n == 0); //ensure there are no left-over elements
+    for(int i = 0; i < src_len/n; i++){
+        for(int k = 0; k < n; k++){
+            dst[k][i] = src[i*n+k];
+        }
+    }
+}
+
+/**
+ * @brief Zip n arrays of 1-tuples into 1 array of n-tuples
+ */
+void zip(double **src, size_t src_len, uint32_t n, double *dst){
+    for(int i = 0; i < src_len; i++){
+        for(int k = 0; k < n; k++){
+            dst[i*n+k] = src[k][i];
+        }
+    }
+}
+
+/**
+ * @brief Sum an array
+ */
+void sum(double *src, size_t src_len, double *dst){
+    double out = 0.0;
+    for(int i = 0; i < src_len; i++){
+        out += src[i];
+    }
+    *dst = out;
+}
+
+/**
+ * @brief Folds an array of n 3-tuples into an array of n 1-tuples
+ */
+void fold3(double *src, size_t src_len, double (*func)(double,double,double), double *dst){
+    assert(src_len % 3 == 0); //ensure there are no left-over elements
+    for(int i = 0; i < src_len; i++){
+        dst[i] = func(src[3*i],src[3*i+1],src[3*i+2]);
     }
 }
 
@@ -270,9 +533,21 @@ void zeros_foreach(double **dst, size_t len, uint32_t N){
     }
 }
 
+void scalar_add(double *src, size_t src_len, double val, double *dst){
+    for(int i = 0; i < src_len; i++){
+        dst[i] = src[i] + val;
+    }
+}
+
 void scalar_mult(double *src, size_t src_len, double val, double *dst){
     for(int i = 0; i < src_len; i++){
         dst[i] = src[i] * val;
+    }
+}
+
+void scalar_div(double *src, size_t src_len, double val, double *dst){
+    for(int i = 0; i < src_len; i++){
+        dst[i] = src[i] / val;
     }
 }
 
@@ -285,6 +560,38 @@ void scalar_pow(double *src, size_t src_len, double val, double *dst){
 void elementwise_mult(double *src1, size_t src1_len, double *src2, double *dst){
     for(int i = 0; i < src1_len; i++){
         dst[i] = src1[i] * src2[i];
+    }
+}
+
+void elementwise_div(double *src1, size_t src1_len, double *src2, double *dst){
+    for(int i = 0; i < src1_len; i++){
+        dst[i] = src1[i] / src2[i]; //beware of division by zero
+    }
+}
+
+void elementwise_add(double *src1, size_t src1_len, double *src2, double *dst){
+    for(int i = 0; i < src1_len; i++){
+        dst[i] = src1[i] + src2[i];
+    }
+}
+
+void elementwise_copy(double *src, size_t src_len, double *dst){
+//    memcpy(dst,src,src_len*sizeof(double));
+    printf("%p %p\n",src,dst);
+    for(int i = 0; i < src_len; i++){
+        dst[i] = src[i];
+    }
+}
+
+void elementwise_sub(double *src1, size_t src1_len, double *src2, double *dst){
+    for(int i = 0; i < src1_len; i++){
+        dst[i] = src1[i] - src2[i];
+    }
+}
+
+void elementwise_sqrt(double *src, size_t src_len, double *dst){
+    for(int i = 0; i < src_len; i++){
+        dst[i] = sqrt(src[i]);
     }
 }
 
@@ -426,6 +733,7 @@ void store_image(char* path, double *R, uint32_t height, uint32_t width){
 
     TIFFSetField(out, TIFFTAG_ROWSPERSTRIP, height);
     TIFFWriteEncodedStrip(out, 0, raster, width*height*sizeof(uint32_t));
+    _TIFFfree(raster);
     TIFFClose(out);
 }
 
