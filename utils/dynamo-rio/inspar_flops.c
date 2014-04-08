@@ -69,8 +69,15 @@
  *
  * Author: Jeremie Raymond Miserez, National University of Singapore
  *        <a01068654@nus.edu.sg>, <jeremie@miserez.org>
+ *
+ * Changelog:
+ *  2014-04-07, Stefan Dietiker <stefand@ethz.ch>:
+ *   * minor refactoring
+ *   * flop counting
+ *
  * */
 
+#include <string.h>
 #include <stddef.h> /* for offsetof */
 #include "dr_api.h"
 #include "dr_ir_instr.h"
@@ -93,9 +100,12 @@
 #define MAX3(a,b,c) (MAX(MAX((a),(b)),(c)))
 #define MAX4(a,b,c,d) (MAX(MAX(MAX((a),(b)),(c)),(d)))
 
-#define MY_MAX_BB 1000000
+#define MY_MAX_BB 200000
 #define MY_NUM_EFLAGS 11
 #define MY_EFLAGS_OFFSET DR_REG_LAST_VALID_ENUM
+#define INSTR_COUNT 3
+#define TRACKED_INSTRS {"mulss", "mulsd", "subsd"}
+// This is the number of instruction that we want to track.
 
 #define CONSIDER_MORE_REGS
 #define CONSIDER_EFLAGS
@@ -119,12 +129,15 @@ struct srct_glob_reg_state {
 typedef struct srct_glob_reg_state t_glob_reg_state;
 
 /* Globals */
+static const char* tracked_instrs[] = TRACKED_INSTRS;
 static void *stats_mutex; /* for multithread support */
 static int my_bbcount;
 static int my_bbexecs[MY_MAX_BB];
 static int my_bbsizes[MY_MAX_BB];
 static float my_bbilp[MY_MAX_BB];
 static int bb_flop_count[MY_MAX_BB];
+static int bb_instr_count[MY_MAX_BB*INSTR_COUNT];
+// WARNING: if either MY_MAX_BB or INSTR_COUNT, or both, are too large, there might be an overflow.
 
 static void event_exit(void);
 static dr_emit_flags_t event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
@@ -159,15 +172,20 @@ dr_init(client_id_t id)
 static void 
 event_exit(void)
 {
+    int i,j;
     unsigned long long flop_count = 0;
     double ilp;
     int total_bbexecs = 0;
     double total_ilp = 0;
     float max_ilp = FLT_MIN;
     float min_ilp = FLT_MAX;
-    int i = 0;
+    unsigned long long tot_instr_count[INSTR_COUNT];
+    for( i = 0; i < INSTR_COUNT; i++ ) tot_instr_count[i] = 0;
+
     for(i = 0; i < MY_MAX_BB && i < my_bbcount; i++){
         flop_count += my_bbexecs[i] * bb_flop_count[i];
+        for( j = 0; j < INSTR_COUNT; j++ )
+            tot_instr_count[j] += my_bbexecs[i] * bb_instr_count[i*INSTR_COUNT+j];
         total_bbexecs += my_bbexecs[i];
         total_ilp += ((double)my_bbexecs[i])*((double)my_bbilp[i]);
         min_ilp = MIN(min_ilp, my_bbilp[i]);
@@ -188,11 +206,17 @@ event_exit(void)
         dr_printf("%s\n", msg);
     }
 #endif
+    for( i = 0; i < INSTR_COUNT; i++ ) {
+        len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
+                "%10d %s\n", tot_instr_count[i], tracked_instrs[i]);
+        dr_printf("%s", msg);
+    }
+
     len = dr_snprintf(msg, sizeof(msg)/sizeof(msg[0]),
                       "Instrumentation results:\n"
 		      "%10d basic block execs\n"
                       "%10d basic blocks\n"
-            "%10d flops\n"
+            "%10d flop(s)\n"
                       "%10.3f avg ILP\n"
                       "%10.3f max ILP\n"
                       "%10.3f min ILP\n",
@@ -260,9 +284,15 @@ static dr_emit_flags_t
 event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
                   bool for_trace, bool translating)
 {
+    int i;
+    const int MAX_INSTR_LEN = 64;
+    char instr_name[MAX_INSTR_LEN];
     instr_t *instr, *first = instrlist_first(bb);
     uint flags;
     uint cur_flop_count = 0;
+    uint tracked_instr_count[INSTR_COUNT];
+    for( i = 0; i < INSTR_COUNT; i++ ) tracked_instr_count[i] = 0;
+
 #ifdef VERBOSE
     dr_printf("in dynamorio_basic_block(tag="PFX")\n", tag);
 # ifdef VERBOSE_VERBOSE
@@ -282,7 +312,7 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
 
     int my_readfrom[DR_REG_LAST_VALID_ENUM+MY_NUM_EFLAGS+1];
     int my_writtento[DR_REG_LAST_VALID_ENUM+MY_NUM_EFLAGS+1];
-    int i = 0;
+
     for (i = 0; i < DR_REG_LAST_VALID_ENUM+MY_NUM_EFLAGS+1; i++) {
         my_readfrom[i] = 0;
         my_writtento[i] = 0;
@@ -302,9 +332,17 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
         glob_reg_state.final_setnr = 1;
         calc_set_num(instr, &glob_reg_state);
 
-        /* Count flops */
+        /* Count flop instr */
         if( instr_is_floating( instr ) ) {
             cur_flop_count += 1;
+        }
+
+        /* Count mul instructions */
+        instr_disassemble_to_buffer( drcontext, instr, instr_name, MAX_INSTR_LEN );
+        for( i = 0; i < INSTR_COUNT; i++ ) {
+            if( strncmp( instr_name, tracked_instrs[i], strlen(tracked_instrs[i])) == 0) {
+                tracked_instr_count[i] += 1;
+            }
         }
     }
 
@@ -324,6 +362,9 @@ event_basic_block(void *drcontext, void *tag, instrlist_t *bb,
     my_bbexecs[my_cur_num] = 0; //initialize
     my_bbsizes[my_cur_num] = my_cur_size;
     bb_flop_count[my_cur_num] = cur_flop_count;
+    for( i = 0; i < INSTR_COUNT; i++ ) {
+        bb_instr_count[my_cur_num*INSTR_COUNT+i] = tracked_instr_count[i];
+    }
     my_bbilp[my_cur_num] = ilp;
 
     dr_mutex_unlock(stats_mutex);
