@@ -74,7 +74,11 @@
  *  2014-04-07, Stefan Dietiker <stefand@ethz.ch>:
  *   * minor refactoring
  *   * flop counting
- *
+ *  2014-04-08, Stefan Dietiker <stefand@ethz.ch>:
+ *   * you can now set TRACKED_INSTRS to a const array of
+ *     instruction names that you want to count. (DON'T forget
+ *     to adjust INSTR_COUNT which is the size of the TRACKED_INSTRS
+ *     array).
  * */
 
 #include <string.h>
