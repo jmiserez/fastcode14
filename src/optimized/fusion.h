@@ -32,4 +32,6 @@ int alloc_fusion(int r, int c, int N, fusion_segments_t *segments);
  */
 void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R, fusion_segments_t* segments);
 
+void free_fusion( fusion_segments_t* segments );
+
 #endif // FUSION_H
