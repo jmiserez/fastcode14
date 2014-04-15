@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-#include <stdint-gcc.h>
+//#include <stdint-gcc.h> Not available on RedHat6@CAB. Not needed.
 #include <stdlib.h>
 #include <stdbool.h>
 #include <assert.h>
