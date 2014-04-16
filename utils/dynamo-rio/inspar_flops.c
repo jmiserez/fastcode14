@@ -67,8 +67,8 @@
  *
  *    ILP = total instructions / number of sets
  *
- * Author: Jeremie Raymond Miserez, National University of Singapore
- *        <a01068654@nus.edu.sg>, <jeremie@miserez.org>
+ * Author: Jeremie Raymond Miserez, ETH Zurich
+ *        <jeremie@miserez.org>
  *
  * Changelog:
  *  2014-04-07, Stefan Dietiker <stefand@ethz.ch>:
