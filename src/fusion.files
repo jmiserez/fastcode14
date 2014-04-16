@@ -1,3 +1,14 @@
+fusion
 fusion.c
+fusion.c.autosave
+fusion.config
+fusion.creator
+fusion.creator.user
+fusion.files
+fusion.includes
+fusion.o
+gradient.tif
 Makefile
-
+out.tif
+README
+test.tif

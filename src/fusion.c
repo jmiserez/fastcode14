@@ -20,11 +20,11 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R);
 void contrast(double *im, uint32_t r, uint32_t c, double *C);
 void saturation(double *im, uint32_t npixels, double *C);
 void well_exposedness(double *im, uint32_t npixels, double *C);
-void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t nlev, double **pyr);
+void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
 
 uint32_t compute_nlev(uint32_t r, uint32_t c);
 void malloc_foreach(double **dst, size_t size, uint32_t N);
-void malloc_gaussian_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double ***pyr);
+void malloc_gaussian_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double ***pyr, uint32_t **pyr_r, uint32_t **pyr_c);
 double sum3(double r, double g, double b);
 double stdev3(double r, double g, double b);
 void unzip(double *src, size_t src_len, uint32_t n, double **dst);
@@ -264,8 +264,12 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
 
     //create empty pyramid
     double **pyr = NULL;
-    malloc_gaussian_pyramid(r,c,3,nlev,&pyr);
+    uint32_t *pyr_r = NULL;
+    uint32_t *pyr_c = NULL;
+    malloc_gaussian_pyramid(r,c,3,nlev,&pyr, &pyr_r, &pyr_c);
     assert(pyr != NULL);
+    assert(pyr_r != NULL);
+    assert(pyr_c != NULL);
 
 
 
@@ -382,13 +386,28 @@ void well_exposedness(double *im, uint32_t npixels, double *C){
     }
 }
 
-void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t nlev, double **pyr){
+//TODO
+void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c){
     //pyr is an array of nlev arrays containing images of different (!) sizes
     //at this point pyr is already malloc-ed
+    //pyr_r and pyr_c contain the sizes for each level
 
-    //TODO
+    assert(r == pyr_r[0]);
+    assert(c == pyr_c[0]);
 
+    //copy image to the finest level (note: MATLAB version is 1-indexed, here we use 0-indexing)
+
+    elementwise_copy(im,r*c*3);
+
+    for(int i = 1; i < nlev; i++){
+
+
+    }
 }
+
+//void compute_pyramid_filter(){
+//    double f[] = {.0625, .25, .375, .25, .0625};
+//}
 
 //
 // Helper functions
@@ -411,10 +430,14 @@ void malloc_foreach(double **dst, size_t size, uint32_t N){
 /**
  * Allocate memory for the gaussian pyramid at *pyr
  */
-void malloc_gaussian_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double ***pyr){
+void malloc_gaussian_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double ***pyr, uint32_t **pyr_r, uint32_t **pyr_c){
     size_t pyr_len = nlev;
     *pyr = (double**) malloc(pyr_len*sizeof(double*));
     assert(*pyr != NULL);
+    *pyr_r = (double*) malloc(nlev * sizeof(uint32_t));
+    assert(*pyr_r != NULL);
+    *pyr_c = (double*) malloc(nlev * sizeof(uint32_t));
+    assert(*pyr_c != NULL);
 
     uint32_t r_level = r;
     uint32_t c_level = c;
@@ -423,6 +446,9 @@ void malloc_gaussian_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t
         // width if odd: (W-1)/2+1, otherwise: (W-1)/2
         r_level = (r_level % 2 == 0) ? (r_level-1)/2 : (r_level-1)/2+1;
         c_level = (c_level % 2 == 0) ? (c_level-1)/2 : (c_level-1)/2+1;
+
+        (*pyr_r)[i] = r_level; //store dimension r at level i
+        (*pyr_c)[i] = c_level; //store dimension c at level i
 
         size_t L_len = r_level*c_level*channels;
         double* L = malloc(L_len*sizeof(double));
