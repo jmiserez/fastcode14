@@ -22,6 +22,7 @@ void saturation(double *im, uint32_t npixels, double *C);
 void well_exposedness(double *im, uint32_t npixels, double *C);
 void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *S, size_t S_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
 void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *S, size_t S_len, double *T, size_t T_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
+void reconstruct_laplacian_pyramid(uint32_t channels, uint32_t nlev, double *S, size_t S_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst);
 void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *S, size_t S_len, uint32_t down_r, uint32_t down_c, double *dst);
 void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *U, size_t U_len, double *V, size_t V_len, uint32_t up_r, uint32_t up_c, double *dst);
 
@@ -169,7 +170,9 @@ void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height){
     //run fusion
     exposure_fusion(I, height, width, nimages, m, R);
 
-//    store_image("debug.tif", R, height, width);
+    store_image("result.tif", R, height, width);
+
+    printf("result.tif written to disk\n");
 
     free(R);
     for(int i = 0; i < nimages; i++){
@@ -195,7 +198,7 @@ void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height){
  */
 void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     size_t I_len = N;
-    size_t I_len2 = r*c*3;
+//    size_t I_len2 = r*c*3;
     size_t npixels = r*c;
 
     double contrast_parm = m[0];
@@ -304,6 +307,9 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     size_t U_len = largest_upsampled_r*largest_upsampled_c*3;
     double* U = malloc(U_len*sizeof(double));
     assert(U != NULL);
+    size_t V_len = largest_upsampled_r*largest_upsampled_c*3;
+    double* V = malloc(V_len*sizeof(double));
+    assert(V != NULL);
 
     for (int n = 0; n < N; n++){
         //construct 1-channel gaussian pyramid from weights
@@ -318,13 +324,14 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
         assert(pyrI[n] != NULL);
         assert(pyrI_r[n] != NULL);
         assert(pyrI_c[n] != NULL);
+        laplacian_pyramid(I[n],r,c,3,nlev,S,S_len,T,T_len,U,U_len,V,V_len,pyrI[n],pyrI_r[n],pyrI_c[n]);
 
         //weighted blend
         for(int v = 0; v < nlev; v++){
             for(int i = 0; i < pyrI_r[n][v]; i++){
                 for(int j = 0; j < pyrI_c[n][v]; j++){
                     for(int k = 0; k < 3; k++){
-                        pyrI[n][v][(i*pyrI_c[n][v]+j)*3+k] = pyrI[n][v][(i*pyrI_c[n][v]+j)*3+k] + pyrW[n][v][i*pyrI_c[n][v]+j];
+                        pyr[v][(i*pyr_c[v]+j)*3+k] += pyrW[n][v][i*pyrI_c[n][v]+j] * pyrI[n][v][(i*pyrI_c[n][v]+j)*3+k];
                     }
                 }
             }
@@ -332,9 +339,8 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     }
 
     //TODO: reconstruct laplacian pyramid
-
-
-    //TODO: store
+    reconstruct_laplacian_pyramid(3,nlev,S,S_len,U,U_len,V,V_len,pyr,pyr_r,pyr_c,r,c,R);
+    printf("done\n");
 
     free(C);
     for(int i = 0; i < nlev; i++){
@@ -343,11 +349,6 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
 
     free(pyr);
 
-    //TODO: remove this and replace with fused image
-    //output image = 2nd input image
-    elementwise_copy(I[0],I_len2,R);
-
-    printf("done\n");
 
     for (int n = 0; n < N; n++){
         free(W[n]);
@@ -516,6 +517,24 @@ void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, ui
     //coarsest level, residual low pass image
     elementwise_copy(T,T_len,pyr[nlev-1]);
 }
+
+void reconstruct_laplacian_pyramid(uint32_t channels, uint32_t nlev, double *S, size_t S_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst){
+
+    size_t pyramid_filter_len = 5;
+    double pyramid_filter[] = {.0625, .25, .375, .25, .0625};
+
+    //copy low pass residual to dst
+    elementwise_copy(pyr[nlev-1],pyr_r[nlev-1]*pyr_c[nlev-1]*channels,dst);
+
+    for (int v = nlev-2; v >= 0; v--){
+        //upsample to S
+        upsample(dst,pyr_r[v+1],pyr_c[v+1],channels,pyramid_filter,pyramid_filter_len,U,U_len,V,V_len,pyr_r[v],pyr_c[v],S);
+
+        //add current level to S, store in dst
+        elementwise_add(pyr[v],pyr_r[v]*pyr_c[v]*channels,S,dst);
+    }
+}
+
 
 void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *S, size_t S_len, uint32_t down_r, uint32_t down_c, double *dst){
     assert(filter_len == 5);
