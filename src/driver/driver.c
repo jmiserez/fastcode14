@@ -1,5 +1,6 @@
 #include <fusion.h>
 
+#include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 //#include <stdint-gcc.h> Not available on RedHat6@CAB. Not needed.
@@ -9,21 +10,39 @@
 #include <getopt.h>
 #include <math.h>
 
-#include <tiffio.h>
+#include "read_testconfig.h"
 
+// #include <tiffio.h>
 
+/*
+ * GENERAL I/O
+ **/
+const char* usage_str = "./driver [options] <testConfigs> <srcImagePath> <refSolutionPath>\n";
+
+void print_usage() {
+    printf("%s", usage_str);
+    exit(1);
+}
+
+/*
+ * PERFORMANCE MEASUREMENT
+ **/
 void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height) {
 
     // convert to double arrays
     // call alloc_fusion(...)
     // start measurement
     // run fusion
-    exposure_fusion(I, height, width, nimages, m, R);
+    // exposure_fusion(I, height, width, nimages, m, R);
     // stop measurement
     // store result image
     // free resources
         // call free_fusion(...)
 }
+
+/*
+ * MAIN
+ **/
 
 /**
  * @brief main
@@ -32,6 +51,15 @@ void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height) {
  * @return
  */
 int main(int argc, char* argv[]) {
+    const size_t max_test_configs = 1024;
+    testconfig_t tc[max_test_configs];
+
+    tc[0].prefix = "sadf";
+
+    int tc_count;
+    int i;
+
+    FILE* f_config;
 
     //getopt for command-line parsing. See the getopt(3) manpage
     int c;
@@ -52,7 +80,6 @@ int main(int argc, char* argv[]) {
             break;
         case 't':
             printf("getopt: testlibtiff\n");
-            debug_tiff_test("gradient.tif", "out.tif");
             break;
         case '?':
             printf("getopt: error on character %c\n", optopt);
@@ -65,43 +92,29 @@ int main(int argc, char* argv[]) {
     int num_opts = optind-1;
     int num_args_remaining = argc-optind;
 
-    if(num_opts == 0 && num_args_remaining == 0){
-        printf("Usage: ./fusion <options> <paths of images>\n");
-        return 0;
-    }
-    if(num_args_remaining > 0){ //get rest of arguments (optind is defined in getopt.h and used by getopt)
-        //use arguments
+    if( num_args_remaining > 2 ) { //get rest of arguments (optind is defined in getopt.h and used by getopt)
+        const char* configFilePath = argv[argc - num_args_remaining    ];
+        const char* srcPath        = argv[argc - num_args_remaining + 1];
+        const char* refPath        = argv[argc - num_args_remaining + 2];
 
-        //load all images specified on the command line
-        //TODO: extract to function
-        uint32_t nimages = num_args_remaining;
+#ifdef DEBUG
+        printf("config file: %s\n", configFilePath);
+        printf("src path:    %s\n", srcPath);
+        printf("ref path:    %s\n", refPath);
 
-        assert(nimages > 0);
-
-        char** argv_start = &argv[optind];
-        uint32_t **images = malloc(nimages*sizeof(uint32_t*));
-        uint32_t *image_widths = malloc(nimages*sizeof(uint32_t));
-        uint32_t *image_heights = malloc(nimages*sizeof(uint32_t));
-        // load_images(argv_start, nimages, images, image_widths, image_heights);
-
-        assert(images != NULL);
-
-#ifndef NDEBUG
-        for(int i = 0; i < nimages; i++){
-            assert(image_widths[i] == image_widths[0]);
-            assert(image_heights[i] == image_heights[0]);
-        }
 #endif
-
-        run(images, nimages, image_widths[0], image_heights[0]);
-
-        for(int i = 0; i < nimages; i++){
-            free(images[i]);
+        f_config = fopen( configFilePath, "r" );
+        if( f_config ) {
+            tc_count = read_testconfigurations( f_config, tc, max_test_configs );
+#ifdef DEBUG
+            for( i = 0; i < tc_count; i++ ) {
+                print_testconfiguration( &tc[i] );
+            }
+#endif
+            fclose(f_config);
         }
-        // free resources
-        free(images);
-        free(image_widths);
-        free(image_heights);
-    }
+
+    } else
+        print_usage();
     return 0;
 }
