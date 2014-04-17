@@ -23,6 +23,7 @@ void well_exposedness(double *im, uint32_t npixels, double *C);
 void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *S, size_t S_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
 void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *S, size_t S_len, double *T, size_t T_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
 void reconstruct_laplacian_pyramid(uint32_t channels, uint32_t nlev, double *S, size_t S_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst);
+void display_pyramid(uint32_t channels, uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst);
 void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *S, size_t S_len, uint32_t down_r, uint32_t down_c, double *dst);
 void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *U, size_t U_len, double *V, size_t V_len, uint32_t up_r, uint32_t up_c, double *dst);
 
@@ -268,6 +269,7 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
         assert(sum_weight >= 0.99 && sum_weight <= 1.01); //ensure all weights sum to one for each pixel
     }
 #endif
+
     uint32_t nlev = compute_nlev(r,c);
     assert(nlev != 0);
 
@@ -341,7 +343,19 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     }
 
     //reconstruct laplacian pyramid
-    reconstruct_laplacian_pyramid(3,nlev,S,S_len,U,U_len,V,V_len,pyr,pyr_r,pyr_c,r,c,R);
+//    reconstruct_laplacian_pyramid(3,nlev,S,S_len,U,U_len,V,V_len,pyr,pyr_r,pyr_c,r,c,R);
+
+    //TODO: remove debug
+//    for(int i = 0; i < r; i++){
+//        for(int j = 0; j < c; j++){
+//            for(int k = 0; k < 3; k++){
+//                R[(i*c+j)*3+k] = W[0][i*c+j];
+//            }
+//        }
+//    }
+
+    display_pyramid(3,nlev,pyrI[0],pyrI_r[0],pyrI_c[0],r,c,R);
+
     printf("done\n");
 
     free(C);
@@ -541,6 +555,19 @@ void reconstruct_laplacian_pyramid(uint32_t channels, uint32_t nlev, double *S, 
     }
 }
 
+void display_pyramid(uint32_t channels, uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst){
+    uint32_t offset = 1;
+    for(int v = 0; v < nlev; v++){
+        for(int i = 0; i < r; i++){
+            for (int j = offset-1; j < offset-2+c; j++){
+                for (int k = 0; k < channels; k++){
+                    dst[(i*c+j)*channels+k] = pyr[v][(i*c+(j-offset+1))*channels+k];
+                }
+            }
+        }
+        offset = offset + pyr_c[v];
+    }
+}
 
 void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *S, size_t S_len, uint32_t down_r, uint32_t down_c, double *dst){
     assert(filter_len == 5);
