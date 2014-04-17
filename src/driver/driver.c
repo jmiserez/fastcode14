@@ -10,6 +10,8 @@
 #include <getopt.h>
 #include <math.h>
 
+#include "read_testconfig.h"
+
 // #include <tiffio.h>
 
 /*
@@ -49,6 +51,15 @@ void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height) {
  * @return
  */
 int main(int argc, char* argv[]) {
+    const size_t max_test_configs = 1024;
+    testconfig_t tc[max_test_configs];
+
+    tc[0].prefix = "sadf";
+
+    int tc_count;
+    int i;
+
+    FILE* f_config;
 
     //getopt for command-line parsing. See the getopt(3) manpage
     int c;
@@ -90,7 +101,19 @@ int main(int argc, char* argv[]) {
         printf("config file: %s\n", configFilePath);
         printf("src path:    %s\n", srcPath);
         printf("ref path:    %s\n", refPath);
+
 #endif
+        f_config = fopen( configFilePath, "r" );
+        if( f_config ) {
+            tc_count = read_testconfigurations( f_config, tc, max_test_configs );
+#ifdef DEBUG
+            for( i = 0; i < tc_count; i++ ) {
+                print_testconfiguration( &tc[i] );
+            }
+#endif
+            fclose(f_config);
+        }
+
     } else
         print_usage();
     return 0;
