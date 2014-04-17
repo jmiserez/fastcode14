@@ -518,7 +518,10 @@ void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, ui
         elementwise_copy(S,S_r*S_c*channels,T); //TODO: optimize this copy away, can use pointer swaps (handle first and last cases!)
     }
     //coarsest level, residual low pass image
-    elementwise_copy(T,T_len,pyr[nlev-1]);
+//    printf("T_len: %d, pyr[nlev-1]: %d\n",T_len,pyr[nlev-1]); //TODO Debug: remove
+    assert(T_r*T_c*channels <= T_len);
+    assert(T_r*T_c*channels == pyr_r[nlev-1]*pyr_c[nlev-1]*channels);
+    elementwise_copy(T,T_r*T_c*channels,pyr[nlev-1]);
 }
 
 void reconstruct_laplacian_pyramid(uint32_t channels, uint32_t nlev, double *S, size_t S_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst){
@@ -645,8 +648,8 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *fil
     conv5x5separable_replicate(U, r_upsampled, c_upsampled, channels, filter, filter, V);
 
     //remove the border and copy result
-    assert(up_r <= r_upsampled-4);
-    assert(up_c <= c_upsampled-4);
+    assert(up_r <= r_upsampled-2); //TODO: check if this should be 4 or 2?
+    assert(up_c <= c_upsampled-2);
 
     for(int i = 0; i < up_r; i++){
         for(int j = 0; j < up_c; j++){
