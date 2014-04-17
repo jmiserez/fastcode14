@@ -1,4 +1,4 @@
-#include"read_testconfig.h"
+#include"testconfig.h"
 #include<stdlib.h>
 #include<string.h>
 #include<stdio.h>

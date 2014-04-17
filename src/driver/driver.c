@@ -10,7 +10,8 @@
 #include <getopt.h>
 #include <math.h>
 
-#include "read_testconfig.h"
+#include "testconfig.h"
+#include "image_io.h"
 
 // #include <tiffio.h>
 
@@ -111,6 +112,9 @@ int main(int argc, char* argv[]) {
                 print_testconfiguration( &tc[i] );
             }
 #endif
+            for( i = 0; i < tc_count; i++ ) {
+
+            }
             fclose(f_config);
         }
 
