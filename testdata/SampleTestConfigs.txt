@@ -1,0 +1,12 @@
+# lines with # at the beginning are ignored
+
+# This file contains a list of reference files. This file is used as
+# an input for both, the script that generates testdata and the test
+# driver itself.
+
+A-3-1-1-1.tif
+A_50-3-1.0-1.0-1.0.tif
+A_50-3-1.0-1.0-0.9.tif
+#A-25-3-1.0-1.0-1.0.tif
+#A-12.5-3-1.0-1.0-1.0.tif
+#A-6.25-3-1.0-1.0-1.0.tif
