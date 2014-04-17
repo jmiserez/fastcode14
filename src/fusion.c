@@ -21,10 +21,13 @@ void contrast(double *im, uint32_t r, uint32_t c, double *C);
 void saturation(double *im, uint32_t npixels, double *C);
 void well_exposedness(double *im, uint32_t npixels, double *C);
 void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
+void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *S, size_t S_len, double *T, size_t T_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
+void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, uint32_t down_r, uint32_t down_c, double *dst);
+void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *U, size_t U_len, double *V, size_t V_len, uint32_t up_r, uint32_t up_c, double *dst);
 
 uint32_t compute_nlev(uint32_t r, uint32_t c);
 void malloc_foreach(double **dst, size_t size, uint32_t N);
-void malloc_gaussian_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double ***pyr, uint32_t **pyr_r, uint32_t **pyr_c);
+void malloc_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double ***pyr, uint32_t **pyr_r, uint32_t **pyr_c);
 double sum3(double r, double g, double b);
 double stdev3(double r, double g, double b);
 void unzip(double *src, size_t src_len, uint32_t n, double **dst);
@@ -48,7 +51,9 @@ void elementwise_sub(double *src1, size_t src1_len, double *src2, double *dst);
 void elementwise_sqrt(double *src, size_t src_len, double *dst);
 void elementwise_copy(double *src, size_t src_len, double *dst);
 void scalar_abs(double *src, size_t src_len, double *dst);
-void conv3x3_mono_replicate(double* mono, uint32_t r, uint32_t c, double* h, double* dst);
+void conv3x3_monochrome_replicate(double* im, uint32_t r, uint32_t c, double* fxy, double* dst);
+void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double* dst);
+void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double* dst);
 
 void load_images(char **path, int nimages, uint32_t **ret_stack, uint32_t *ret_widths, uint32_t *ret_heights);
 void store_image(char* path, double *R, uint32_t height, uint32_t width);
@@ -239,7 +244,6 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
         }
 
         scalar_add(W[n],W_len2,1.0E-12,W[n]);
-
     }
 
     //normalize weights: the total sum of weights for each pixel should be 1 across all N images
@@ -266,11 +270,49 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     double **pyr = NULL;
     uint32_t *pyr_r = NULL;
     uint32_t *pyr_c = NULL;
-    malloc_gaussian_pyramid(r,c,3,nlev,&pyr, &pyr_r, &pyr_c);
+    malloc_pyramid(r,c,3,nlev,&pyr, &pyr_r, &pyr_c);
     assert(pyr != NULL);
     assert(pyr_r != NULL);
     assert(pyr_c != NULL);
 
+    //multiresolution blending
+    double ***pyrW = malloc(N*sizeof(double**));
+    uint32_t **pyrW_r = malloc(N*sizeof(double*));
+    uint32_t **pyrW_c = malloc(N*sizeof(double*));
+    assert(pyrW != NULL);
+    assert(pyrW_r != NULL);
+    assert(pyrW_c != NULL);
+
+    //scratch space for laplacian pyramid
+    //TODO: optimize these away if possible
+    size_t S_len = r*c*3;
+    double* S = malloc(S_len*sizeof(double));
+    assert(S != NULL);
+    size_t T_len = r*c*3;
+    double* T = malloc(T_len*sizeof(double));
+    assert(T != NULL);
+    //how much scratch space is needed for upsampling?
+    uint32_t largest_upsampled_r = (r % 2 == 0) ? (((r-1)/2) + 2) * 2 : (((r-1)/2+1) + 2) * 2;
+    uint32_t largest_upsampled_c = (c % 2 == 0) ? (((c-1)/2) + 2) * 2 : (((c-1)/2+1) + 2) * 2;
+    size_t U_len = largest_upsampled_r*largest_upsampled_c*3;
+    double* U = malloc(U_len*sizeof(double));
+    assert(U != NULL);
+
+    for (int n = 0; n < N; n++){
+        //construct 1-channel gaussian pyramid from weights
+        malloc_pyramid(r,c,1,nlev,&(pyrW[n]), &(pyrW_r[n]), &(pyrW_c[n]));
+        assert(pyrW[n] != NULL);
+        assert(pyrW_r[n] != NULL);
+        assert(pyrW_c[n] != NULL);
+        gaussian_pyramid(W[n],r,c,1,nlev,pyrW[n],pyrW_r[n],pyrW_c[n]);
+
+        //construct 3-channel laplacian pyramid from images
+
+
+        //weighted blend
+
+
+    }
 
 
     //TODO
@@ -307,7 +349,7 @@ void contrast(double *im, uint32_t r, uint32_t c, double *C){
     double *mono = malloc(mono_len*sizeof(double));
     assert(mono != NULL);
     rgb2gray(im, r*c, mono);
-    conv3x3_mono_replicate(mono,r,c,h,C);
+    conv3x3_monochrome_replicate(mono,r,c,h,C);
     free(mono);
 }
 
@@ -386,7 +428,6 @@ void well_exposedness(double *im, uint32_t npixels, double *C){
     }
 }
 
-//TODO
 void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c){
     //pyr is an array of nlev arrays containing images of different (!) sizes
     //at this point pyr is already malloc-ed
@@ -397,17 +438,178 @@ void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uin
 
     //copy image to the finest level (note: MATLAB version is 1-indexed, here we use 0-indexing)
 
-    elementwise_copy(im,r*c*3);
+    elementwise_copy(im,r*c*channels,pyr[0]);
 
-    for(int i = 1; i < nlev; i++){
+    size_t pyramid_filter_len = 5;
+    double pyramid_filter[] = {.0625, .25, .375, .25, .0625};
 
-
+    for(int v = 1; v < nlev; v++){
+        //downsample image and store into level
+        downsample(pyr[v-1],pyr_r[v-1],pyr_c[v-1],channels,pyramid_filter,pyramid_filter_len,pyr_r[v],pyr_c[v],pyr[v]);
     }
 }
 
-//void compute_pyramid_filter(){
-//    double f[] = {.0625, .25, .375, .25, .0625};
-//}
+void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *S, size_t S_len, double *T, size_t T_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c){
+    //pyr is an array of nlev arrays containing images of different (!) sizes
+    //at this point pyr is already malloc-ed
+    //pyr_r and pyr_c contain the sizes for each level
+
+    assert(r == pyr_r[0]);
+    assert(c == pyr_c[0]);
+
+    //copy image to the finest level (note: MATLAB version is 1-indexed, here we use 0-indexing)
+
+    elementwise_copy(im,r*c*channels,pyr[0]);
+
+    size_t pyramid_filter_len = 5;
+    double pyramid_filter[] = {.0625, .25, .375, .25, .0625};
+
+    //J = image
+    elementwise_copy(im,T_len,T); //TODO: optimize this copy away, can use pointer swaps
+
+    uint32_t S_r = r;
+    uint32_t S_c = c;
+    uint32_t T_r = r;
+    uint32_t T_c = c;
+    assert(S_r*S_c*channels <= S_len);
+    assert(T_r*T_c*channels <= T_len);
+
+    for(int v = 0; v < nlev-1; v++){
+        //downsample image T further, store in S
+        S_r = pyr_r[v+1];
+        S_c = pyr_c[v+1];
+        downsample(T,T_r,T_c,channels,pyramid_filter,pyramid_filter_len,S_r,S_c,S);
+
+        assert(T_r*T_c == pyr_r[v]*pyr_c[v]);
+        //upsample image S, store temporarily in pyramid
+        upsample(S,S_r,S_c,channels,pyramid_filter,pyramid_filter_len,U,U_len,V,V_len,pyr_r[v],pyr_c[v],pyr[v]);
+
+        //subtract pyramid from T, store difference (T - upsampled image) in pyramid
+        elementwise_sub(T,T_r*T_c*channels,pyr[v],pyr[v]);
+
+        T_r = S_r;
+        T_c = S_c;
+        //continue with downsampled image remainder
+        elementwise_copy(S,S_r*S_c*channels,T); //TODO: optimize this copy away, can use pointer swaps (handle first and last cases!)
+    }
+    //coarsest level, residual low pass image
+    elementwise_copy(T,T_len,pyr[nlev-1]);
+}
+
+void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, uint32_t down_r, uint32_t down_c, double *dst){
+    assert(filter_len == 5);
+    assert(filter != NULL);
+    //low pass filter
+    conv5x5separable_symmetric(im,r,c,channels,filter,filter,dst);
+    //decimate, using every second entry
+    // [1] -> [1]
+    // [1 2] -> [1]
+    // [1 2 3] -> [1 3]
+    // [1 2 3 4] -> [1 3]
+    // width if odd: (W-1)/2+1, otherwise: (W-1)/2
+    assert(down_r > 0 && down_r <= (r-1)/2+1);
+    assert(down_c > 0 && down_c <= (c-1)/2+1);
+    assert((down_r-1)*2 < r);
+    assert((down_c-1)*2 < c);
+    for(int i = 0; i < down_r; i++){
+        for(int j = 0; j < down_c; j++){
+            for(int k = 0; k < channels; k++){
+                assert(((i*2)*c+(j*2))*channels+k < r*c*channels); //bounds checking
+                assert((i*down_c+j)*channels+k < down_r*down_c*channels); //bounds checking
+                dst[(i*down_c+j)*channels+k] = im[((i*2)*c+(j*2))*channels+k];
+            }
+        }
+    }
+}
+
+void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *U, size_t U_len, double *V, size_t V_len, uint32_t up_r, uint32_t up_c, double *dst){
+    assert(filter_len == 5);
+    assert(filter != NULL);
+
+    uint32_t padding = 1;
+
+    //sizes with added 1 px border and size increase of 2x
+    uint32_t r_upsampled = (r+2*padding)*2;
+    uint32_t c_upsampled = (c+2*padding)*2;
+
+    assert(U_len >= r_upsampled*c_upsampled*channels);
+    assert(V_len == U_len);
+
+    zeros(U,U_len);
+
+    for(int i = 0; i < r; i++){
+        for(int j = 0; j < c; j++){
+            for(int k = 0; k < channels; k++){
+
+                // i -> U_i (padding, then scaled)
+                // 0 -> 2
+                // 1 -> 4
+                // 2 -> 6
+                // 3 -> 8
+
+                //i : 0 to r-1 -> 2 to 2*r (e.g. r=5, padded=7, scaled=14, 10, thus [0,1|2,3|4,5|6,7|8,9|10,11|12,13]
+
+                U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[(i*c+j)*channels+k];
+            }
+        }
+    }
+    //top row
+    int i = -1;
+    for(int j = 0; j < c; j++){
+        for(int k = 0; k < channels; k++){
+            U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i+1)*c+(j  ))*channels+k];
+        }
+    }
+    //bottom row
+    i = r;
+    for(int j = 0; j < c; j++){
+        for(int k = 0; k < channels; k++){
+            U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i-1)*c+(j  ))*channels+k];
+        }
+    }
+    //left edge
+    int j = -1;
+    for(int i = 0; i < r; i++){
+        for(int k = 0; k < channels; k++){
+            U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i  )*c+(j+1))*channels+k];
+        }
+    }
+    //right edge
+    j = c;
+    for(int i = 0; i < r; i++){
+        for(int k = 0; k < channels; k++){
+            U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i  )*c+(j-1))*channels+k];
+        }
+    }
+    //corners
+    for(int k = 0; k < channels; k++){
+        i = -1;
+        j = -1;
+        U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i+1)*c+(j+1))*channels+k];
+        j = c;
+        U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i+1)*c+(j-1))*channels+k];
+        i = r;
+        j = -1;
+        U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i-1)*c+(j+1))*channels+k];
+        j = c;
+        U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i-1)*c+(j-1))*channels+k];
+    }
+
+    //interpolate
+    conv5x5separable_replicate(U, r_upsampled, c_upsampled, channels, filter, filter, V);
+
+    //remove the border and copy result
+    assert(up_r <= r_upsampled-4);
+    assert(up_c <= c_upsampled-4);
+
+    for(int i = 0; i < up_r; i++){
+        for(int j = 0; j < up_c; j++){
+            for(int k = 0; k < channels; k++){
+                dst[(i*up_c+j)*channels+k] = U[((i+2)*c_upsampled+(j+2))*channels+k];
+            }
+        }
+    }
+}
 
 //
 // Helper functions
@@ -428,25 +630,21 @@ void malloc_foreach(double **dst, size_t size, uint32_t N){
 }
 
 /**
- * Allocate memory for the gaussian pyramid at *pyr
+ * Allocate memory for the gaussian/laplacian pyramid at *pyr
  */
-void malloc_gaussian_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double ***pyr, uint32_t **pyr_r, uint32_t **pyr_c){
+void malloc_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double ***pyr, uint32_t **pyr_r, uint32_t **pyr_c){
     size_t pyr_len = nlev;
     *pyr = (double**) malloc(pyr_len*sizeof(double*));
     assert(*pyr != NULL);
-    *pyr_r = (double*) malloc(nlev * sizeof(uint32_t));
+    *pyr_r = (uint32_t*) malloc(nlev * sizeof(uint32_t));
     assert(*pyr_r != NULL);
-    *pyr_c = (double*) malloc(nlev * sizeof(uint32_t));
+    *pyr_c = (uint32_t*) malloc(nlev * sizeof(uint32_t));
     assert(*pyr_c != NULL);
 
     uint32_t r_level = r;
     uint32_t c_level = c;
 
     for(int i = 0; i < nlev; i++){
-        // width if odd: (W-1)/2+1, otherwise: (W-1)/2
-        r_level = (r_level % 2 == 0) ? (r_level-1)/2 : (r_level-1)/2+1;
-        c_level = (c_level % 2 == 0) ? (c_level-1)/2 : (c_level-1)/2+1;
-
         (*pyr_r)[i] = r_level; //store dimension r at level i
         (*pyr_c)[i] = c_level; //store dimension c at level i
 
@@ -456,6 +654,9 @@ void malloc_gaussian_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t
 
         (*pyr)[i] = L; //add entry to array of pointers to image levels
 
+        // for next level, width if odd: (W-1)/2+1, otherwise: (W-1)/2
+        r_level = (r_level % 2 == 0) ? (r_level-1)/2 : (r_level-1)/2+1;
+        c_level = (c_level % 2 == 0) ? (c_level-1)/2 : (c_level-1)/2+1;
     }
 }
 
@@ -579,7 +780,7 @@ void scalar_div(double *src, size_t src_len, double val, double *dst){
 
 void scalar_pow(double *src, size_t src_len, double val, double *dst){
     for(int i = 0; i < src_len; i++){
-        dst[i] = pow(src[i],val);
+        dst[i] = pow(fabs(src[i]),val);
     }
 }
 
@@ -628,69 +829,290 @@ void scalar_abs(double *src, size_t src_len, double *dst){
 }
 
 /**
- * @brief convolution with border replication
+ * @brief convolution of a monochrome image with a 3x3 filter and border mode "replication"
  */
-void conv3x3_mono_replicate(double* mono, uint32_t r, uint32_t c, double* h, double* dst){
+void conv3x3_monochrome_replicate(double* im, uint32_t r, uint32_t c, double* f, double* dst){
     for(int i = 1; i < r-1; i++){
         for(int j = 1; j < c-1; j++){
             dst[i*c+j] =
-                    dst[(i-1)*c+(j-1)]*h[0] + dst[(i-1)*c+(j)]*h[1] + dst[(i-1)*c+(j+1)]*h[1] +
-                    dst[(i)  *c+(j-1)]*h[2] + dst[(i)  *c+(j)]*h[3] + dst[(i)  *c+(j+1)]*h[4] +
-                    dst[(i+1)*c+(j-1)]*h[5] + dst[(i+1)*c+(j)]*h[6] + dst[(i+1)*c+(j+1)]*h[7];
+                    im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j+1)]*f[1] +
+                    im[(i)  *c+(j-1)]*f[2] + im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j+1)]*f[4] +
+                    im[(i+1)*c+(j-1)]*f[5] + im[(i+1)*c+(j)]*f[6] + im[(i+1)*c+(j+1)]*f[7];
         }
     }
     //edges
     for(int i = 1; i < r-1; i++){
         int j = 0;
         dst[i*c+j] =
-                dst[(i-1)*c+(j)]*h[0] + dst[(i-1)*c+(j)]*h[1] + dst[(i-1)*c+(j+1)]*h[1] +
-                dst[(i)  *c+(j)]*h[2] + dst[(i)  *c+(j)]*h[3] + dst[(i)  *c+(j+1)]*h[4] +
-                dst[(i+1)*c+(j)]*h[5] + dst[(i+1)*c+(j)]*h[6] + dst[(i+1)*c+(j+1)]*h[7];
+                im[(i-1)*c+(j)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j+1)]*f[1] +
+                im[(i)  *c+(j)]*f[2] + im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j+1)]*f[4] +
+                im[(i+1)*c+(j)]*f[5] + im[(i+1)*c+(j)]*f[6] + im[(i+1)*c+(j+1)]*f[7];
         j = c-1;
         dst[i*c+j] =
-                dst[(i-1)*c+(j-1)]*h[0] + dst[(i-1)*c+(j)]*h[1] + dst[(i-1)*c+(j)]*h[1] +
-                dst[(i)  *c+(j-1)]*h[2] + dst[(i)  *c+(j)]*h[3] + dst[(i)  *c+(j)]*h[4] +
-                dst[(i+1)*c+(j-1)]*h[5] + dst[(i+1)*c+(j)]*h[6] + dst[(i+1)*c+(j)]*h[7];
+                im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j)]*f[1] +
+                im[(i)  *c+(j-1)]*f[2] + im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j)]*f[4] +
+                im[(i+1)*c+(j-1)]*f[5] + im[(i+1)*c+(j)]*f[6] + im[(i+1)*c+(j)]*f[7];
     }
     for(int j = 1; j < c-1; j++){
         int i = 0;
         dst[i*c+j] =
-                dst[(i)  *c+(j-1)]*h[0] + dst[(i)  *c+(j)]*h[1] + dst[(i)  *c+(j+1)]*h[1] +
-                dst[(i)  *c+(j-1)]*h[2] + dst[(i)  *c+(j)]*h[3] + dst[(i)  *c+(j+1)]*h[4] +
-                dst[(i+1)*c+(j-1)]*h[5] + dst[(i+1)*c+(j)]*h[6] + dst[(i+1)*c+(j+1)]*h[7];
+                im[(i)  *c+(j-1)]*f[0] + im[(i)  *c+(j)]*f[1] + im[(i)  *c+(j+1)]*f[1] +
+                im[(i)  *c+(j-1)]*f[2] + im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j+1)]*f[4] +
+                im[(i+1)*c+(j-1)]*f[5] + im[(i+1)*c+(j)]*f[6] + im[(i+1)*c+(j+1)]*f[7];
         i = r-1;
         dst[i*c+j] =
-                dst[(i-1)*c+(j-1)]*h[0] + dst[(i-1)*c+(j)]*h[1] + dst[(i-1)*c+(j+1)]*h[1] +
-                dst[(i)  *c+(j-1)]*h[2] + dst[(i)  *c+(j)]*h[3] + dst[(i)  *c+(j+1)]*h[4] +
-                dst[(i)  *c+(j-1)]*h[5] + dst[(i)  *c+(j)]*h[6] + dst[(i)  *c+(j+1)]*h[7];
+                im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j+1)]*f[1] +
+                im[(i)  *c+(j-1)]*f[2] + im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j+1)]*f[4] +
+                im[(i)  *c+(j-1)]*f[5] + im[(i)  *c+(j)]*f[6] + im[(i)  *c+(j+1)]*f[7];
     }
     //corners
     int i = 0;
     int j = 0;
     dst[i*c+j] =
-            dst[(i)*c+(j)]*h[0] + dst[(i)*c+(j)]*h[1] + dst[(i)*c+(j+1)]*h[1] +
-            dst[(i)  *c+(j)]*h[2] + dst[(i)  *c+(j)]*h[3] + dst[(i)  *c+(j+1)]*h[4] +
-            dst[(i+1)*c+(j)]*h[5] + dst[(i+1)*c+(j)]*h[6] + dst[(i+1)*c+(j+1)]*h[7];
+            im[(i)*c+(j)]*f[0] + im[(i)*c+(j)]*f[1] + im[(i)*c+(j+1)]*f[1] +
+            im[(i)  *c+(j)]*f[2] + im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j+1)]*f[4] +
+            im[(i+1)*c+(j)]*f[5] + im[(i+1)*c+(j)]*f[6] + im[(i+1)*c+(j+1)]*f[7];
     i = 0;
     j = c-1;
     dst[i*c+j] =
-            dst[(i)  *c+(j-1)]*h[0] + dst[(i)  *c+(j)]*h[1] + dst[(i)  *c+(j)]*h[1] +
-            dst[(i)  *c+(j-1)]*h[2] + dst[(i)  *c+(j)]*h[3] + dst[(i)  *c+(j)]*h[4] +
-            dst[(i+1)*c+(j-1)]*h[5] + dst[(i+1)*c+(j)]*h[6] + dst[(i+1)*c+(j)]*h[7];
+            im[(i)  *c+(j-1)]*f[0] + im[(i)  *c+(j)]*f[1] + im[(i)  *c+(j)]*f[1] +
+            im[(i)  *c+(j-1)]*f[2] + im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j)]*f[4] +
+            im[(i+1)*c+(j-1)]*f[5] + im[(i+1)*c+(j)]*f[6] + im[(i+1)*c+(j)]*f[7];
     i = r-1;
     j = 0;
     dst[i*c+j] =
-            dst[(i-1)*c+(j-1)]*h[0] + dst[(i-1)*c+(j)]*h[1] + dst[(i-1)*c+(j+1)]*h[1] +
-            dst[(i)  *c+(j-1)]*h[2] + dst[(i)  *c+(j)]*h[3] + dst[(i)  *c+(j+1)]*h[4] +
-            dst[(i)  *c+(j-1)]*h[5] + dst[(i)  *c+(j)]*h[6] + dst[(i)  *c+(j+1)]*h[7];
+            im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j+1)]*f[1] +
+            im[(i)  *c+(j-1)]*f[2] + im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j+1)]*f[4] +
+            im[(i)  *c+(j-1)]*f[5] + im[(i)  *c+(j)]*f[6] + im[(i)  *c+(j+1)]*f[7];
     i = r-1;
     j = c-1;
     dst[i*c+j] =
-            dst[(i-1)*c+(j-1)]*h[0] + dst[(i-1)*c+(j)]*h[1] + dst[(i-1)*c+(j)]*h[1] +
-            dst[(i)  *c+(j-1)]*h[2] + dst[(i)  *c+(j)]*h[3] + dst[(i)  *c+(j)]*h[4] +
-            dst[(i)  *c+(j-1)]*h[5] + dst[(i)  *c+(j)]*h[6] + dst[(i)  *c+(j)]*h[7];
+            im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j)]*f[1] +
+            im[(i)  *c+(j-1)]*f[2] + im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j)]*f[4] +
+            im[(i)  *c+(j-1)]*f[5] + im[(i)  *c+(j)]*f[6] + im[(i)  *c+(j)]*f[7];
 
 }
+
+/**
+ * @brief convolution of a multi-channel image with a separable 5x5 filter and border mode "symmetric"
+ */
+void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double* dst){
+    //r is height (vertical), c is width (horizontal)
+
+    //horizontal filter
+    for(int i = 0; i < r; i++){ //all lines
+        for(int j = 2; j < c-2; j++){
+            for(int k = 0; k < channels; k++){
+                dst[(i*c+j)*channels+k] =
+                        im[((i  )*c+(j-2))*channels+k]*fx[0] +
+                        im[((i  )*c+(j-1))*channels+k]*fx[1] +
+                        im[((i  )*c+(j  ))*channels+k]*fx[2] +
+                        im[((i  )*c+(j+1))*channels+k]*fx[3] +
+                        im[((i  )*c+(j+2))*channels+k]*fx[4];
+            }
+        }
+        //left edge
+        int j = 0; // 1 0 [0 1 2 ... ]
+        for(int k = 0; k < channels; k++){
+            dst[(i*c+j)*channels+k] =
+                    im[((i  )*c+(j+1))*channels+k]*fx[0] +
+                    im[((i  )*c+(j  ))*channels+k]*fx[1] +
+                    im[((i  )*c+(j  ))*channels+k]*fx[2] +
+                    im[((i  )*c+(j+1))*channels+k]*fx[3] +
+                    im[((i  )*c+(j+2))*channels+k]*fx[4];
+        }
+        j = 1; // -1 [-1 0 1 2 ... ]
+        for(int k = 0; k < channels; k++){
+            dst[(i*c+j)*channels+k] =
+                    im[((i  )*c+(j-1))*channels+k]*fx[0] +
+                    im[((i  )*c+(j-1))*channels+k]*fx[1] +
+                    im[((i  )*c+(j  ))*channels+k]*fx[2] +
+                    im[((i  )*c+(j+1))*channels+k]*fx[3] +
+                    im[((i  )*c+(j+2))*channels+k]*fx[4];
+        }
+        //right edge
+        j = c-2; // [ ... -2 -1 0 1] 1
+        for(int k = 0; k < channels; k++){
+            dst[(i*c+j)*channels+k] =
+                    im[((i  )*c+(j-2))*channels+k]*fx[0] +
+                    im[((i  )*c+(j-1))*channels+k]*fx[1] +
+                    im[((i  )*c+(j  ))*channels+k]*fx[2] +
+                    im[((i  )*c+(j+1))*channels+k]*fx[3] +
+                    im[((i  )*c+(j+1))*channels+k]*fx[4];
+        }
+        j = c-1; // [ ... -2 -1 0] 0 -1
+        for(int k = 0; k < channels; k++){
+            dst[(i*c+j)*channels+k] =
+                    im[((i  )*c+(j-2))*channels+k]*fx[0] +
+                    im[((i  )*c+(j-1))*channels+k]*fx[1] +
+                    im[((i  )*c+(j  ))*channels+k]*fx[2] +
+                    im[((i  )*c+(j  ))*channels+k]*fx[3] +
+                    im[((i  )*c+(j-1))*channels+k]*fx[4];
+        }
+    }
+    //vertical filter
+    for(int j = 0; j < c; j++){ //all columns
+        for(int i = 2; i < r-2; i++){
+            for(int k = 0; k < channels; k++){
+                dst[(i*c+j)*channels+k] =
+                        im[((i-2)*c+(j  ))*channels+k]*fy[0] +
+                        im[((i-1)*c+(j  ))*channels+k]*fy[1] +
+                        im[((i  )*c+(j  ))*channels+k]*fy[2] +
+                        im[((i+1)*c+(j  ))*channels+k]*fy[3] +
+                        im[((i+2)*c+(j  ))*channels+k]*fy[4];
+            }
+        }
+        //top edge
+        int i = 0; // 1 0 [0 1 2 ... ]
+        for(int k = 0; k < channels; k++){
+            dst[(i*c+j)*channels+k] =
+                    im[((i+1)*c+(j  ))*channels+k]*fy[0] +
+                    im[((i  )*c+(j  ))*channels+k]*fy[1] +
+                    im[((i  )*c+(j  ))*channels+k]*fy[2] +
+                    im[((i+1)*c+(j  ))*channels+k]*fy[3] +
+                    im[((i+2)*c+(j  ))*channels+k]*fy[4];
+        }
+        i = 1; // -1 [-1 0 1 2 ... ]
+        for(int k = 0; k < channels; k++){
+            dst[(i*c+j)*channels+k] =
+                    im[((i-1)*c+(j  ))*channels+k]*fy[0] +
+                    im[((i-1)*c+(j  ))*channels+k]*fy[1] +
+                    im[((i  )*c+(j  ))*channels+k]*fy[2] +
+                    im[((i+1)*c+(j  ))*channels+k]*fy[3] +
+                    im[((i+2)*c+(j  ))*channels+k]*fy[4];
+        }
+        //bottom edge
+        i = r-2; // [ ... -2 -1 0 1] 1
+        for(int k = 0; k < channels; k++){
+            dst[(i*c+j)*channels+k] =
+                    im[((i-2)*c+(j  ))*channels+k]*fy[0] +
+                    im[((i-1)*c+(j  ))*channels+k]*fy[1] +
+                    im[((i  )*c+(j  ))*channels+k]*fy[2] +
+                    im[((i+1)*c+(j  ))*channels+k]*fy[3] +
+                    im[((i+1)*c+(j  ))*channels+k]*fy[4];
+        }
+        i = r-1; // [ ... -2 -1 0] 0 -1
+        for(int k = 0; k < channels; k++){
+            dst[(i*c+j)*channels+k] =
+                    im[((i-2)*c+(j  ))*channels+k]*fy[0] +
+                    im[((i-1)*c+(j  ))*channels+k]*fy[1] +
+                    im[((i  )*c+(j  ))*channels+k]*fy[2] +
+                    im[((i  )*c+(j  ))*channels+k]*fy[3] +
+                    im[((i-1)*c+(j  ))*channels+k]*fy[4];
+        }
+    }
+}
+
+/**
+ * @brief convolution of a multi-channel image with a separable 5x5 filter and border mode "replicate"
+ */
+void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double* dst){
+    //r is height (vertical), c is width (horizontal)
+
+    //horizontal filter
+    for(int i = 0; i < r; i++){ //all lines
+        for(int j = 2; j < c-2; j++){
+            for(int k = 0; k < channels; k++){
+                dst[(i*c+j)*channels+k] =
+                        im[((i  )*c+(j-2))*channels+k]*fx[0] +
+                        im[((i  )*c+(j-1))*channels+k]*fx[1] +
+                        im[((i  )*c+(j  ))*channels+k]*fx[2] +
+                        im[((i  )*c+(j+1))*channels+k]*fx[3] +
+                        im[((i  )*c+(j+2))*channels+k]*fx[4];
+            }
+        }
+        //left edge
+        int j = 0; // 0 0 [0 1 2 ... ]
+        for(int k = 0; k < channels; k++){
+            dst[(i*c+j)*channels+k] =
+                    im[((i  )*c+(j  ))*channels+k]*fx[0] +
+                    im[((i  )*c+(j  ))*channels+k]*fx[1] +
+                    im[((i  )*c+(j  ))*channels+k]*fx[2] +
+                    im[((i  )*c+(j+1))*channels+k]*fx[3] +
+                    im[((i  )*c+(j+2))*channels+k]*fx[4];
+        }
+        j = 1; // -1 [-1 0 1 2 ... ]
+        for(int k = 0; k < channels; k++){
+            dst[(i*c+j)*channels+k] =
+                    im[((i  )*c+(j-1))*channels+k]*fx[0] +
+                    im[((i  )*c+(j-1))*channels+k]*fx[1] +
+                    im[((i  )*c+(j  ))*channels+k]*fx[2] +
+                    im[((i  )*c+(j+1))*channels+k]*fx[3] +
+                    im[((i  )*c+(j+2))*channels+k]*fx[4];
+        }
+        //right edge
+        j = c-2; // [ ... -2 -1 0 1] 1
+        for(int k = 0; k < channels; k++){
+            dst[(i*c+j)*channels+k] =
+                    im[((i  )*c+(j-2))*channels+k]*fx[0] +
+                    im[((i  )*c+(j-1))*channels+k]*fx[1] +
+                    im[((i  )*c+(j  ))*channels+k]*fx[2] +
+                    im[((i  )*c+(j+1))*channels+k]*fx[3] +
+                    im[((i  )*c+(j+1))*channels+k]*fx[4];
+        }
+        j = c-1; // [ ... -2 -1 0] 0 0
+        for(int k = 0; k < channels; k++){
+            dst[(i*c+j)*channels+k] =
+                    im[((i  )*c+(j-2))*channels+k]*fx[0] +
+                    im[((i  )*c+(j-1))*channels+k]*fx[1] +
+                    im[((i  )*c+(j  ))*channels+k]*fx[2] +
+                    im[((i  )*c+(j  ))*channels+k]*fx[3] +
+                    im[((i  )*c+(j  ))*channels+k]*fx[4];
+        }
+    }
+    //vertical filter
+    for(int j = 0; j < c; j++){ //all columns
+        for(int i = 2; i < r-2; i++){
+            for(int k = 0; k < channels; k++){
+                dst[(i*c+j)*channels+k] =
+                        im[((i-2)*c+(j  ))*channels+k]*fy[0] +
+                        im[((i-1)*c+(j  ))*channels+k]*fy[1] +
+                        im[((i  )*c+(j  ))*channels+k]*fy[2] +
+                        im[((i+1)*c+(j  ))*channels+k]*fy[3] +
+                        im[((i+2)*c+(j  ))*channels+k]*fy[4];
+            }
+        }
+        //top edge
+        int i = 0; // 0 0 [0 1 2 ... ]
+        for(int k = 0; k < channels; k++){
+            dst[(i*c+j)*channels+k] =
+                    im[((i  )*c+(j  ))*channels+k]*fy[0] +
+                    im[((i  )*c+(j  ))*channels+k]*fy[1] +
+                    im[((i  )*c+(j  ))*channels+k]*fy[2] +
+                    im[((i+1)*c+(j  ))*channels+k]*fy[3] +
+                    im[((i+2)*c+(j  ))*channels+k]*fy[4];
+        }
+        i = 1; // -1 [-1 0 1 2 ... ]
+        for(int k = 0; k < channels; k++){
+            dst[(i*c+j)*channels+k] =
+                    im[((i-1)*c+(j  ))*channels+k]*fy[0] +
+                    im[((i-1)*c+(j  ))*channels+k]*fy[1] +
+                    im[((i  )*c+(j  ))*channels+k]*fy[2] +
+                    im[((i+1)*c+(j  ))*channels+k]*fy[3] +
+                    im[((i+2)*c+(j  ))*channels+k]*fy[4];
+        }
+        //bottom edge
+        i = r-2; // [ ... -2 -1 0 1] 1
+        for(int k = 0; k < channels; k++){
+            dst[(i*c+j)*channels+k] =
+                    im[((i-2)*c+(j  ))*channels+k]*fy[0] +
+                    im[((i-1)*c+(j  ))*channels+k]*fy[1] +
+                    im[((i  )*c+(j  ))*channels+k]*fy[2] +
+                    im[((i+1)*c+(j  ))*channels+k]*fy[3] +
+                    im[((i+1)*c+(j  ))*channels+k]*fy[4];
+        }
+        i = r-1; // [ ... -2 -1 0] 0 0
+        for(int k = 0; k < channels; k++){
+            dst[(i*c+j)*channels+k] =
+                    im[((i-2)*c+(j  ))*channels+k]*fy[0] +
+                    im[((i-1)*c+(j  ))*channels+k]*fy[1] +
+                    im[((i  )*c+(j  ))*channels+k]*fy[2] +
+                    im[((i  )*c+(j  ))*channels+k]*fy[3] +
+                    im[((i  )*c+(j  ))*channels+k]*fy[4];
+        }
+    }
+}
+
 
 //
 // TIFF functionality
