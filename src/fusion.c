@@ -20,9 +20,9 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R);
 void contrast(double *im, uint32_t r, uint32_t c, double *C);
 void saturation(double *im, uint32_t npixels, double *C);
 void well_exposedness(double *im, uint32_t npixels, double *C);
-void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
+void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *S, size_t S_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
 void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *S, size_t S_len, double *T, size_t T_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
-void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, uint32_t down_r, uint32_t down_c, double *dst);
+void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *S, size_t S_len, uint32_t down_r, uint32_t down_c, double *dst);
 void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *U, size_t U_len, double *V, size_t V_len, uint32_t up_r, uint32_t up_c, double *dst);
 
 uint32_t compute_nlev(uint32_t r, uint32_t c);
@@ -283,7 +283,7 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     assert(pyrW_r != NULL);
     assert(pyrW_c != NULL);
 
-    //scratch space for laplacian pyramid
+    //scratch space for gaussian/laplacian pyramid
     //TODO: optimize these away if possible
     size_t S_len = r*c*3;
     double* S = malloc(S_len*sizeof(double));
@@ -304,18 +304,18 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
         assert(pyrW[n] != NULL);
         assert(pyrW_r[n] != NULL);
         assert(pyrW_c[n] != NULL);
-        gaussian_pyramid(W[n],r,c,1,nlev,pyrW[n],pyrW_r[n],pyrW_c[n]);
+        gaussian_pyramid(W[n],r,c,1,nlev,S,S_len,pyrW[n],pyrW_r[n],pyrW_c[n]);
 
-        //construct 3-channel laplacian pyramid from images
+        //TODO: construct 3-channel laplacian pyramid from images
 
 
-        //weighted blend
+        //TODO: weighted blend
 
 
     }
 
 
-    //TODO
+    //TODO: store
 
     free(C);
     for(int i = 0; i < nlev; i++){
@@ -428,7 +428,7 @@ void well_exposedness(double *im, uint32_t npixels, double *C){
     }
 }
 
-void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c){
+void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *S, size_t S_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c){
     //pyr is an array of nlev arrays containing images of different (!) sizes
     //at this point pyr is already malloc-ed
     //pyr_r and pyr_c contain the sizes for each level
@@ -445,7 +445,9 @@ void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uin
 
     for(int v = 1; v < nlev; v++){
         //downsample image and store into level
-        downsample(pyr[v-1],pyr_r[v-1],pyr_c[v-1],channels,pyramid_filter,pyramid_filter_len,pyr_r[v],pyr_c[v],pyr[v]);
+        printf("nlev: %d, v: %d, pyr_r[v-1]: %d, pyr_c[v-1]: %d, pyr_r[v]: %d, pyr_c[v]: %d\n",nlev,v, pyr_r[v-1],pyr_c[v-1],pyr_r[v],pyr_c[v]);
+        fflush(stdout);
+        downsample(pyr[v-1],pyr_r[v-1],pyr_c[v-1],channels,pyramid_filter,pyramid_filter_len,S,S_len,pyr_r[v],pyr_c[v],pyr[v]);
     }
 }
 
@@ -478,7 +480,7 @@ void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, ui
         //downsample image T further, store in S
         S_r = pyr_r[v+1];
         S_c = pyr_c[v+1];
-        downsample(T,T_r,T_c,channels,pyramid_filter,pyramid_filter_len,S_r,S_c,S);
+        downsample(T,T_r,T_c,channels,pyramid_filter,pyramid_filter_len,S,S_len,S_r,S_c,S);
 
         assert(T_r*T_c == pyr_r[v]*pyr_c[v]);
         //upsample image S, store temporarily in pyramid
@@ -496,11 +498,14 @@ void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, ui
     elementwise_copy(T,T_len,pyr[nlev-1]);
 }
 
-void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, uint32_t down_r, uint32_t down_c, double *dst){
+void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *S, size_t S_len, uint32_t down_r, uint32_t down_c, double *dst){
     assert(filter_len == 5);
     assert(filter != NULL);
+    assert(S != NULL);
+    assert(r*c*channels <= S_len);
+
     //low pass filter
-    conv5x5separable_symmetric(im,r,c,channels,filter,filter,dst);
+    conv5x5separable_symmetric(im,r,c,channels,filter,filter,S);
     //decimate, using every second entry
     // [1] -> [1]
     // [1 2] -> [1]
@@ -516,7 +521,7 @@ void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *f
             for(int k = 0; k < channels; k++){
                 assert(((i*2)*c+(j*2))*channels+k < r*c*channels); //bounds checking
                 assert((i*down_c+j)*channels+k < down_r*down_c*channels); //bounds checking
-                dst[(i*down_c+j)*channels+k] = im[((i*2)*c+(j*2))*channels+k];
+                dst[(i*down_c+j)*channels+k] = S[((i*2)*c+(j*2))*channels+k];
             }
         }
     }
@@ -804,7 +809,6 @@ void elementwise_add(double *src1, size_t src1_len, double *src2, double *dst){
 
 void elementwise_copy(double *src, size_t src_len, double *dst){
 //    memcpy(dst,src,src_len*sizeof(double));
-    printf("%p %p\n",src,dst);
     for(int i = 0; i < src_len; i++){
         dst[i] = src[i];
     }
