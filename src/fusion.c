@@ -283,6 +283,13 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     assert(pyrW_r != NULL);
     assert(pyrW_c != NULL);
 
+    double ***pyrI = malloc(N*sizeof(double**));
+    uint32_t **pyrI_r = malloc(N*sizeof(double*));
+    uint32_t **pyrI_c = malloc(N*sizeof(double*));
+    assert(pyrI != NULL);
+    assert(pyrI_r != NULL);
+    assert(pyrI_c != NULL);
+
     //scratch space for gaussian/laplacian pyramid
     //TODO: optimize these away if possible
     size_t S_len = r*c*3;
@@ -306,8 +313,11 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
         assert(pyrW_c[n] != NULL);
         gaussian_pyramid(W[n],r,c,1,nlev,S,S_len,pyrW[n],pyrW_r[n],pyrW_c[n]);
 
-        //TODO: construct 3-channel laplacian pyramid from images
-
+        //construct 3-channel laplacian pyramid from images
+        malloc_pyramid(r,c,3,nlev,&(pyrI[n]), &(pyrI_r[n]), &(pyrI_c[n]));
+        assert(pyrI[n] != NULL);
+        assert(pyrI_r[n] != NULL);
+        assert(pyrI_c[n] != NULL);
 
         //TODO: weighted blend
 
@@ -445,7 +455,7 @@ void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uin
 
     for(int v = 1; v < nlev; v++){
         //downsample image and store into level
-        printf("nlev: %d, v: %d, pyr_r[v-1]: %d, pyr_c[v-1]: %d, pyr_r[v]: %d, pyr_c[v]: %d\n",nlev,v, pyr_r[v-1],pyr_c[v-1],pyr_r[v],pyr_c[v]);
+//        printf("nlev: %d, v: %d, pyr_r[v-1]: %d, pyr_c[v-1]: %d, pyr_r[v]: %d, pyr_c[v]: %d\n",nlev,v, pyr_r[v-1],pyr_c[v-1],pyr_r[v],pyr_c[v]); //TODO DEBUG
         fflush(stdout);
         downsample(pyr[v-1],pyr_r[v-1],pyr_c[v-1],channels,pyramid_filter,pyramid_filter_len,S,S_len,pyr_r[v],pyr_c[v],pyr[v]);
     }
