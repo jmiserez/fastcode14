@@ -29,6 +29,8 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *fil
 uint32_t compute_nlev(uint32_t r, uint32_t c);
 void malloc_foreach(double **dst, size_t size, uint32_t N);
 void malloc_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double ***pyr, uint32_t **pyr_r, uint32_t **pyr_c);
+void free_pyramid(uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
+
 double sum3(double r, double g, double b);
 double stdev3(double r, double g, double b);
 void unzip(double *src, size_t src_len, uint32_t n, double **dst);
@@ -338,20 +340,21 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
         }
     }
 
-    //TODO: reconstruct laplacian pyramid
+    //reconstruct laplacian pyramid
     reconstruct_laplacian_pyramid(3,nlev,S,S_len,U,U_len,V,V_len,pyr,pyr_r,pyr_c,r,c,R);
     printf("done\n");
 
     free(C);
-    for(int i = 0; i < nlev; i++){
-        free(pyr[i]);
-    }
-
-    free(pyr);
-
+    free(S);
+    free(T);
+    free(U);
+    free(V);
+    free_pyramid(nlev,pyr,pyr_r,pyr_c);
 
     for (int n = 0; n < N; n++){
         free(W[n]);
+        free_pyramid(nlev,pyrI[n],pyrI_r[n],pyrI_c[n]);
+        free_pyramid(nlev,pyrW[n],pyrW_r[n],pyrW_c[n]);
     }
     free(W);
 }
@@ -701,6 +704,15 @@ void malloc_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, do
         r_level = (r_level % 2 == 0) ? (r_level-1)/2 : (r_level-1)/2+1;
         c_level = (c_level % 2 == 0) ? (c_level-1)/2 : (c_level-1)/2+1;
     }
+}
+
+void free_pyramid(uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c){
+    for(int i = 0; i < nlev; i++){
+        free(pyr[i]);
+    }
+    free(pyr_r);
+    free(pyr_c);
+    free(pyr);
 }
 
 //
