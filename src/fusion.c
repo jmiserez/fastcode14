@@ -319,10 +319,19 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
         assert(pyrI_r[n] != NULL);
         assert(pyrI_c[n] != NULL);
 
-        //TODO: weighted blend
-
-
+        //weighted blend
+        for(int v = 0; v < nlev; v++){
+            for(int i = 0; i < pyrI_r[n][v]; i++){
+                for(int j = 0; j < pyrI_c[n][v]; j++){
+                    for(int k = 0; k < 3; k++){
+                        pyrI[n][v][(i*pyrI_c[n][v]+j)*3+k] = pyrI[n][v][(i*pyrI_c[n][v]+j)*3+k] + pyrW[n][v][i*pyrI_c[n][v]+j];
+                    }
+                }
+            }
+        }
     }
+
+    //TODO: reconstruct laplacian pyramid
 
 
     //TODO: store
