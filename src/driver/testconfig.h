@@ -14,7 +14,7 @@ typedef struct {
     double exposure;
 } testconfig_t;
 
-int read_testconfigurations( FILE* f, testconfig_t* testconfigs, size_t max_configs );
+int read_testconfigurations( testconfig_t* testconfigs, size_t max_configs, FILE* f );
 void print_testconfiguration( testconfig_t* tc );
 
 #endif // READ_TESTCONFIG_H

@@ -27,7 +27,7 @@ char* strncpy_alloc( const char* p_start, const char* p_stop ) {
     return dst;
 }
 
-int readline( FILE* f, char* buf, size_t n ) {
+int readline( char* buf, size_t n, FILE* f ) {
     int length = 0;
     char ch = getc(f);
     while ( (ch != '\n') && (ch != EOF) && (length < (n-1)) ) {
@@ -41,7 +41,7 @@ int readline( FILE* f, char* buf, size_t n ) {
     return length;
 }
 
-char* read_fparam( char* p_start, double* param ) {
+char* read_fparam( double* param, char* p_start ) {
     const int max_double_len = 18;
     char double_str[max_double_len+1];
     char* p_cur = p_start;
@@ -62,7 +62,7 @@ char* read_fparam( char* p_start, double* param ) {
     return p_cur;
 }
 
-int parse_filename( char* filename, testconfig_t* testconfig ) {
+int parse_filename( testconfig_t* testconfig, char* filename ) {
     int i;
     char* p_cur = filename;
     char* p_start = filename;
@@ -101,14 +101,14 @@ int parse_filename( char* filename, testconfig_t* testconfig ) {
     // contrast and saturation
     for( i = 0; i < 2; i++ ) {
         p_start = p_cur;
-        p_cur = read_fparam( p_start, params[i] );
+        p_cur = read_fparam( params[i], p_start );
         if( (*p_cur != '-') || (p_cur == p_start) ) return (int) (filename - p_cur);
         p_cur++;
     }
 
     // exposure
     p_start = p_cur;
-    p_cur = read_fparam( p_start, &testconfig->exposure );
+    p_cur = read_fparam( &testconfig->exposure, p_start );
     if( p_cur == p_start ) return (int) (filename - p_cur);
 
     // if p_cur points to a dot, we stand on the extension separator
@@ -124,7 +124,7 @@ int parse_filename( char* filename, testconfig_t* testconfig ) {
     return p_cur-p_start;
 }
 
-int read_testconfigurations( FILE* f, testconfig_t* testconfigs, size_t max_configs ) {
+int read_testconfigurations( testconfig_t* testconfigs, size_t max_configs, FILE* f ) {
     int config_count = 0;
     int read_line_sz = 0;
     int ret_parse_fn;
@@ -137,9 +137,9 @@ int read_testconfigurations( FILE* f, testconfig_t* testconfigs, size_t max_conf
     if( f != NULL ) {
         while( !feof(f) && (config_count < max_configs) ) {
             line_count++;
-            if( ((read_line_sz = readline(f, line, line_sz)) > 0)
+            if( ((read_line_sz = readline(line, line_sz, f)) > 0)
                     && (line[0] != '#') ) { // exclude comments
-                if( (ret_parse_fn =  parse_filename( line, testconfig )) > 0 ) {
+                if( (ret_parse_fn =  parse_filename( testconfig, line )) > 0 ) {
                     testconfig++;
                     config_count++;
                 } else {
