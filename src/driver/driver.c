@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
 #endif
         f_config = fopen( configFilePath, "r" );
         if( f_config ) {
-            tc_count = read_testconfigurations( f_config, tc, max_test_configs );
+            tc_count = read_testconfigurations( tc, max_test_configs, f_config );
 #ifdef DEBUG
             for( i = 0; i < tc_count; i++ ) {
                 print_testconfiguration( &tc[i] );
