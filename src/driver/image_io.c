@@ -202,8 +202,11 @@ double compare_tif( uint32_t *raster, uint32_t w, uint32_t h, char* path ) {
     uint32_t* ref_raster = load_image( &ref_w, &ref_h, path );
     double res  = 0.0;
 
+#ifdef DEBUG
+    printf("w: %d,h: %d,ref_w: %d,ref_h: %d\n", w, h, ref_w, ref_h);
+#endif
     if( ref_raster ) {
-        if( (ref_h != h) || (ref_w != w) ) {
+        if( (ref_h == h) && (ref_w == w) ) {
             uint32_t npixels = ref_h * ref_w;
             for( i = 0; i < npixels; i++ ) {
                 res += ((double) raster[i]) - ref_raster[i];

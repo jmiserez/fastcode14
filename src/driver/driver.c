@@ -91,6 +91,10 @@ int main(int argc, char* argv[]) {
             double *debug_rgb_image = load_tiff_rgb( &dbg_w, &dbg_h, TIFF_DEBUG_IN );
             printf( "dbg_w: %d, dbg_h: %d\n", dbg_w, dbg_h );
             store_tiff_rgb( debug_rgb_image, dbg_w, dbg_h, TIFF_DEBUG_OUT2 );
+            uint32_t raster = rgb2tiff(debug_rgb_image, dbg_w*dbg_h);
+            double err = compare_tif(raster, dbg_w, dbg_h, TIFF_DEBUG_IN );
+            printf("error is: %lf\n", err);
+            free_tiff( raster );
             free_rgb( debug_rgb_image );
             break;
         case '?':
