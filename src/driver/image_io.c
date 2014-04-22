@@ -5,9 +5,12 @@
  *
  */
 
+#include"image_io.h"
 #include<assert.h>
 #include<stdlib.h>
+#include<stdint.h>
 #include<tiffio.h>
+#include<math.h>
 
 /**
  * @brief load_image loads a tiff image located at path and stores the result in an array of uint32_t.
@@ -21,15 +24,15 @@ uint32_t* load_image( uint32_t *ret_width, uint32_t *ret_height, char *path ) {
     assert(tif != NULL);
     uint32_t *raster, *ret_value = NULL;
 
-    TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &ret_width);
-    TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &ret_height);
-    size_t npixels = width * height;
+    TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, ret_width);
+    TIFFGetField(tif, TIFFTAG_IMAGELENGTH, ret_height);
+    size_t npixels = (*ret_width) * (*ret_height);
 
     raster = (uint32_t*) _TIFFmalloc(npixels * sizeof (uint32_t));
     assert(raster != NULL);
     ret_value = raster;
 
-    if (!TIFFReadRGBAImageOriented(tif, width, height, raster, ORIENTATION_TOPLEFT, 0)) {
+    if (!TIFFReadRGBAImageOriented(tif, *ret_width, *ret_height, raster, ORIENTATION_TOPLEFT, 0)) {
         //same as any image viewer
         ret_value = NULL;
     }
@@ -44,7 +47,8 @@ uint32_t* load_image( uint32_t *ret_width, uint32_t *ret_height, char *path ) {
  * @param npixels the number of pixels (width*height).
  * @param norm normalization factor (will be set to default (255.0), if 0.0 is given)
  */
-void tiff2rgb( double *r_rgb, uint32_t *tiff, size_t npixels, const double norm ){
+void tiff2rgb( double *r_rgb, uint32_t *tiff, size_t npixels, const double _norm ){
+    double norm = _norm;
     if( norm == 0.0 )
         norm = 255.0;
     for(int i = 0; i < npixels; i++){
@@ -58,19 +62,38 @@ void tiff2rgb( double *r_rgb, uint32_t *tiff, size_t npixels, const double norm 
 }
 
 /**
+ * @brief rgb2tiff converts a double array holding an rgb image into a tiff raster, ignoring the alpha channel
+ * @param rgb_image double array holding the rgb image
+ * @param npixels number of pixels
+ * @return raster
+ */
+uint32_t* rgb2tiff( double* rgb_image, size_t npixels ) {
+    uint32_t* raster = (uint32_t*) _TIFFmalloc(npixels * sizeof(uint32_t));
+    for(int i = 0; i < npixels; i++) {
+        uint32_t packed = 0;
+        packed |= (uint32_t)(fmin(fmax(0.0, round(rgb_image[i*3]*255.0)), 255.0));
+        packed |= ((uint32_t)(fmin(fmax(0.0, round(rgb_image[i*3+1]*255.0)), 255.0))) << 8;
+        packed |= ((uint32_t)(fmin(fmax(0.0, round(rgb_image[i*3+2]*255.0)), 255.0))) << 16;
+        packed |= ((uint32_t)255) << 24;
+        raster[i] = packed;
+    }
+    return raster;
+}
+
+/**
  * @brief load_tiff_rgb loads a tif image and converts the image to a double array (rgb values are normalized)
  * @param r_width width of the loaded image
  * @param r_height height of the loaded image
  * @param path path to the tif file to be loaded
  * @return pointer to the double array containing the image
  */
-double* load_tiff_rgb( uint32_t* r_width, uint32_t* r_height, const char* path ) {
-    uint32_t width, height;
+double* load_tiff_rgb( uint32_t* r_width, uint32_t* r_height, char* path ) {
     uint32_t *tif_img;
     double *rgb_image = NULL;
-    if( (tif_img = load_image(&width, &height, path)) != NULL ) {
-        rgb_image = (double*) malloc(width*height*3*sizeof(double));
-        tiff2rgb( rgb_image, tif_img, height*width, 255.0 );
+    if( (tif_img = load_image(r_width, r_height, path)) != NULL ) {
+        uint32_t npixels = (*r_width)*(*r_height);
+        rgb_image = (double*) malloc(npixels*3*sizeof(double));
+        tiff2rgb( rgb_image, tif_img, npixels, 255.0 );
         _TIFFfree(tif_img);
     }
     return rgb_image;
@@ -109,22 +132,11 @@ void store_tiff_raster( char* path, uint32_t *raster, uint32_t width, uint32_t h
  * Remark: Some way of returning an error?
  */
 void store_tiff_rgb( double* rgb_image, uint32_t width,
-                     uin32_t height, const char* path ) {
-    uint32_t npixels = width*height;
-
-    uint32_t* raster = (uint32_t*) _TIFFmalloc(npixels * sizeof(uint32_t));
-
+                     uint32_t height, const char* path ) {
+    size_t npixels = width*height;
+    uint32_t* raster = rgb2tiff( rgb_image, npixels );
     assert(raster != NULL);
-    for(int i = 0; i < npixels; i++) {
-        uint32_t packed = 0;
-        packed |= (uint32_t)(fmin(fmax(0.0, round(R[i*3]*255.0)), 255.0));
-        packed |= ((uint32_t)(fmin(fmax(0.0, round(R[i*3+1]*255.0)), 255.0))) << 8;
-        packed |= ((uint32_t)(fmin(fmax(0.0, round(R[i*3+2]*255.0)), 255.0))) << 16;
-        packed |= ((uint32_t)255) << 24;
-        raster[i] = packed;
-    }
-
-    store_tiff_raster(path, raster, width, height);
+    store_tiff_raster( path, raster, width, height );
     _TIFFfree(raster);
 }
 
@@ -134,14 +146,13 @@ void store_tiff_rgb( double* rgb_image, uint32_t width,
  * @param out_img
  * @return
  */
-int debug_tiff_test(const char *in_img, char *out_img){
+int debug_tiff_test( const char *in_img, char *out_img ){
     TIFF* tif = TIFFOpen(in_img, "r");
+    uint32_t w, h;
+    size_t npixels;
+    uint32_t* raster;
 
     if (tif) {
-        uint32_t w, h;
-        size_t npixels;
-        uint32_t* raster;
-
         TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &w);
         TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &h);
         npixels = w * h;
@@ -163,6 +174,7 @@ int debug_tiff_test(const char *in_img, char *out_img){
             _TIFFfree(raster);
         }
         TIFFClose(tif);
+
         int samplesperpixel = 4;
         int width = 256;
         int height = 256;
@@ -175,7 +187,35 @@ int debug_tiff_test(const char *in_img, char *out_img){
                 image[i*256*4+k+3] = i; //A
             }
         }
-        store_tiff_raster(out_img, raster, width, height);
+        store_tiff_raster(out_img, image, width, height);
     }
+
     return 0;
+}
+
+void free_rgb( double* rgb_image ) {
+    free(rgb_image);
+}
+
+double compare_tif( uint32_t *raster, uint32_t w, uint32_t h, char* path ) {
+    uint32_t i, ref_w, ref_h;
+    uint32_t* ref_raster = load_image( &ref_w, &ref_h, path );
+    double res  = 0.0;
+
+    if( ref_raster ) {
+        if( (ref_h != h) || (ref_w != w) ) {
+            uint32_t npixels = ref_h * ref_w;
+            for( i = 0; i < npixels; i++ ) {
+                res += ((double) raster[i]) - ref_raster[i];
+            }
+        } else
+            res = -INFINITY;
+        free_tiff(ref_raster);
+    } else
+        res = INFINITY;
+    return res;
+}
+
+void free_tiff( uint32_t* raster ) {
+    _TIFFfree( raster );
 }

@@ -1,6 +1,9 @@
 #include"testconfig.h"
+#include"image_io.h"
 #include<stdlib.h>
+#include<stdint.h>
 #include<string.h>
+#include<ctype.h>
 #include<stdio.h>
 #include<assert.h>
 
@@ -128,7 +131,6 @@ int read_testconfigurations( testconfig_t* testconfigs, size_t max_configs, FILE
     int config_count = 0;
     int read_line_sz = 0;
     int ret_parse_fn;
-    testconfig_t tmp_testconfig;
     testconfig_t* testconfig = testconfigs;
     const int line_sz = 256;
     char line[line_sz];
@@ -154,7 +156,6 @@ int read_testconfigurations( testconfig_t* testconfigs, size_t max_configs, FILE
     return config_count;
 }
 
-
 void print_testconfiguration( testconfig_t* tc ) {
     printf("filename:     %s\n", tc->filename);
     printf("prefix:       %s\n", tc->prefix);
@@ -163,4 +164,57 @@ void print_testconfiguration( testconfig_t* tc ) {
     printf("contrast:     %lf\n", tc->contrast);
     printf("saturation:   %lf\n", tc->saturation);
     printf("exposure:     %lf\n", tc->exposure);
+}
+
+double** tc_read_input_images( size_t* read_imgs, uint32_t *ret_w, uint32_t *ret_h,
+                               testconfig_t* tc, char* srcPath ) {
+    int i;
+    uint32_t w, h, new_w, new_h;
+    const size_t max_len = 256;
+    char path[max_len];
+
+    double** images = (double**) malloc( tc->number_of_files * sizeof(double*));
+
+    if( tc->number_of_files > 0 ) {
+        snprintf(path, max_len, "%s/%s.%d.%s", srcPath, tc->prefix, 0, tc->extension);
+        images[0] = load_tiff_rgb( &w, &h, path );
+    }
+    if( images[0] != NULL ) {
+        for( i = 1; i < tc->number_of_files; i++ ) {
+            snprintf(path, max_len, "%s/%s.%d.%s", srcPath, tc->prefix, i, tc->extension);
+            images[i] = load_tiff_rgb( &new_w, &new_h, path );
+            if( !(new_w == w && new_h == h) || (images[i] == NULL) ) {
+                free(images[i]);
+                i--;
+                break;
+            }
+            w = new_w; h = new_h;
+        }
+    } else
+        free( images[0] );
+
+    *ret_w = w; *ret_h = h;
+
+    if( i < tc->number_of_files )
+        images = realloc( images, i * sizeof(double*));
+    *read_imgs = i;
+
+    return images;
+}
+
+void tc_free_input_images( double** images, size_t n_images ) {
+    int i;
+    for( i = 0; i < n_images; i++ ) {
+        free_rgb( images[i] );
+    }
+    free(images);
+}
+
+void tc_free( const testconfig_t* tc, size_t n_tc ) {
+    size_t i;
+    for( i = 0; i < n_tc; i++ ) {
+        free(tc[i].filename);
+        free(tc[i].prefix);
+        free(tc[i].extension);
+    }
 }

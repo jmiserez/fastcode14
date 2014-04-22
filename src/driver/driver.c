@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdint.h>
 //#include <stdint-gcc.h> Not available on RedHat6@CAB. Not needed.
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <assert.h>
@@ -13,7 +14,9 @@
 #include "testconfig.h"
 #include "image_io.h"
 
-// #include <tiffio.h>
+#define TIFF_DEBUG_IN "gradient.tif"
+#define TIFF_DEBUG_OUT "out.tif"
+#define TIFF_DEBUG_OUT2 "gradient.o.tif"
 
 /*
  * GENERAL I/O
@@ -52,15 +55,17 @@ void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height) {
  * @return
  */
 int main(int argc, char* argv[]) {
+    double ** input_images;
     const size_t max_test_configs = 1024;
     testconfig_t tc[max_test_configs];
 
-    tc[0].prefix = "sadf";
-
     int tc_count;
     int i;
-
+    uint32_t w, h;
+    size_t img_count;
     FILE* f_config;
+    // double *ret_image;
+    // fusion_segments_t segments;
 
     //getopt for command-line parsing. See the getopt(3) manpage
     int c;
@@ -81,6 +86,12 @@ int main(int argc, char* argv[]) {
             break;
         case 't':
             printf("getopt: testlibtiff\n");
+            debug_tiff_test( TIFF_DEBUG_IN, TIFF_DEBUG_OUT );
+            uint32_t dbg_w, dbg_h;
+            double *debug_rgb_image = load_tiff_rgb( &dbg_w, &dbg_h, TIFF_DEBUG_IN );
+            printf( "dbg_w: %d, dbg_h: %d\n", dbg_w, dbg_h );
+            store_tiff_rgb( debug_rgb_image, dbg_w, dbg_h, TIFF_DEBUG_OUT2 );
+            free_rgb( debug_rgb_image );
             break;
         case '?':
             printf("getopt: error on character %c\n", optopt);
@@ -90,7 +101,7 @@ int main(int argc, char* argv[]) {
             abort();
         }
     }
-    int num_opts = optind-1;
+
     int num_args_remaining = argc-optind;
 
     if( num_args_remaining > 2 ) { //get rest of arguments (optind is defined in getopt.h and used by getopt)
@@ -102,20 +113,39 @@ int main(int argc, char* argv[]) {
         printf("config file: %s\n", configFilePath);
         printf("src path:    %s\n", srcPath);
         printf("ref path:    %s\n", refPath);
-
 #endif
         f_config = fopen( configFilePath, "r" );
         if( f_config ) {
             tc_count = read_testconfigurations( tc, max_test_configs, f_config );
-#ifdef DEBUG
-            for( i = 0; i < tc_count; i++ ) {
-                print_testconfiguration( &tc[i] );
-            }
-#endif
-            for( i = 0; i < tc_count; i++ ) {
-
-            }
             fclose(f_config);
+
+            for( i = 0; i < tc_count; i++ ) {
+#ifdef DEBUG
+                print_testconfiguration( &tc[i] );
+#endif
+                input_images = tc_read_input_images( &img_count, &w, &h, &tc[i], srcPath );
+#ifdef DEBUG
+                printf("img_count: %ld, w: %d, h: %d\n", img_count, w, h);
+#endif
+                size_t npixels = w * h;
+                // ret_image = (double*) malloc( h*w*sizeof(double) );
+                // alloc_fusion( h, w, img_count, &segments );
+                // alloc_fusion( ... )
+                // exposure_fusion( input_images, r, c, N, {tc[i].contrast, tc[i].saturation, tc[i].exposure}, ret_image,
+
+                // convert result into tiff raster
+                // uint32_t* raster = rgb2tiff( ret_image, npixels );
+                // compare to reference
+
+                // runtime and deviatation from reference solution
+
+                // free resources
+                // free_tiff( raster );
+                // free( ret_image );
+                tc_free_input_images( input_images, img_count );
+                //free_fusion( &segments );
+            }
+            tc_free( tc, tc_count );
         }
 
     } else
