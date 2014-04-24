@@ -1,12 +1,6 @@
 #ifndef FUSION_H
 #define FUSION_H
 
-/**
-  * fusion_segments_t holds the pointers to the memory segments internally used by this implements of the fusion algorithm.
-  */
-typedef struct {
-} fusion_segments_t;
-
 #define FUSION_ALLOC_SUCCESS 0
 #define FUSION_ALLOC_FAILURE -1
 
@@ -18,7 +12,7 @@ typedef struct {
  * @param segments struct that holds pointers to the internally used memory segments
  * @return returns a number of >=0 if successful. <0 on error. In the latter case, you might want to check errno.
  */
-int alloc_fusion(int r, int c, int N, fusion_segments_t *segments);
+int alloc_fusion(int r, int c, int N, void* segments);
 
 /**
  * @brief exposure_fusion
@@ -30,7 +24,7 @@ int alloc_fusion(int r, int c, int N, fusion_segments_t *segments);
  * @param R
  * @param segments
  */
-void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R, fusion_segments_t* segments);
+void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R, void* segments);
 
 void free_fusion( fusion_segments_t* segments );
 
