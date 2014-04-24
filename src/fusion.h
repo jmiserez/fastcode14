@@ -9,7 +9,7 @@
  * @param r height of the images
  * @param c width of the images
  * @param N number of images
- * @param segments struct that holds pointers to the internally used memory segments
+ * @param segments object that holds pointers to the internally used memory segments
  * @return returns a number of >=0 if successful. <0 on error. In the latter case, you might want to check errno.
  */
 int alloc_fusion(int r, int c, int N, void* segments);
