@@ -124,10 +124,10 @@ int parse_filename( testconfig_t* testconfig, char* filename ) {
     testconfig->extension = strncpy_alloc( p_start, p_cur );
     testconfig->filename = strncpy_alloc( filename, p_cur );
 
-    return p_cur-p_start;
+    return p_cur-filename;
 }
 
-int read_testconfigurations( testconfig_t* testconfigs, size_t max_configs, FILE* f ) {
+int read_testconfigurations( testconfig_t* testconfigs, size_t max_configs, FILE* f, char* srcPath, char* refPath ) {
     int config_count = 0;
     int read_line_sz = 0;
     int ret_parse_fn;
@@ -135,13 +135,30 @@ int read_testconfigurations( testconfig_t* testconfigs, size_t max_configs, FILE
     const int line_sz = 256;
     char line[line_sz];
     char line_count = 0;
+    size_t max_len = 0;
+    int i;
 
     if( f != NULL ) {
         while( !feof(f) && (config_count < max_configs) ) {
             line_count++;
             if( ((read_line_sz = readline(line, line_sz, f)) > 0)
                     && (line[0] != '#') ) { // exclude comments
-                if( (ret_parse_fn =  parse_filename( testconfig, line )) > 0 ) {
+                if( (ret_parse_fn = parse_filename( testconfig, line )) > 0 ) {
+
+                    // for convenience, we set the full paths here
+                    max_len = strlen(refPath) + strlen(testconfig->filename) + 2; // plus '/' and '/0'
+                    testconfig->ref_path = (char*) malloc( max_len * sizeof(char) );
+                    snprintf(testconfig->ref_path, max_len, "%s/%s", refPath, testconfig->filename);
+
+                    // note that the input file names cannot be longer than the reference filenames.
+                    max_len = strlen(srcPath) + strlen(testconfig->filename) + 2; // plus '/' and '/0'
+                    testconfig->input_paths = (char**) malloc( testconfig->number_of_files * sizeof(char*) );
+                    for( i = 0; i < testconfig->number_of_files; i++ ) {
+                        testconfig->input_paths[i] = (char*) malloc( max_len * sizeof( char* ) );
+                        snprintf(testconfig->input_paths[i], max_len, "%s/%s.%d.%s", srcPath,
+                                 testconfig->prefix, i, testconfig->extension);
+                    }
+
                     testconfig++;
                     config_count++;
                 } else {
@@ -157,6 +174,7 @@ int read_testconfigurations( testconfig_t* testconfigs, size_t max_configs, FILE
 }
 
 void print_testconfiguration( testconfig_t* tc ) {
+    int i;
     printf("filename:     %s\n", tc->filename);
     printf("prefix:       %s\n", tc->prefix);
     printf("extension:    %s\n", tc->extension);
@@ -164,25 +182,26 @@ void print_testconfiguration( testconfig_t* tc ) {
     printf("contrast:     %lf\n", tc->contrast);
     printf("saturation:   %lf\n", tc->saturation);
     printf("exposure:     %lf\n", tc->exposure);
+    printf("ref. path:    %s\n", tc->ref_path);
+    printf("input paths:\n");
+    for( i = 0; i < tc->number_of_files; i++ ) {
+        printf("              %s\n", tc->input_paths[i]);
+    }
 }
 
 double** tc_read_input_images( size_t* read_imgs, uint32_t *ret_w, uint32_t *ret_h,
-                               testconfig_t* tc, char* srcPath ) {
+                               testconfig_t* tc ) {
     int i;
     uint32_t w, h, new_w, new_h;
-    const size_t max_len = 256;
-    char path[max_len];
 
     double** images = (double**) malloc( tc->number_of_files * sizeof(double*));
 
     if( tc->number_of_files > 0 ) {
-        snprintf(path, max_len, "%s/%s.%d.%s", srcPath, tc->prefix, 0, tc->extension);
-        images[0] = load_tiff_rgb( &w, &h, path );
+        images[0] = load_tiff_rgb( &w, &h, tc->input_paths[0] );
     }
     if( images[0] != NULL ) {
         for( i = 1; i < tc->number_of_files; i++ ) {
-            snprintf(path, max_len, "%s/%s.%d.%s", srcPath, tc->prefix, i, tc->extension);
-            images[i] = load_tiff_rgb( &new_w, &new_h, path );
+            images[i] = load_tiff_rgb( &new_w, &new_h, tc->input_paths[i] );
             if( !(new_w == w && new_h == h) || (images[i] == NULL) ) {
                 free(images[i]);
                 i--;
@@ -210,11 +229,21 @@ void tc_free_input_images( double** images, size_t n_images ) {
     free(images);
 }
 
-void tc_free( const testconfig_t* tc, size_t n_tc ) {
+void tc_free( testconfig_t* tc ) {
+    int i;
+    free(tc->filename);
+    free(tc->prefix);
+    free(tc->extension);
+    free(tc->ref_path);
+    for( i = 0; i < tc->number_of_files; i++ ) {
+        free(tc->input_paths[i]);
+    }
+    free(tc->input_paths);
+}
+
+void tcs_free( testconfig_t* tc, size_t n_tc ) {
     size_t i;
     for( i = 0; i < n_tc; i++ ) {
-        free(tc[i].filename);
-        free(tc[i].prefix);
-        free(tc[i].extension);
+        tc_free(&tc[i]);
     }
 }
