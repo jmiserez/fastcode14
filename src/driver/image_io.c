@@ -51,13 +51,13 @@ void tiff2rgb( double *r_rgb, uint32_t *tiff, size_t npixels, const double _norm
     double norm = _norm;
     if( norm == 0.0 )
         norm = 255.0;
-    for(int i = 0; i < npixels; i++){
+    for( int i = 0; i < npixels; i += 1 ){
         unsigned char r = TIFFGetR(tiff[i]);
         unsigned char g = TIFFGetG(tiff[i]);
         unsigned char b = TIFFGetB(tiff[i]);
-        r_rgb[i*3] = r/norm;
-        r_rgb[i*3+1] = g/norm;
-        r_rgb[i*3+2] = b/norm;
+        r_rgb[3*i  ] = r/norm;
+        r_rgb[3*i+1] = g/norm;
+        r_rgb[3*i+2] = b/norm;
     }
 }
 
@@ -67,13 +67,13 @@ void tiff2rgb( double *r_rgb, uint32_t *tiff, size_t npixels, const double _norm
  * @param npixels number of pixels
  * @return raster
  */
-uint32_t* rgb2tiff( double* rgb_image, size_t npixels ) {
+uint32_t* rgb2tiff( const double* rgb_image, size_t npixels ) {
     uint32_t* raster = (uint32_t*) _TIFFmalloc(npixels * sizeof(uint32_t));
-    for(int i = 0; i < npixels; i++) {
+    for( int i = 0; i < npixels; i += 1 ) {
         uint32_t packed = 0;
-        packed |= (uint32_t)(fmin(fmax(0.0, round(rgb_image[i*3]*255.0)), 255.0));
-        packed |= ((uint32_t)(fmin(fmax(0.0, round(rgb_image[i*3+1]*255.0)), 255.0))) << 8;
-        packed |= ((uint32_t)(fmin(fmax(0.0, round(rgb_image[i*3+2]*255.0)), 255.0))) << 16;
+        packed |= ( uint32_t)(fmin(fmax(0.0, round(rgb_image[3*i  ]*255.0)), 255.0));
+        packed |= ((uint32_t)(fmin(fmax(0.0, round(rgb_image[3*i+1]*255.0)), 255.0))) << 8;
+        packed |= ((uint32_t)(fmin(fmax(0.0, round(rgb_image[3*i+2]*255.0)), 255.0))) << 16;
         packed |= ((uint32_t)255) << 24;
         raster[i] = packed;
     }
@@ -132,7 +132,7 @@ void store_tiff_raster( char* path, uint32_t *raster, uint32_t width, uint32_t h
  * Remark: Some way of returning an error?
  */
 void store_tiff_rgb( double* rgb_image, uint32_t width,
-                     uint32_t height, const char* path ) {
+                     uint32_t height, char* path ) {
     size_t npixels = width*height;
     uint32_t* raster = rgb2tiff( rgb_image, npixels );
     assert(raster != NULL);
@@ -187,7 +187,7 @@ int debug_tiff_test( const char *in_img, char *out_img ){
                 image[i*256*4+k+3] = i; //A
             }
         }
-        store_tiff_raster(out_img, image, width, height);
+        store_tiff_raster(out_img, (uint32_t*) image, width, height);
     }
 
     return 0;
@@ -209,7 +209,9 @@ double compare_tif( uint32_t *raster, uint32_t w, uint32_t h, char* path ) {
         if( (ref_h == h) && (ref_w == w) ) {
             uint32_t npixels = ref_h * ref_w;
             for( i = 0; i < npixels; i++ ) {
-                res += ((double) raster[i]) - ref_raster[i];
+                res += abs(TIFFGetR(raster[i]) - TIFFGetR(ref_raster[i]));
+                res += abs(TIFFGetG(raster[i]) - TIFFGetG(ref_raster[i]));
+                res += abs(TIFFGetB(raster[i]) - TIFFGetB(ref_raster[i]));
             }
         } else
             res = -INFINITY;

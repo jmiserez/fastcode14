@@ -21,7 +21,12 @@
 /*
  * GENERAL I/O
  **/
-const char* usage_str = "./driver [options] <testConfigs> <srcImagePath> <refSolutionPath>\n";
+const char* usage_str = "./driver [options] <testConfigs> <srcImagePath> <refSolutionPath>\n"
+        "options:\n"
+        " --testlibtiff:\n"
+        "  performs some tests using libtiff"
+        " --store <file>\n"
+        "  stores the result in <file> (otherwise only the error is calculated)";
 
 void print_usage() {
     printf("%s", usage_str);
@@ -87,11 +92,13 @@ int main(int argc, char* argv[]) {
         case 't':
             printf("getopt: testlibtiff\n");
             debug_tiff_test( TIFF_DEBUG_IN, TIFF_DEBUG_OUT );
+
             uint32_t dbg_w, dbg_h;
             double *debug_rgb_image = load_tiff_rgb( &dbg_w, &dbg_h, TIFF_DEBUG_IN );
             printf( "dbg_w: %d, dbg_h: %d\n", dbg_w, dbg_h );
             store_tiff_rgb( debug_rgb_image, dbg_w, dbg_h, TIFF_DEBUG_OUT2 );
-            uint32_t raster = rgb2tiff(debug_rgb_image, dbg_w*dbg_h);
+
+            uint32_t* raster = rgb2tiff(debug_rgb_image, dbg_w*dbg_h);
             double err = compare_tif(raster, dbg_w, dbg_h, TIFF_DEBUG_IN );
             printf("error is: %lf\n", err);
             free_tiff( raster );
@@ -110,8 +117,8 @@ int main(int argc, char* argv[]) {
 
     if( num_args_remaining > 2 ) { //get rest of arguments (optind is defined in getopt.h and used by getopt)
         const char* configFilePath = argv[argc - num_args_remaining    ];
-        const char* srcPath        = argv[argc - num_args_remaining + 1];
-        const char* refPath        = argv[argc - num_args_remaining + 2];
+        char* srcPath        = argv[argc - num_args_remaining + 1];
+        char* refPath        = argv[argc - num_args_remaining + 2];
 
 #ifdef DEBUG
         printf("config file: %s\n", configFilePath);
@@ -131,7 +138,7 @@ int main(int argc, char* argv[]) {
 #ifdef DEBUG
                 printf("img_count: %ld, w: %d, h: %d\n", img_count, w, h);
 #endif
-                size_t npixels = w * h;
+                // size_t npixels = w * h;
                 // ret_image = (double*) malloc( h*w*sizeof(double) );
                 // alloc_fusion( h, w, img_count, &segments );
                 // alloc_fusion( ... )
