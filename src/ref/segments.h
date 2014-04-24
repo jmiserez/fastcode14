@@ -6,7 +6,10 @@
  * the alloc_fusion() function.
  */
 typedef struct {
-
+    double** weight_matrices;
+    double* mono_matrix;
+    double* temp_matrix;
+    double* result;
 } segments_t;
 
 #endif // SEGMENTS_H
