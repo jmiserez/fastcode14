@@ -555,20 +555,6 @@ void reconstruct_laplacian_pyramid(uint32_t channels, uint32_t nlev, double *S, 
     }
 }
 
-void display_pyramid(uint32_t channels, uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst){
-    uint32_t offset = 1;
-    for(int v = 0; v < nlev; v++){
-        for(int i = 0; i < r; i++){
-            for (int j = offset-1; j < offset-2+c; j++){
-                for (int k = 0; k < channels; k++){
-                    dst[(i*c+j)*channels+k] = pyr[v][(i*c+(j-offset+1))*channels+k];
-                }
-            }
-        }
-        offset = offset + pyr_c[v];
-    }
-}
-
 void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *S, size_t S_len, uint32_t down_r, uint32_t down_c, double *dst){
     assert(filter_len == 5);
     assert(filter != NULL);
@@ -684,6 +670,20 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *fil
                 dst[(i*up_c+j)*channels+k] = U[((i+2)*c_upsampled+(j+2))*channels+k];
             }
         }
+    }
+}
+
+void display_pyramid(uint32_t channels, uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst){
+    uint32_t offset = 1;
+    for(int v = 0; v < nlev; v++){
+        for(int i = 0; i < r; i++){
+            for (int j = offset-1; j < offset-2+c; j++){
+                for (int k = 0; k < channels; k++){
+                    dst[(i*c+j)*channels+k] = pyr[v][(i*c+(j-offset+1))*channels+k];
+                }
+            }
+        }
+        offset = offset + pyr_c[v];
     }
 }
 
