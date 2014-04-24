@@ -24,7 +24,8 @@ int alloc_fusion(int r, int c, int N, void* segments);
  * @param R
  * @param segments
  */
-void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R, void* segments);
+double* exposure_fusion(double** I, int r, int c, int N, double m[3],
+    void* segments);
 
 void free_fusion( void* segments );
 
