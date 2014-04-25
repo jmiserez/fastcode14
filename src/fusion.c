@@ -919,61 +919,61 @@ void conv3x3_monochrome_replicate(double* im, uint32_t r, uint32_t c, double* f,
     for(int i = 1; i < r-1; i++){
         for(int j = 1; j < c-1; j++){
             dst[i*c+j] =
-                    im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j+1)]*f[1] +
-                    im[(i)  *c+(j-1)]*f[2] + im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j+1)]*f[4] +
-                    im[(i+1)*c+(j-1)]*f[5] + im[(i+1)*c+(j)]*f[6] + im[(i+1)*c+(j+1)]*f[7];
+                    im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j+1)]*f[2] +
+                    im[(i)  *c+(j-1)]*f[3] + im[(i)  *c+(j)]*f[4] + im[(i)  *c+(j+1)]*f[5] +
+                    im[(i+1)*c+(j-1)]*f[6] + im[(i+1)*c+(j)]*f[7] + im[(i+1)*c+(j+1)]*f[8];
         }
     }
     //edges
     for(int i = 1; i < r-1; i++){
         int j = 0;
         dst[i*c+j] =
-                im[(i-1)*c+(j)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j+1)]*f[1] +
-                im[(i)  *c+(j)]*f[2] + im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j+1)]*f[4] +
-                im[(i+1)*c+(j)]*f[5] + im[(i+1)*c+(j)]*f[6] + im[(i+1)*c+(j+1)]*f[7];
+                im[(i-1)*c+(j)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j+1)]*f[2] +
+                im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j)]*f[4] + im[(i)  *c+(j+1)]*f[5] +
+                im[(i+1)*c+(j)]*f[6] + im[(i+1)*c+(j)]*f[7] + im[(i+1)*c+(j+1)]*f[8];
         j = c-1;
         dst[i*c+j] =
-                im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j)]*f[1] +
-                im[(i)  *c+(j-1)]*f[2] + im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j)]*f[4] +
-                im[(i+1)*c+(j-1)]*f[5] + im[(i+1)*c+(j)]*f[6] + im[(i+1)*c+(j)]*f[7];
+                im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j)]*f[2] +
+                im[(i)  *c+(j-1)]*f[3] + im[(i)  *c+(j)]*f[4] + im[(i)  *c+(j)]*f[5] +
+                im[(i+1)*c+(j-1)]*f[6] + im[(i+1)*c+(j)]*f[7] + im[(i+1)*c+(j)]*f[8];
     }
     for(int j = 1; j < c-1; j++){
         int i = 0;
         dst[i*c+j] =
-                im[(i)  *c+(j-1)]*f[0] + im[(i)  *c+(j)]*f[1] + im[(i)  *c+(j+1)]*f[1] +
-                im[(i)  *c+(j-1)]*f[2] + im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j+1)]*f[4] +
-                im[(i+1)*c+(j-1)]*f[5] + im[(i+1)*c+(j)]*f[6] + im[(i+1)*c+(j+1)]*f[7];
+                im[(i)  *c+(j-1)]*f[0] + im[(i)  *c+(j)]*f[1] + im[(i)  *c+(j+1)]*f[2] +
+                im[(i)  *c+(j-1)]*f[3] + im[(i)  *c+(j)]*f[4] + im[(i)  *c+(j+1)]*f[5] +
+                im[(i+1)*c+(j-1)]*f[6] + im[(i+1)*c+(j)]*f[7] + im[(i+1)*c+(j+1)]*f[8];
         i = r-1;
         dst[i*c+j] =
-                im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j+1)]*f[1] +
-                im[(i)  *c+(j-1)]*f[2] + im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j+1)]*f[4] +
-                im[(i)  *c+(j-1)]*f[5] + im[(i)  *c+(j)]*f[6] + im[(i)  *c+(j+1)]*f[7];
+                im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j+1)]*f[2] +
+                im[(i)  *c+(j-1)]*f[3] + im[(i)  *c+(j)]*f[4] + im[(i)  *c+(j+1)]*f[5] +
+                im[(i)  *c+(j-1)]*f[6] + im[(i)  *c+(j)]*f[7] + im[(i)  *c+(j+1)]*f[8];
     }
     //corners
     int i = 0;
     int j = 0;
     dst[i*c+j] =
-            im[(i)*c+(j)]*f[0] + im[(i)*c+(j)]*f[1] + im[(i)*c+(j+1)]*f[1] +
-            im[(i)  *c+(j)]*f[2] + im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j+1)]*f[4] +
-            im[(i+1)*c+(j)]*f[5] + im[(i+1)*c+(j)]*f[6] + im[(i+1)*c+(j+1)]*f[7];
+            im[(i)*c+(j)]*f[0] + im[(i)*c+(j)]*f[1] + im[(i)*c+(j+1)]*f[2] +
+            im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j)]*f[4] + im[(i)  *c+(j+1)]*f[5] +
+            im[(i+1)*c+(j)]*f[6] + im[(i+1)*c+(j)]*f[7] + im[(i+1)*c+(j+1)]*f[8];
     i = 0;
     j = c-1;
     dst[i*c+j] =
-            im[(i)  *c+(j-1)]*f[0] + im[(i)  *c+(j)]*f[1] + im[(i)  *c+(j)]*f[1] +
-            im[(i)  *c+(j-1)]*f[2] + im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j)]*f[4] +
-            im[(i+1)*c+(j-1)]*f[5] + im[(i+1)*c+(j)]*f[6] + im[(i+1)*c+(j)]*f[7];
+            im[(i)  *c+(j-1)]*f[0] + im[(i)  *c+(j)]*f[1] + im[(i)  *c+(j)]*f[2] +
+            im[(i)  *c+(j-1)]*f[3] + im[(i)  *c+(j)]*f[4] + im[(i)  *c+(j)]*f[5] +
+            im[(i+1)*c+(j-1)]*f[6] + im[(i+1)*c+(j)]*f[7] + im[(i+1)*c+(j)]*f[8];
     i = r-1;
     j = 0;
     dst[i*c+j] =
-            im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j+1)]*f[1] +
-            im[(i)  *c+(j-1)]*f[2] + im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j+1)]*f[4] +
-            im[(i)  *c+(j-1)]*f[5] + im[(i)  *c+(j)]*f[6] + im[(i)  *c+(j+1)]*f[7];
+            im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j+1)]*f[2] +
+            im[(i)  *c+(j-1)]*f[3] + im[(i)  *c+(j)]*f[4] + im[(i)  *c+(j+1)]*f[5] +
+            im[(i)  *c+(j-1)]*f[6] + im[(i)  *c+(j)]*f[7] + im[(i)  *c+(j+1)]*f[8];
     i = r-1;
     j = c-1;
     dst[i*c+j] =
-            im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j)]*f[1] +
-            im[(i)  *c+(j-1)]*f[2] + im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j)]*f[4] +
-            im[(i)  *c+(j-1)]*f[5] + im[(i)  *c+(j)]*f[6] + im[(i)  *c+(j)]*f[7];
+            im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j)]*f[2] +
+            im[(i)  *c+(j-1)]*f[3] + im[(i)  *c+(j)]*f[4] + im[(i)  *c+(j)]*f[5] +
+            im[(i)  *c+(j-1)]*f[6] + im[(i)  *c+(j)]*f[7] + im[(i)  *c+(j)]*f[8];
 
 }
 
