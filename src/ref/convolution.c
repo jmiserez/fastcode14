@@ -1,3 +1,4 @@
+#include"convolution.h"
 
 inline double apply_filter( double *im, int* idx, double* f, size_t len ) {
     size_t i;
@@ -15,20 +16,21 @@ inline double apply_filter( double *im, int* idx, double* f, size_t len ) {
  */
 void conv3x3_monochrome_replicate( double* dst, double* im, int w, int h,
                                    double* f ) {
-    for(int i = 1; i < h-1; i++) {
-        for(int j = 1; j < w-1; j++){
+    int i, j;
+    for( i = 1; i < h-1; i++ ) {
+        for( j = 1; j < w-1; j++ ) {
             int iw0 = (i-1)*w, iw1 = (i)*w, iw2 = (i+1)*w;
             int j0 = j-1, j1 = j, j2 = j+1;
             dst[i*w+j] = apply_filter( im, (int[]) {
                                       (iw0+j0), (iw0+j1), (iw0+j2),
                                       (iw1+j0), (iw1+j1), (iw1+j2),
-                                      (iw2+j0), (iw1+j1), (iw2+j3)
+                                      (iw2+j0), (iw1+j1), (iw2+j2)
                                   }, f, 9 );
         }
     }
     //edges
-    for( int i = 1; i < h-1; i++ ) {
-        int j = 0;
+    for( i = 1; i < h-1; i++ ) {
+        j = 0;
         int iw0 = (i-1)*w, iw1 = (i)*w, iw2 = (i+1)*w;
 
         dst[i*w+j] = apply_filter( im, (int[]) {
@@ -43,8 +45,8 @@ void conv3x3_monochrome_replicate( double* dst, double* im, int w, int h,
                                        iw2+(j-1), iw2+j, iw2+j
                                    }, f, 9 );
     }
-    for(int j = 1; j < w-1; j++){
-        int i = 0;
+    for( j = 1; j < w-1; j++ ) {
+        i = 0;
         dst[i*w+j] = apply_filter( im, (int[]) {
                                        j-1,   j,   j+1,
                                        j-1,   j,   j+1,

@@ -1,5 +1,6 @@
+#include<stddef.h>
+#include<math.h>
 #include"weighting.h"
-#include"segments.h"
 #include"image.h"
 #include"matrix.h"
 #include"convolution.h"
@@ -26,7 +27,7 @@ void saturation( double *C, int w, int h, double *im, segments_t* mem ) {
 
 void well_exposedness( double *C, int w, int h, double *im, segments_t* mem ) {
     size_t npixels = w * h, i;
-    matrix_set( C, 0.0 );
+    matrix_set( C, npixels, 0.0 );
 
     double sig = 0.2;
     for( i = 0; i < npixels; i++ ) {
@@ -68,7 +69,7 @@ void contrast( double *C, int w, int h, double *im, segments_t* mem ){
 
 void compute_weight_matrices( double** imgs, int w, int h, int N,
                               double contrast_parm, double sat_parm,
-                              double wexp_parm, segmets_t* mem ) {
+                              double wexp_parm, segments_t* mem ) {
 
     size_t npixels = w * h, pix_i;
     int i;
@@ -101,8 +102,8 @@ void compute_weight_matrices( double** imgs, int w, int h, int N,
     for( pix_i = 0; pix_i < npixels; pix_i++ ) {
         sum = 0.0;
         for( i = 0; i < N; i++ )
-            sum += W[i][pix_i] + 1.0E-12;
+            sum += weight_matrices[i][pix_i] + 1.0E-12;
         for( i = 0; i < N; i++ )
-            W[i] /= sum;
+            weight_matrices[i][pix_i] /= sum;
     }
  }
