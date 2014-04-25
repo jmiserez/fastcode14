@@ -1,8 +1,23 @@
 #include<fusion.h>
 #include"segments.h"
 
-void ones(double *dst, size_t len);
-void contrast(double *im, int w, int h, double *C);
+
+// weighting functions
+void contrast( double *C, int w, int h, double *im, segments_t* mem );
+void saturation( double *C, int w, int h, double *im, segments_t* mem );
+void well_exposedness( double *C, int w, int h, double *im, segments_t* mem );
+
+// MATLAB functions
+void rgb2gray( double* dst, double *im, size_t npixels );
+
+// helper functions
+void matrix_set( double *dst, size_t len, double val );
+void weight_matrix( double* weight_matrix, double* weights, int len,
+                    double exp ) {
+    int i;
+    for( i = 0; i < len; i++ )
+        weight_matrix[i] *= pow(weights[i], exp);
+}
 
 double* exposure_fusion(double** I, int w, int h, int N, double m[3],
     void* _segments) {
@@ -20,18 +35,63 @@ double* exposure_fusion(double** I, int w, int h, int N, double m[3],
 
     for( int i = 0; i < N; i++ ) {
         if( contrast_parm > 0.0 ) {
+            contrast( temp_matrix, w, h, I[i], mem );
+            weight_matrix( weight_matrices[i], temp_matrix, npixels,
+                           contrast_parm );
+        }
 
+        if( sat_parm > 0.0 ) {
+            saturation( temp_matrix, w, h, I[i], mem );
+            weight_matrix( weight_matrices[i], temp_matrix, npixels,
+                           sat_parm );
+        }
+
+        if( wexp_parm > 0.0 ) {
+            well_exposedness( temp_matrix, w, h, I[i], mem );
+            weight_matrix( weight_matrices[i], temp_matrix, npixels,
+                           wexp_parm );
         }
     }
 }
 
-void ones(double *dst, size_t len){
+void saturation( double *C, int w, int h, double *im, segments_t* mem ) {
+    int npixels = w * h;
+    matrix_set( C, npixels, 0.0 );
+
+    for( int i = 0; i < npixels; i++ ) {
+        double r = im[i*3];
+        double g = im[i*3+1];
+        double b = im[i*3+2];
+        double mu = (r + g + b) / 3.0;
+        C[i] = sqrt(pow(r-mu,2) + pow(g-mu,2) + pow(b-mu,2)/3.0);
+    }
+}
+
+void well_exposedness( double *C, int w, int h, double *im, segments_t* mem ) {
+    int npixels = w * h, i;
+    matrix_set( C, 0.0 );
+
+    double sig = 0.2;
+    for( i = 0; i < npixels; i++ ) {
+        double r = im[i*3];
+        double g = im[i*3+1];
+        double b = im[i*3+2];
+        r = exp(-0.5*pow(r - 0.5,2) / pow(sig,2));
+        g = exp(-0.5*pow(g - 0.5,2) / pow(sig,2));
+        b = exp(-0.5*pow(b - 0.5,2) / pow(sig,2));
+        C[i] = r*g*b;
+    }
+}
+
+void matrix_set( double *dst, size_t len, double val ){
     for(int i = 0; i < len; i++){
-        dst[i] = (double)1.0;
+        dst[i] = val;
     }
 }
 
 void contrast( double *C, int w, int h, double *im, segments_t* mem ){
+    size_t npixels = w*h; //1 value/pixel
+
     //laplacian filter
     double f[] = {
         0.0, 1.0, 0.0,
@@ -40,12 +100,23 @@ void contrast( double *C, int w, int h, double *im, segments_t* mem ){
     };
 
     double *mono_matrix = mem->mono_matrix;
-    size_t npixels = w*h; //1 value/pixel
-    zeros(C, npixels);
+    matrix_set( C, npixels, 0.0 );
+
     // for each image, calculate contrast measure on grayscale version of the
     // image
-    rgb2gray(im, npixels, mono_matrix);
-    conv3x3_monochrome_replicate(mono_matrix,r,c,f,C);
+    rgb2gray( mono_matrix, im, npixels );
+    conv3x3_monochrome_replicate( C, mono_matrix, w, h, f );
+}
+
+
+
+inline double apply_filter( double *im, int* idx, double* f, int len ) {
+    int i;
+    double res = 0.0;
+    for( i = 0; i < len; i++ ) {
+        res += im[idx[i]]*f[i];
+    }
+    return res;
 }
 
 /**
@@ -57,57 +128,85 @@ void conv3x3_monochrome_replicate( double* dst, double* im, int w, int h,
         for(int j = 1; j < w-1; j++){
             int iw0 = (i-1)*w, iw1 = (i)*w, iw2 = (i+1)*w;
             int j0 = j-1, j1 = j, j2 = j+1;
-            dst[i*w+j] =
-                    im[iw0+j0]*f[0] + im[iw0+j1]*f[1] + im[iw0+j2]*f[1] +
-                    im[iw1+j0]*f[2] + im[iw1+j1]*f[3] + im[iw1+j2]*f[4] +
-                    im[iw2+j0]*f[5] + im[iw1+j1]*f[6] + im[iw2+j3]*f[7];
+            dst[i*w+j] = apply_filter( im, (int[]) {
+                                      (iw0+j0), (iw0+j1), (iw0+j2),
+                                      (iw1+j0), (iw1+j1), (iw1+j2),
+                                      (iw2+j0), (iw1+j1), (iw2+j3)
+                                  }, f, 9 );
         }
     }
     //edges
-    for(int i = 1; i < h-1; i++){
+    for( int i = 1; i < h-1; i++ ) {
         int j = 0;
         int iw0 = (i-1)*w, iw1 = (i)*w, iw2 = (i+1)*w;
 
-        dst[i*w+j] =
-                im[iw0+(j)]*f[0] + im[iw0+(j)]*f[1] + im[iw0+(j+1)]*f[1] +
-                im[iw1+(j)]*f[2] + im[iw1+(j)]*f[3] + im[iw1+(j+1)]*f[4] +
-                im[iw2+(j)]*f[5] + im[iw2+(j)]*f[6] + im[iw2+(j+1)]*f[7];
+        dst[i*w+j] = apply_filter( im, (int[]) {
+                                       iw0+j, iw0+j, iw0+j+1,
+                                       iw1+j, iw1+j, iw1+j+1,
+                                       iw2+j, iw2+j, iw2+j+1
+                                   }, f, 9);
         j = w-1;
-        dst[i*w+j] =
-                im[iw0+(j-1)]*f[0] + im[iw0+(j)]*f[1] + im[iw0+(j)]*f[1] +
-                im[iw1+(j-1)]*f[2] + im[iw1+(j)]*f[3] + im[iw1+(j)]*f[4] +
-                im[iw2+(j-1)]*f[5] + im[iw2+(j)]*f[6] + im[iw2+(j)]*f[7];
+        dst[i*w+j] = apply_filter( im, (int[]) {
+                                       iw0+(j-1), iw0+j, iw0+j,
+                                       iw1+(j-1), iw1+j, iw1+j,
+                                       iw2+(j-1), iw2+j, iw2+j
+                                   }, f, 9 );
     }
     for(int j = 1; j < w-1; j++){
         int i = 0;
-        dst[i*w+j] =
-                im[0+(j-1)]*f[0] + im[0+(j)]*f[1] + im[0+(j+1)]*f[1] +
-                im[0+(j-1)]*f[2] + im[0+(j)]*f[3] + im[0+(j+1)]*f[4] +
-                im[w+(j-1)]*f[5] + im[w+(j)]*f[6] + im[w+(j+1)]*f[7];
+        dst[i*w+j] = apply_filter( im, (int[]) {
+                                       j-1,   j,   j+1,
+                                       j-1,   j,   j+1,
+                                       w+j-1, w+j, w+j+1
+                                   }, f, 9 );
         i = h-1;
         int w0 = (h-2)*w, w1 = (h-1)*w;
-        dst[i*w+j] =
-                im[w0+(j-1)]*f[0] + im[w0+(j)]*f[1] + im[w0+(j+1)]*f[1] +
-                im[w1+(j-1)]*f[2] + im[w1+(j)]*f[3] + im[w1+(j+1)]*f[4] +
-                im[w1+(j-1)]*f[5] + im[w1+(j)]*f[6] + im[w1+(j+1)]*f[7];
+        dst[i*w+j] = apply_filter( im, (int[]) {
+                                       w0+(j-1), w0+j, w0+j+1,
+                                       w1+(j-1), w1+j, w1+j+1,
+                                       w1+(j-1), w1+j, w1+j+1
+                                   }, f, 9 );
     }
     //corners
-    dst[0] =
-            im[0]*f[0] + im[0]*f[1] + im[0  ]*f[1] +
-            im[0]*f[2] + im[0]*f[3] + im[0  ]*f[4] +
-            im[w]*f[5] + im[w]*f[6] + im[w+1]*f[7];
-    dst[w-1] =
-            im[w-2  ]*f[0] + im[w-1  ]*f[1] + im[w-1  ]*f[1] +
-            im[w-2  ]*f[2] + im[w-1  ]*f[3] + im[w-1  ]*f[4] +
-            im[2*w-2]*f[5] + im[2*w-1]*f[6] + im[2*w-1]*f[7];
-    dst[(h-1)*w] =
-            im[(h-2)*w]*f[0] + im[(h-2)*w]*f[1] + im[(h-2)*w+1]*f[1] +
-            im[(h-1)*w]*f[2] + im[(h-1)*w]*f[3] + im[(h-1)*w+1]*f[4] +
-            im[(h-1)*w]*f[5] + im[(h-1)*w]*f[6] + im[(h-1)*w+1]*f[7];
+    dst[0] = apply_filter( im, (int[]) {
+                               0, 0, 1,
+                               0, 0, 1,
+                               w, w, w+1
+                           }, f, 9 );
+    dst[w-1] = apply_filter( im, (int[]) {
+                                 w-2,   w-1,   w-1,
+                                 w-2,   w-1,   w-1,
+                                 2*w-2, 2*w-1, 2*w-1
+                             }, f, 9 );
+    dst[(h-1)*w] = apply_filter( im, (int[]) {
+                                     (h-2)*w, (h-2)*w, (h-2)*w+1,
+                                     (h-1)*w, (h-1)*w, (h-1)*w+1,
+                                     (h-1)*w, (h-1)*w, (h-1)*w+1
+                                 }, f, 9 );
     int w0 = (h-1)*w-2, w1 = (h-1)*w-1;
-    dst[h*w-1] =
-            im[w0   ]*f[0] + im[w1   ]*f[1] + im[w1   ]*f[1] +
-            im[h*w-2]*f[2] + im[h*w-1]*f[3] + im[h*w-1]*f[4] +
-            im[h*w-2]*f[5] + im[h*w-1]*f[6] + im[h*w-1]*f[7];
-
+    dst[h*w-1] = apply_filter( im, (int[]) {
+                                   w0,    w1,    w1,
+                                   h*w-2, h*w-1, h*w-1,
+                                   h*w-2, h*w-1, h*w-1
+                               }, f, 9 );
 }
+
+/**
+ * @brief Implementation of the MATLAB rgb2gray function
+ *
+ * See: http://www.mathworks.com/help/images/ref/rgb2gray.html
+ *
+ * @param gray (out) Output image
+ * @param rgb Input image
+ * @param npixels Size of image in pixels
+ */
+void rgb2gray( double* dst, double *im, size_t npixels ) {
+    for(int i = 0; i < npixels; i++){
+        double r = im[i*3];
+        double g = im[i*3+1];
+        double b = im[i*3+2];
+        dst[i] = 0.2989 * r + 0.5870 * g + 0.1140 * b; //retain luminance, discard hue and saturation
+    }
+}
+
+
