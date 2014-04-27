@@ -14,7 +14,7 @@ double* exposure_fusion(double** I, int w, int h, int N,
 
     segments_t* mem = (segments_t*) _segments;
     compute_weight_matrices( I, w, h, N, contrast_parm, sat_parm, wexp_parm,
-                             mem);
+                             mem );
 
 
 }
