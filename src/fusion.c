@@ -293,6 +293,10 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     assert(pyr_r != NULL);
     assert(pyr_c != NULL);
 
+    for(int v = 0; v < nlev; v++){
+        zeros(pyr[v],pyr_r[v]*pyr_c[v]*3);
+    }
+
     //multiresolution blending
     double ***pyrW = malloc(N*sizeof(double**));
     uint32_t **pyrW_r = malloc(N*sizeof(double*));
@@ -340,6 +344,7 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     size_t pyrDisp_len = r*(c*2)*3;
     double* pyrDisp = malloc(pyrDisp_len*sizeof(double));
     assert(pyrDisp != NULL);
+    zeros(pyrDisp,pyrDisp_len);
 
     for (int n = 0; n < N; n++){
         //construct 1-channel gaussian pyramid from weights
@@ -872,8 +877,6 @@ void malloc_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, do
         size_t L_len = r_level*c_level*channels;
         double* L = malloc(L_len*sizeof(double));
         assert(L != NULL);
-
-        zeros(L,L_len);
 
         (*pyr)[i] = L; //add entry to array of pointers to image levels
 
