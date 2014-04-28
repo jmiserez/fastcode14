@@ -436,8 +436,10 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     printf("done\n");
 
     free(C);
+    free(Z);
     free(S);
     free(T);
+    free(Q);
     free(U);
     free(V);
     free_pyramid(nlev,pyr,pyr_r,pyr_c);
