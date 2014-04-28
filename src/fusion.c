@@ -455,6 +455,12 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
         free_pyramid(nlev,pyrI[n],pyrI_r[n],pyrI_c[n]);
         free_pyramid(nlev,pyrW[n],pyrW_r[n],pyrW_c[n]);
     }
+    free(pyrI);
+    free(pyrI_r);
+    free(pyrI_c);
+    free(pyrW);
+    free(pyrW_r);
+    free(pyrW_c);
     free(W);
 }
 
