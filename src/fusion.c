@@ -538,7 +538,7 @@ void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, ui
     double pyramid_filter[] = {.0625, .25, .375, .25, .0625};
 
     //J = image
-    elementwise_copy(im,T_len,T); //TODO: optimize this copy away, can use pointer swaps
+    elementwise_copy(im,r*c*channels,T); //TODO: optimize this copy away, can use pointer swaps
 
     uint32_t S_r = r;
     uint32_t S_c = c;
