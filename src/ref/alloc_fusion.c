@@ -1,3 +1,6 @@
+#include<stddef.h>
+#include<stdlib.h>
+
 #include<fusion.h>
 #include"segments.h"
 
@@ -23,7 +26,7 @@ int alloc_fusion( void* segments, int w, int h, int N ) {
     return 1;
 }
 
-int free_fusion( void* segments, int N ) {
+void free_fusion( void* segments, int N ) {
     int i;
     segments_t* mem = (segments_t*) segments;
 
