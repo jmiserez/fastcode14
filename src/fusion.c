@@ -21,11 +21,11 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R);
 void contrast(double *im, uint32_t r, uint32_t c, double *C);
 void saturation(double *im, uint32_t npixels, double *C);
 void well_exposedness(double *im, uint32_t npixels, double *C);
-void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *S, size_t S_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
-void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *S, size_t S_len, double *T, size_t T_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
-void reconstruct_laplacian_pyramid(uint32_t channels, uint32_t nlev, double *S, size_t S_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst);
-void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *S, size_t S_len, uint32_t down_r, uint32_t down_c, double *dst);
-void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *U, size_t U_len, double *V, size_t V_len, uint32_t up_r, uint32_t up_c, double *dst);
+void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *Z, size_t Z_len, double *S, size_t S_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
+void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *Z, size_t Z_len, double *Q, size_t Q_len, double *S, size_t S_len, double *T, size_t T_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
+void reconstruct_laplacian_pyramid(uint32_t channels, uint32_t nlev, double *S, size_t S_len, double *Q, size_t Q_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst);
+void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *Z, size_t Z_len, double *S, size_t S_len, uint32_t down_r, uint32_t down_c, double *dst);
+void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *Q, size_t Q_len,  double *U, size_t U_len, double *V, size_t V_len, uint32_t up_r, uint32_t up_c, double *dst);
 void display_pyramid(uint32_t channels, uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst);
 void compact_display_pyramid(uint32_t channels, uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst);
 void normalize_image(double *src, uint32_t channels, uint32_t r, uint32_t c, double *dst);
@@ -59,8 +59,8 @@ void elementwise_sqrt(double *src, size_t src_len, double *dst);
 void elementwise_copy(double *src, size_t src_len, double *dst);
 void scalar_abs(double *src, size_t src_len, double *dst);
 void conv3x3_monochrome_replicate(double* im, uint32_t r, uint32_t c, double* fxy, double* dst);
-void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double* dst);
-void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double* dst);
+void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double *scratch, double* dst);
+void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double *scratch, double* dst);
 
 void load_images(char **path, int nimages, uint32_t **ret_stack, uint32_t *ret_widths, uint32_t *ret_heights);
 void store_image(char* path, double *R, uint32_t height, uint32_t width, uint32_t channels);
@@ -310,6 +310,9 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
 
     //scratch space for gaussian/laplacian pyramid
     //TODO: optimize these away if possible
+    size_t Z_len = r*c*3;
+    double* Z = malloc(Z_len*sizeof(double));
+    assert(Z != NULL);
     size_t S_len = r*c*3;
     double* S = malloc(S_len*sizeof(double));
     assert(S != NULL);
@@ -323,6 +326,9 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     uint32_t largest_upsampled_c = (((c/2) + (c%2)) + 2) * 2;
 
 
+    size_t Q_len = largest_upsampled_r*largest_upsampled_c*3;
+    double* Q = malloc(Q_len*sizeof(double));
+    assert(Q != NULL);
     size_t U_len = largest_upsampled_r*largest_upsampled_c*3;
     double* U = malloc(U_len*sizeof(double));
     assert(U != NULL);
@@ -341,14 +347,14 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
         assert(pyrW[n] != NULL);
         assert(pyrW_r[n] != NULL);
         assert(pyrW_c[n] != NULL);
-        gaussian_pyramid(W[n],r,c,1,nlev,S,S_len,pyrW[n],pyrW_r[n],pyrW_c[n]);
+        gaussian_pyramid(W[n],r,c,1,nlev,Z,Z_len,S,S_len,pyrW[n],pyrW_r[n],pyrW_c[n]);
 
         //construct 3-channel laplacian pyramid from images
         malloc_pyramid(r,c,3,nlev,&(pyrI[n]), &(pyrI_r[n]), &(pyrI_c[n]));
         assert(pyrI[n] != NULL);
         assert(pyrI_r[n] != NULL);
         assert(pyrI_c[n] != NULL);
-        laplacian_pyramid(I[n],r,c,3,nlev,S,S_len,T,T_len,U,U_len,V,V_len,pyrI[n],pyrI_r[n],pyrI_c[n]);
+        laplacian_pyramid(I[n],r,c,3,nlev,Z,Z_len,S,S_len,T,T_len,Q,Q_len,U,U_len,V,V_len,pyrI[n],pyrI_r[n],pyrI_c[n]);
 
         //weighted blend
         for(int v = 0; v < nlev; v++){
@@ -363,7 +369,7 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     }
 
     //reconstruct laplacian pyramid
-    reconstruct_laplacian_pyramid(3,nlev,S,S_len,U,U_len,V,V_len,pyr,pyr_r,pyr_c,r,c,R);
+    reconstruct_laplacian_pyramid(3,nlev,S,S_len,Q,Q_len,U,U_len,V,V_len,pyr,pyr_r,pyr_c,r,c,R);
 
 #ifndef NDEBUG
     for(int i = 0; i < I_len; i++){
@@ -493,7 +499,7 @@ void well_exposedness(double *im, uint32_t npixels, double *C){
     }
 }
 
-void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *S, size_t S_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c){
+void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *Z, size_t Z_len, double *S, size_t S_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c){
     //pyr is an array of nlev arrays containing images of different (!) sizes
     //at this point pyr is already malloc-ed
     //pyr_r and pyr_c contain the sizes for each level
@@ -512,11 +518,11 @@ void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uin
         //downsample image and store into level
 //        printf("nlev: %d, v: %d, pyr_r[v-1]: %d, pyr_c[v-1]: %d, pyr_r[v]: %d, pyr_c[v]: %d\n",nlev,v, pyr_r[v-1],pyr_c[v-1],pyr_r[v],pyr_c[v]); //TODO DEBUG
         fflush(stdout);
-        downsample(pyr[v-1],pyr_r[v-1],pyr_c[v-1],channels,pyramid_filter,pyramid_filter_len,S,S_len,pyr_r[v],pyr_c[v],pyr[v]);
+        downsample(pyr[v-1],pyr_r[v-1],pyr_c[v-1],channels,pyramid_filter,pyramid_filter_len,Z,Z_len,S,S_len,pyr_r[v],pyr_c[v],pyr[v]);
     }
 }
 
-void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *S, size_t S_len, double *T, size_t T_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c){
+void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *Z, size_t Z_len, double *Q, size_t Q_len, double *S, size_t S_len, double *T, size_t T_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c){
     //pyr is an array of nlev arrays containing images of different (!) sizes
     //at this point pyr is already malloc-ed
     //pyr_r and pyr_c contain the sizes for each level
@@ -545,11 +551,11 @@ void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, ui
         //downsample image T further, store in S
         S_r = pyr_r[v+1];
         S_c = pyr_c[v+1];
-        downsample(T,T_r,T_c,channels,pyramid_filter,pyramid_filter_len,S,S_len,S_r,S_c,S);
+        downsample(T,T_r,T_c,channels,pyramid_filter,pyramid_filter_len,Z,Z_len,S,S_len,S_r,S_c,S);
 
         assert(T_r*T_c == pyr_r[v]*pyr_c[v]);
         //upsample image S, store temporarily in pyramid
-        upsample(S,S_r,S_c,channels,pyramid_filter,pyramid_filter_len,U,U_len,V,V_len,pyr_r[v],pyr_c[v],pyr[v]);
+        upsample(S,S_r,S_c,channels,pyramid_filter,pyramid_filter_len,Q,Q_len,U,U_len,V,V_len,pyr_r[v],pyr_c[v],pyr[v]);
 
         //subtract pyramid from T, store difference (T - upsampled image) in pyramid
         elementwise_sub(T,T_r*T_c*channels,pyr[v],pyr[v]);
@@ -566,7 +572,7 @@ void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, ui
     elementwise_copy(T,T_r*T_c*channels,pyr[nlev-1]);
 }
 
-void reconstruct_laplacian_pyramid(uint32_t channels, uint32_t nlev, double *S, size_t S_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst){
+void reconstruct_laplacian_pyramid(uint32_t channels, uint32_t nlev, double *S, size_t S_len, double *Q, size_t Q_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst){
 
     size_t pyramid_filter_len = 5;
     double pyramid_filter[] = {.0625, .25, .375, .25, .0625};
@@ -576,14 +582,14 @@ void reconstruct_laplacian_pyramid(uint32_t channels, uint32_t nlev, double *S, 
 
     for (int v = nlev-2; v >= 0; v--){
         //upsample to S
-        upsample(dst,pyr_r[v+1],pyr_c[v+1],channels,pyramid_filter,pyramid_filter_len,U,U_len,V,V_len,pyr_r[v],pyr_c[v],S);
+        upsample(dst,pyr_r[v+1],pyr_c[v+1],channels,pyramid_filter,pyramid_filter_len,Q,Q_len,U,U_len,V,V_len,pyr_r[v],pyr_c[v],S);
 
         //add current level to S, store in dst
         elementwise_add(pyr[v],pyr_r[v]*pyr_c[v]*channels,S,dst);
     }
 }
 
-void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *S, size_t S_len, uint32_t down_r, uint32_t down_c, double *dst){
+void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *Z, size_t Z_len, double *S, size_t S_len, uint32_t down_r, uint32_t down_c, double *dst){
     assert(filter_len == 5);
     assert(filter != NULL);
     assert(S != NULL);
@@ -598,7 +604,7 @@ void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *f
 
     //low pass filter
     //TODO: can optimize this, only need to calculate 1/4 of all pixels (can skip every second pixel as the result is never used)
-    conv5x5separable_symmetric(im,r,c,channels,filter,filter,S);
+    conv5x5separable_symmetric(im,r,c,channels,filter,filter,Z,S);
     //decimate, using every second entry
     for(int i = 0; i < down_r; i++){
         for(int j = 0; j < down_c; j++){
@@ -611,7 +617,7 @@ void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *f
     }
 }
 
-void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *U, size_t U_len, double *V, size_t V_len, uint32_t up_r, uint32_t up_c, double *dst){
+void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *Q, size_t Q_len, double *U, size_t U_len, double *V, size_t V_len, uint32_t up_r, uint32_t up_c, double *dst){
     assert(filter_len == 5);
     assert(filter != NULL);
 
@@ -630,29 +636,78 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *fil
 
     zeros(U,U_len);
 
-    //pad image ("replicate" style) and upsample 2x. We should get a 2px border. Dst is U.
-    for(int i = 0; i < r_upsampled; i++){
-        int small_i = (i-2)/2; //2->0, 3->0, 4->1, 5->1, etc.
-        if(small_i < 0){ //TODO: get rid of if/else
-            small_i = 0;
-        } else if( small_i > r-1 ){
-            small_i = r-1;
-        }
-        for(int j = 0; j < c_upsampled; j++){
-            int small_j = (i-2)/2;
-            if(small_j < 0){ //TODO: get rid of if/else
-                small_j = 0;
-            } else if( small_j > c-1 ){
-                small_j = c-1;
-            }
+//    //pad image ("replicate" style) and upsample 2x. We should get a 2px border. Dst is U.
+//    for(int i = 0; i < r_upsampled; i++){
+//        int small_i = (i-2)/2; //2->0, 3->0, 4->1, 5->1, etc.
+//        if(small_i < 0){ //TODO: get rid of if/else
+//            small_i = 0;
+//        } else if( small_i > r-1 ){
+//            small_i = r-1;
+//        }
+//        for(int j = 0; j < c_upsampled; j++){
+//            int small_j = (i-2)/2;
+//            if(small_j < 0){ //TODO: get rid of if/else
+//                small_j = 0;
+//            } else if( small_j > c-1 ){
+//                small_j = c-1;
+//            }
+//            for(int k = 0; k < channels; k++){
+//                U[(i*(c_upsampled)+j)*channels+k] = im[(small_i*c+small_j)*channels+k]; //TODO: not exactly the same as the Matlab version, as we fill in every pixel (not every 4th pixel with value*4).
+//            }
+//        }
+//    }
+
+    for(int i = 0; i < r; i++){
+        for(int j = 0; j < c; j++){
             for(int k = 0; k < channels; k++){
-                U[(i*(c_upsampled)+j)*channels+k] = im[(small_i*c+small_j)*channels+k]; //TODO: not exactly the same as the Matlab version, as we fill in every pixel (not every 4th pixel with value*4).
+                U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[(i*c+j)*channels+k];
             }
         }
     }
+    //top row
+    int i = -1;
+    for(int j = 0; j < c; j++){
+        for(int k = 0; k < channels; k++){
+            U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i+1)*c+(j  ))*channels+k];
+        }
+    }
+    //bottom row
+    i = r;
+    for(int j = 0; j < c; j++){
+        for(int k = 0; k < channels; k++){
+            U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i-1)*c+(j  ))*channels+k];
+        }
+    }
+    //left edge
+    int j = -1;
+    for(int i = 0; i < r; i++){
+        for(int k = 0; k < channels; k++){
+            U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i  )*c+(j+1))*channels+k];
+        }
+    }
+    //right edge
+    j = c;
+    for(int i = 0; i < r; i++){
+        for(int k = 0; k < channels; k++){
+            U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i  )*c+(j-1))*channels+k];
+        }
+    }
+    //corners
+    for(int k = 0; k < channels; k++){
+        i = -1;
+        j = -1;
+        U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i+1)*c+(j+1))*channels+k];
+        j = c;
+        U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i+1)*c+(j-1))*channels+k];
+        i = r;
+        j = -1;
+        U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i-1)*c+(j+1))*channels+k];
+        j = c;
+        U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i-1)*c+(j-1))*channels+k];
+    }
 
     //blur
-    conv5x5separable_replicate(U, r_upsampled, c_upsampled, channels, filter, filter, V);
+    conv5x5separable_replicate(U, r_upsampled, c_upsampled, channels, filter, filter, Q, V);
 
     //remove the border and copy result
     for(int i = 0; i < up_r; i++){
@@ -1074,14 +1129,14 @@ void conv3x3_monochrome_replicate(double* im, uint32_t r, uint32_t c, double* f,
 /**
  * @brief convolution of a multi-channel image with a separable 5x5 filter and border mode "symmetric"
  */
-void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double* dst){
+void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double* scratch, double* dst){
     //r is height (vertical), c is width (horizontal)
 
     //horizontal filter
     for(int i = 0; i < r; i++){ //all lines
         for(int j = 2; j < c-2; j++){
             for(int k = 0; k < channels; k++){
-                dst[(i*c+j)*channels+k] =
+                scratch[(i*c+j)*channels+k] =
                         im[((i  )*c+(j-2))*channels+k]*fx[0] +
                         im[((i  )*c+(j-1))*channels+k]*fx[1] +
                         im[((i  )*c+(j  ))*channels+k]*fx[2] +
@@ -1092,7 +1147,7 @@ void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t cha
         //left edge
         int j = 0; // 1 0 [0 1 2 ... ]
         for(int k = 0; k < channels; k++){
-            dst[(i*c+j)*channels+k] =
+            scratch[(i*c+j)*channels+k] =
                     im[((i  )*c+(j+1))*channels+k]*fx[0] +
                     im[((i  )*c+(j  ))*channels+k]*fx[1] +
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
@@ -1101,7 +1156,7 @@ void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t cha
         }
         j = 1; // -1 [-1 0 1 2 ... ]
         for(int k = 0; k < channels; k++){
-            dst[(i*c+j)*channels+k] =
+            scratch[(i*c+j)*channels+k] =
                     im[((i  )*c+(j-1))*channels+k]*fx[0] +
                     im[((i  )*c+(j-1))*channels+k]*fx[1] +
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
@@ -1111,7 +1166,7 @@ void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t cha
         //right edge
         j = c-2; // [ ... -2 -1 0 1] 1
         for(int k = 0; k < channels; k++){
-            dst[(i*c+j)*channels+k] =
+            scratch[(i*c+j)*channels+k] =
                     im[((i  )*c+(j-2))*channels+k]*fx[0] +
                     im[((i  )*c+(j-1))*channels+k]*fx[1] +
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
@@ -1120,7 +1175,7 @@ void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t cha
         }
         j = c-1; // [ ... -2 -1 0] 0 -1
         for(int k = 0; k < channels; k++){
-            dst[(i*c+j)*channels+k] =
+            scratch[(i*c+j)*channels+k] =
                     im[((i  )*c+(j-2))*channels+k]*fx[0] +
                     im[((i  )*c+(j-1))*channels+k]*fx[1] +
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
@@ -1133,50 +1188,50 @@ void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t cha
         for(int i = 2; i < r-2; i++){
             for(int k = 0; k < channels; k++){
                 dst[(i*c+j)*channels+k] =
-                        im[((i-2)*c+(j  ))*channels+k]*fy[0] +
-                        im[((i-1)*c+(j  ))*channels+k]*fy[1] +
-                        im[((i  )*c+(j  ))*channels+k]*fy[2] +
-                        im[((i+1)*c+(j  ))*channels+k]*fy[3] +
-                        im[((i+2)*c+(j  ))*channels+k]*fy[4];
+                        scratch[((i-2)*c+(j  ))*channels+k]*fy[0] +
+                        scratch[((i-1)*c+(j  ))*channels+k]*fy[1] +
+                        scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
+                        scratch[((i+1)*c+(j  ))*channels+k]*fy[3] +
+                        scratch[((i+2)*c+(j  ))*channels+k]*fy[4];
             }
         }
         //top edge
         int i = 0; // 1 0 [0 1 2 ... ]
         for(int k = 0; k < channels; k++){
             dst[(i*c+j)*channels+k] =
-                    im[((i+1)*c+(j  ))*channels+k]*fy[0] +
-                    im[((i  )*c+(j  ))*channels+k]*fy[1] +
-                    im[((i  )*c+(j  ))*channels+k]*fy[2] +
-                    im[((i+1)*c+(j  ))*channels+k]*fy[3] +
-                    im[((i+2)*c+(j  ))*channels+k]*fy[4];
+                    scratch[((i+1)*c+(j  ))*channels+k]*fy[0] +
+                    scratch[((i  )*c+(j  ))*channels+k]*fy[1] +
+                    scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
+                    scratch[((i+1)*c+(j  ))*channels+k]*fy[3] +
+                    scratch[((i+2)*c+(j  ))*channels+k]*fy[4];
         }
         i = 1; // -1 [-1 0 1 2 ... ]
         for(int k = 0; k < channels; k++){
             dst[(i*c+j)*channels+k] =
-                    im[((i-1)*c+(j  ))*channels+k]*fy[0] +
-                    im[((i-1)*c+(j  ))*channels+k]*fy[1] +
-                    im[((i  )*c+(j  ))*channels+k]*fy[2] +
-                    im[((i+1)*c+(j  ))*channels+k]*fy[3] +
-                    im[((i+2)*c+(j  ))*channels+k]*fy[4];
+                    scratch[((i-1)*c+(j  ))*channels+k]*fy[0] +
+                    scratch[((i-1)*c+(j  ))*channels+k]*fy[1] +
+                    scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
+                    scratch[((i+1)*c+(j  ))*channels+k]*fy[3] +
+                    scratch[((i+2)*c+(j  ))*channels+k]*fy[4];
         }
         //bottom edge
         i = r-2; // [ ... -2 -1 0 1] 1
         for(int k = 0; k < channels; k++){
             dst[(i*c+j)*channels+k] =
-                    im[((i-2)*c+(j  ))*channels+k]*fy[0] +
-                    im[((i-1)*c+(j  ))*channels+k]*fy[1] +
-                    im[((i  )*c+(j  ))*channels+k]*fy[2] +
-                    im[((i+1)*c+(j  ))*channels+k]*fy[3] +
-                    im[((i+1)*c+(j  ))*channels+k]*fy[4];
+                    scratch[((i-2)*c+(j  ))*channels+k]*fy[0] +
+                    scratch[((i-1)*c+(j  ))*channels+k]*fy[1] +
+                    scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
+                    scratch[((i+1)*c+(j  ))*channels+k]*fy[3] +
+                    scratch[((i+1)*c+(j  ))*channels+k]*fy[4];
         }
         i = r-1; // [ ... -2 -1 0] 0 -1
         for(int k = 0; k < channels; k++){
             dst[(i*c+j)*channels+k] =
-                    im[((i-2)*c+(j  ))*channels+k]*fy[0] +
-                    im[((i-1)*c+(j  ))*channels+k]*fy[1] +
-                    im[((i  )*c+(j  ))*channels+k]*fy[2] +
-                    im[((i  )*c+(j  ))*channels+k]*fy[3] +
-                    im[((i-1)*c+(j  ))*channels+k]*fy[4];
+                    scratch[((i-2)*c+(j  ))*channels+k]*fy[0] +
+                    scratch[((i-1)*c+(j  ))*channels+k]*fy[1] +
+                    scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
+                    scratch[((i  )*c+(j  ))*channels+k]*fy[3] +
+                    scratch[((i-1)*c+(j  ))*channels+k]*fy[4];
         }
     }
 }
@@ -1184,14 +1239,14 @@ void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t cha
 /**
  * @brief convolution of a multi-channel image with a separable 5x5 filter and border mode "replicate"
  */
-void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double* dst){
+void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double* scratch, double* dst){
     //r is height (vertical), c is width (horizontal)
 
     //horizontal filter
     for(int i = 0; i < r; i++){ //all lines
         for(int j = 2; j < c-2; j++){
             for(int k = 0; k < channels; k++){
-                dst[(i*c+j)*channels+k] =
+                scratch[(i*c+j)*channels+k] =
                         im[((i  )*c+(j-2))*channels+k]*fx[0] +
                         im[((i  )*c+(j-1))*channels+k]*fx[1] +
                         im[((i  )*c+(j  ))*channels+k]*fx[2] +
@@ -1202,7 +1257,7 @@ void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t cha
         //left edge
         int j = 0; // 0 0 [0 1 2 ... ]
         for(int k = 0; k < channels; k++){
-            dst[(i*c+j)*channels+k] =
+            scratch[(i*c+j)*channels+k] =
                     im[((i  )*c+(j  ))*channels+k]*fx[0] +
                     im[((i  )*c+(j  ))*channels+k]*fx[1] +
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
@@ -1211,7 +1266,7 @@ void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t cha
         }
         j = 1; // -1 [-1 0 1 2 ... ]
         for(int k = 0; k < channels; k++){
-            dst[(i*c+j)*channels+k] =
+            scratch[(i*c+j)*channels+k] =
                     im[((i  )*c+(j-1))*channels+k]*fx[0] +
                     im[((i  )*c+(j-1))*channels+k]*fx[1] +
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
@@ -1221,7 +1276,7 @@ void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t cha
         //right edge
         j = c-2; // [ ... -2 -1 0 1] 1
         for(int k = 0; k < channels; k++){
-            dst[(i*c+j)*channels+k] =
+            scratch[(i*c+j)*channels+k] =
                     im[((i  )*c+(j-2))*channels+k]*fx[0] +
                     im[((i  )*c+(j-1))*channels+k]*fx[1] +
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
@@ -1230,7 +1285,7 @@ void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t cha
         }
         j = c-1; // [ ... -2 -1 0] 0 0
         for(int k = 0; k < channels; k++){
-            dst[(i*c+j)*channels+k] =
+            scratch[(i*c+j)*channels+k] =
                     im[((i  )*c+(j-2))*channels+k]*fx[0] +
                     im[((i  )*c+(j-1))*channels+k]*fx[1] +
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
@@ -1243,50 +1298,50 @@ void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t cha
         for(int i = 2; i < r-2; i++){
             for(int k = 0; k < channels; k++){
                 dst[(i*c+j)*channels+k] =
-                        im[((i-2)*c+(j  ))*channels+k]*fy[0] +
-                        im[((i-1)*c+(j  ))*channels+k]*fy[1] +
-                        im[((i  )*c+(j  ))*channels+k]*fy[2] +
-                        im[((i+1)*c+(j  ))*channels+k]*fy[3] +
-                        im[((i+2)*c+(j  ))*channels+k]*fy[4];
+                        scratch[((i-2)*c+(j  ))*channels+k]*fy[0] +
+                        scratch[((i-1)*c+(j  ))*channels+k]*fy[1] +
+                        scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
+                        scratch[((i+1)*c+(j  ))*channels+k]*fy[3] +
+                        scratch[((i+2)*c+(j  ))*channels+k]*fy[4];
             }
         }
         //top edge
         int i = 0; // 0 0 [0 1 2 ... ]
         for(int k = 0; k < channels; k++){
             dst[(i*c+j)*channels+k] =
-                    im[((i  )*c+(j  ))*channels+k]*fy[0] +
-                    im[((i  )*c+(j  ))*channels+k]*fy[1] +
-                    im[((i  )*c+(j  ))*channels+k]*fy[2] +
-                    im[((i+1)*c+(j  ))*channels+k]*fy[3] +
-                    im[((i+2)*c+(j  ))*channels+k]*fy[4];
+                    scratch[((i  )*c+(j  ))*channels+k]*fy[0] +
+                    scratch[((i  )*c+(j  ))*channels+k]*fy[1] +
+                    scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
+                    scratch[((i+1)*c+(j  ))*channels+k]*fy[3] +
+                    scratch[((i+2)*c+(j  ))*channels+k]*fy[4];
         }
         i = 1; // -1 [-1 0 1 2 ... ]
         for(int k = 0; k < channels; k++){
             dst[(i*c+j)*channels+k] =
-                    im[((i-1)*c+(j  ))*channels+k]*fy[0] +
-                    im[((i-1)*c+(j  ))*channels+k]*fy[1] +
-                    im[((i  )*c+(j  ))*channels+k]*fy[2] +
-                    im[((i+1)*c+(j  ))*channels+k]*fy[3] +
-                    im[((i+2)*c+(j  ))*channels+k]*fy[4];
+                    scratch[((i-1)*c+(j  ))*channels+k]*fy[0] +
+                    scratch[((i-1)*c+(j  ))*channels+k]*fy[1] +
+                    scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
+                    scratch[((i+1)*c+(j  ))*channels+k]*fy[3] +
+                    scratch[((i+2)*c+(j  ))*channels+k]*fy[4];
         }
         //bottom edge
         i = r-2; // [ ... -2 -1 0 1] 1
         for(int k = 0; k < channels; k++){
             dst[(i*c+j)*channels+k] =
-                    im[((i-2)*c+(j  ))*channels+k]*fy[0] +
-                    im[((i-1)*c+(j  ))*channels+k]*fy[1] +
-                    im[((i  )*c+(j  ))*channels+k]*fy[2] +
-                    im[((i+1)*c+(j  ))*channels+k]*fy[3] +
-                    im[((i+1)*c+(j  ))*channels+k]*fy[4];
+                    scratch[((i-2)*c+(j  ))*channels+k]*fy[0] +
+                    scratch[((i-1)*c+(j  ))*channels+k]*fy[1] +
+                    scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
+                    scratch[((i+1)*c+(j  ))*channels+k]*fy[3] +
+                    scratch[((i+1)*c+(j  ))*channels+k]*fy[4];
         }
         i = r-1; // [ ... -2 -1 0] 0 0
         for(int k = 0; k < channels; k++){
             dst[(i*c+j)*channels+k] =
-                    im[((i-2)*c+(j  ))*channels+k]*fy[0] +
-                    im[((i-1)*c+(j  ))*channels+k]*fy[1] +
-                    im[((i  )*c+(j  ))*channels+k]*fy[2] +
-                    im[((i  )*c+(j  ))*channels+k]*fy[3] +
-                    im[((i  )*c+(j  ))*channels+k]*fy[4];
+                    scratch[((i-2)*c+(j  ))*channels+k]*fy[0] +
+                    scratch[((i-1)*c+(j  ))*channels+k]*fy[1] +
+                    scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
+                    scratch[((i  )*c+(j  ))*channels+k]*fy[3] +
+                    scratch[((i  )*c+(j  ))*channels+k]*fy[4];
         }
     }
 }
