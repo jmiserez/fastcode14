@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <getopt.h>
 #include <math.h>
+#include <float.h>
 
 #include <tiffio.h>
 
@@ -23,9 +24,11 @@ void well_exposedness(double *im, uint32_t npixels, double *C);
 void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *S, size_t S_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
 void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *S, size_t S_len, double *T, size_t T_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
 void reconstruct_laplacian_pyramid(uint32_t channels, uint32_t nlev, double *S, size_t S_len, double *U, size_t U_len, double *V, size_t V_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst);
-void display_pyramid(uint32_t channels, uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst);
 void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *S, size_t S_len, uint32_t down_r, uint32_t down_c, double *dst);
 void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *filter, size_t filter_len, double *U, size_t U_len, double *V, size_t V_len, uint32_t up_r, uint32_t up_c, double *dst);
+void display_pyramid(uint32_t channels, uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst);
+void compact_display_pyramid(uint32_t channels, uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst);
+void normalize_image(double *src, uint32_t channels, uint32_t r, uint32_t c, double *dst);
 
 uint32_t compute_nlev(uint32_t r, uint32_t c);
 void malloc_foreach(double **dst, size_t size, uint32_t N);
@@ -60,7 +63,7 @@ void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t cha
 void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double* dst);
 
 void load_images(char **path, int nimages, uint32_t **ret_stack, uint32_t *ret_widths, uint32_t *ret_heights);
-void store_image(char* path, double *R, uint32_t height, uint32_t width);
+void store_image(char* path, double *R, uint32_t height, uint32_t width, uint32_t channels);
 
 void tiff2rgb(uint32_t *tiff, size_t npixels, double* ret_rgb);
 int debug_tiff_test(const char *in_img, char *out_img);
@@ -173,7 +176,7 @@ void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height){
     //run fusion
     exposure_fusion(I, height, width, nimages, m, R);
 
-    store_image("result.tif", R, height, width);
+    store_image("result.tif", R, height, width, 3);
 
     printf("result.tif written to disk\n");
 
@@ -269,6 +272,14 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
         assert(sum_weight >= 0.99 && sum_weight <= 1.01); //ensure all weights sum to one for each pixel
     }
 #endif
+#ifndef NDEBUG
+    for(int i = 0; i < W_len; i++){
+        char fname[50];
+        sprintf(fname, "_W[%d].tif", i);
+        store_image(fname, W[i], r, c, 1);
+        printf("%s written to disk\n", fname);
+    }
+#endif
 
     uint32_t nlev = compute_nlev(r,c);
     assert(nlev != 0);
@@ -306,14 +317,23 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     double* T = malloc(T_len*sizeof(double));
     assert(T != NULL);
     //how much scratch space is needed for upsampling?
-    uint32_t largest_upsampled_r = (r % 2 == 0) ? (((r-1)/2) + 2) * 2 : (((r-1)/2+1) + 2) * 2;
-    uint32_t largest_upsampled_c = (c % 2 == 0) ? (((c-1)/2) + 2) * 2 : (((c-1)/2+1) + 2) * 2;
+
+    //(largest downsampled image + 1px border), upsampled 2x
+    uint32_t largest_upsampled_r = (((r/2) + (r%2)) + 2) * 2;
+    uint32_t largest_upsampled_c = (((c/2) + (c%2)) + 2) * 2;
+
+
     size_t U_len = largest_upsampled_r*largest_upsampled_c*3;
     double* U = malloc(U_len*sizeof(double));
     assert(U != NULL);
     size_t V_len = largest_upsampled_r*largest_upsampled_c*3;
     double* V = malloc(V_len*sizeof(double));
     assert(V != NULL);
+
+    //memory for display_pyramid (twice the width of the input images)
+    size_t pyrDisp_len = r*(c*2)*3;
+    double* pyrDisp = malloc(pyrDisp_len*sizeof(double));
+    assert(pyrDisp != NULL);
 
     for (int n = 0; n < N; n++){
         //construct 1-channel gaussian pyramid from weights
@@ -343,18 +363,69 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     }
 
     //reconstruct laplacian pyramid
-//    reconstruct_laplacian_pyramid(3,nlev,S,S_len,U,U_len,V,V_len,pyr,pyr_r,pyr_c,r,c,R);
+    reconstruct_laplacian_pyramid(3,nlev,S,S_len,U,U_len,V,V_len,pyr,pyr_r,pyr_c,r,c,R);
 
-    //TODO: remove debug
-//    for(int i = 0; i < r; i++){
-//        for(int j = 0; j < c; j++){
-//            for(int k = 0; k < 3; k++){
-//                R[(i*c+j)*3+k] = W[0][i*c+j];
-//            }
-//        }
-//    }
+#ifndef NDEBUG
+    for(int i = 0; i < I_len; i++){
+        char fname[50];
 
-    display_pyramid(3,nlev,pyrI[0],pyrI_r[0],pyrI_c[0],r,c,R);
+        //pyrW
+        display_pyramid(1,nlev,pyrW[i],pyrW_r[i],pyrW_c[i],r,c*2,pyrDisp);
+        sprintf(fname, "_pyrW[%d].tif", i);
+        store_image(fname, pyrDisp, r, c*2, 1);
+        printf("%s written to disk\n", fname);
+
+        normalize_image(pyrDisp,1,r,c*2,pyrDisp);
+        sprintf(fname, "_pyrW_norm[%d].tif", i);
+        store_image(fname, pyrDisp, r, c*2, 1);
+        printf("%s written to disk\n", fname);
+
+        compact_display_pyramid(1,nlev,pyrW[i],pyrW_r[i],pyrW_c[i],r,c,pyrDisp);
+        sprintf(fname, "_pyrW_compact[%d].tif", i);
+        store_image(fname, pyrDisp, r, c, 1);
+        printf("%s written to disk\n", fname);
+
+        normalize_image(pyrDisp,1,r,c,pyrDisp);
+        sprintf(fname, "_pyrW_compact_norm[%d].tif", i);
+        store_image(fname, pyrDisp, r, c, 1);
+        printf("%s written to disk\n", fname);
+
+        //pyrI
+        display_pyramid(3,nlev,pyrI[i],pyrI_r[i],pyrI_c[i],r,c*2,pyrDisp);
+        sprintf(fname, "_pyrI[%d].tif", i);
+        store_image(fname, pyrDisp, r, c*2, 3);
+        printf("%s written to disk\n", fname);
+
+        normalize_image(pyrDisp,3,r,c*2,pyrDisp);
+        sprintf(fname, "_pyrI_norm[%d].tif", i);
+        store_image(fname, pyrDisp, r, c*2, 3);
+        printf("%s written to disk\n", fname);
+
+        compact_display_pyramid(3,nlev,pyrI[i],pyrI_r[i],pyrI_c[i],r,c,pyrDisp);
+        sprintf(fname, "_pyrI_compact[%d].tif", i);
+        store_image(fname, pyrDisp, r, c, 3);
+        printf("%s written to disk\n", fname);
+
+        normalize_image(pyrDisp,3,r,c,pyrDisp);
+        sprintf(fname, "_pyrI_compact_norm[%d].tif", i);
+        store_image(fname, pyrDisp, r, c, 3);
+        printf("%s written to disk\n", fname);
+    }
+
+    display_pyramid(3,nlev,pyr,pyr_r,pyr_c,r,c*2,pyrDisp);
+    store_image("_pyr.tif", pyrDisp, r, c*2, 3);
+    printf("_pyr.tif written to disk\n");
+    normalize_image(pyrDisp,3,r,c*2,pyrDisp);
+    store_image("_pyr_norm.tif", pyrDisp, r, c*2, 3);
+    printf("_pyr_norm.tif written to disk\n");
+
+    compact_display_pyramid(3,nlev,pyr,pyr_r,pyr_c,r,c,pyrDisp);
+    store_image("_pyr_compact.tif", pyrDisp, r, c, 3);
+    printf("_pyr_compact.tif written to disk\n");
+    normalize_image(pyrDisp,3,r,c,pyrDisp);
+    store_image("_pyr_compact_norm.tif", pyrDisp, r, c, 3);
+    printf("_pyr_compact_norm.tif written to disk\n");
+#endif
 
     printf("done\n");
 
@@ -404,49 +475,6 @@ void saturation(double *im, uint32_t npixels, double *C){
         double mu = (r + g + b) / 3.0;
         C[i] = sqrt(pow(r-mu,2) + pow(g-mu,2) + pow(b-mu,2)/3.0);
     }
-
-    // Matlab-like literal version (operations on whole matrices)
-    //
-    //    size_t R_len = npixels; //1 value/pixel
-    //    double* R = malloc(R_len*sizeof(double));
-    //    assert(R != NULL);
-    //    size_t G_len = npixels; //1 value/pixel
-    //    double* G = malloc(G_len*sizeof(double));
-    //    assert(G != NULL);
-    //    size_t B_len = npixels; //1 value/pixel
-    //    double* B = malloc(B_len*sizeof(double));
-    //    assert(B != NULL);
-
-    //    double* rgb[] = {
-    //        R, G, B
-    //    };
-
-    //    unzip(im,3*npixels,3,rgb); //split image into 3 channels
-
-    //    size_t mu_len = npixels; //1 value/pixel
-    //    double* mu = malloc(R_len*sizeof(double));
-    //    assert(mu != NULL);
-
-    //    elementwise_add(R,R_len,G,mu);
-    //    elementwise_add(mu,mu_len,B,mu);
-    //    scalar_div(mu,mu_len,3,mu);
-
-    //    elementwise_sub(R,R_len,mu,R);
-    //    elementwise_sub(G,G_len,mu,G);
-    //    elementwise_sub(B,B_len,mu,B);
-
-    //    scalar_pow(R,R_len,2,R);
-    //    scalar_pow(G,G_len,2,G);
-    //    scalar_pow(B,B_len,2,B);
-
-    //    elementwise_add(R,R_len,G,C);
-    //    elementwise_add(C,C_len,B,C);
-    //    scalar_div(C,C_len,3,C);
-
-    //    free(R);
-    //    free(G);
-    //    free(B);
-    //    free(mu);
 }
 
 void well_exposedness(double *im, uint32_t npixels, double *C){
@@ -560,19 +588,18 @@ void downsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *f
     assert(filter != NULL);
     assert(S != NULL);
     assert(r*c*channels <= S_len);
-
-    //low pass filter
-    conv5x5separable_symmetric(im,r,c,channels,filter,filter,S);
-    //decimate, using every second entry
     // [1] -> [1]
     // [1 2] -> [1]
     // [1 2 3] -> [1 3]
     // [1 2 3 4] -> [1 3]
-    // width if odd: (W-1)/2+1, otherwise: (W-1)/2
-    assert(down_r > 0 && down_r <= (r-1)/2+1);
-    assert(down_c > 0 && down_c <= (c-1)/2+1);
-    assert((down_r-1)*2 < r);
-    assert((down_c-1)*2 < c);
+    // width: W/2 + W%2
+    assert(down_r == (r/2) + (r%2));
+    assert(down_c == (c/2) + (c%2));
+
+    //low pass filter
+    //TODO: can optimize this, only need to calculate 1/4 of all pixels (can skip every second pixel as the result is never used)
+    conv5x5separable_symmetric(im,r,c,channels,filter,filter,S);
+    //decimate, using every second entry
     for(int i = 0; i < down_r; i++){
         for(int j = 0; j < down_c; j++){
             for(int k = 0; k < channels; k++){
@@ -593,97 +620,160 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *fil
     //sizes with added 1 px border and size increase of 2x
     uint32_t r_upsampled = (r+2*padding)*2;
     uint32_t c_upsampled = (c+2*padding)*2;
+    uint32_t r_odd = up_r % 2;
+    uint32_t c_odd = up_c % 2;
+    assert(up_r == r_upsampled - 4*padding - r_odd);
+    assert(up_c == c_upsampled - 4*padding - c_odd);
 
     assert(U_len >= r_upsampled*c_upsampled*channels);
     assert(V_len == U_len);
 
     zeros(U,U_len);
 
-    for(int i = 0; i < r; i++){
-        for(int j = 0; j < c; j++){
+    //pad image ("replicate" style) and upsample 2x. We should get a 2px border. Dst is U.
+    for(int i = 0; i < r_upsampled; i++){
+        int small_i = (i-2)/2; //2->0, 3->0, 4->1, 5->1, etc.
+        if(small_i < 0){ //TODO: get rid of if/else
+            small_i = 0;
+        } else if( small_i > r-1 ){
+            small_i = r-1;
+        }
+        for(int j = 0; j < c_upsampled; j++){
+            int small_j = (i-2)/2;
+            if(small_j < 0){ //TODO: get rid of if/else
+                small_j = 0;
+            } else if( small_j > c-1 ){
+                small_j = c-1;
+            }
             for(int k = 0; k < channels; k++){
-
-                // i -> U_i (padding, then scaled)
-                // 0 -> 2
-                // 1 -> 4
-                // 2 -> 6
-                // 3 -> 8
-
-                //i : 0 to r-1 -> 2 to 2*r (e.g. r=5, padded=7, scaled=14, 10, thus [0,1|2,3|4,5|6,7|8,9|10,11|12,13]
-
-                U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[(i*c+j)*channels+k];
+                U[(i*(c_upsampled)+j)*channels+k] = im[(small_i*c+small_j)*channels+k]; //TODO: not exactly the same as the Matlab version, as we fill in every pixel (not every 4th pixel with value*4).
             }
         }
     }
-    //top row
-    int i = -1;
-    for(int j = 0; j < c; j++){
-        for(int k = 0; k < channels; k++){
-            U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i+1)*c+(j  ))*channels+k];
-        }
-    }
-    //bottom row
-    i = r;
-    for(int j = 0; j < c; j++){
-        for(int k = 0; k < channels; k++){
-            U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i-1)*c+(j  ))*channels+k];
-        }
-    }
-    //left edge
-    int j = -1;
-    for(int i = 0; i < r; i++){
-        for(int k = 0; k < channels; k++){
-            U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i  )*c+(j+1))*channels+k];
-        }
-    }
-    //right edge
-    j = c;
-    for(int i = 0; i < r; i++){
-        for(int k = 0; k < channels; k++){
-            U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i  )*c+(j-1))*channels+k];
-        }
-    }
-    //corners
-    for(int k = 0; k < channels; k++){
-        i = -1;
-        j = -1;
-        U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i+1)*c+(j+1))*channels+k];
-        j = c;
-        U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i+1)*c+(j-1))*channels+k];
-        i = r;
-        j = -1;
-        U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i-1)*c+(j+1))*channels+k];
-        j = c;
-        U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i-1)*c+(j-1))*channels+k];
-    }
 
-    //interpolate
+    //blur
     conv5x5separable_replicate(U, r_upsampled, c_upsampled, channels, filter, filter, V);
 
     //remove the border and copy result
-    assert(up_r <= r_upsampled-2); //TODO: check if this should be 4 or 2?
-    assert(up_c <= c_upsampled-2);
-
     for(int i = 0; i < up_r; i++){
         for(int j = 0; j < up_c; j++){
             for(int k = 0; k < channels; k++){
-                dst[(i*up_c+j)*channels+k] = U[((i+2)*c_upsampled+(j+2))*channels+k];
+                dst[(i*up_c+j)*channels+k] = V[((i+2)*c_upsampled+(j+2))*channels+k];
             }
         }
     }
 }
 
+/**
+ * @brief Follows the Matlab implementation. Not the same as used in the paper.
+ */
 void display_pyramid(uint32_t channels, uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst){
-    uint32_t offset = 1;
+    assert(r == pyr_r[0]);
+    assert(c == pyr_c[0] * 2);
+
+#ifndef NDEBUG
+    //check if the image is high enough to show the whole pyramid in full
+    int pyr_c_cumulative_sum = 0;
     for(int v = 0; v < nlev; v++){
-        for(int i = 0; i < r; i++){
-            for (int j = offset-1; j < offset-2+c; j++){
+        pyr_c_cumulative_sum += pyr_c[v];
+        assert(pyr_c_cumulative_sum <= c);
+    }
+#endif
+
+    //set to zeros
+    for(int i = 0; i < r; i++){
+        for (int j = 0; j < c; j++){
+            for (int k = 0; k < channels; k++){
+                dst[(i*c+j)*channels+k] = 0;
+            }
+        }
+    }
+
+    //fill pixels
+    uint32_t c_offset = 0;
+    uint32_t r_offset = 0;
+    for(int v = 0; v < nlev; v++){
+        for(int i = 0; i < pyr_r[v]; i++){
+            for (int j = 0; j < pyr_c[v]; j++){
                 for (int k = 0; k < channels; k++){
-                    dst[(i*c+j)*channels+k] = pyr[v][(i*c+(j-offset+1))*channels+k];
+                    dst[((i+r_offset)*c+(j+c_offset))*channels+k] = pyr[v][(i*pyr_c[v]+j)*channels+k];
                 }
             }
         }
-        offset = offset + pyr_c[v];
+        c_offset += pyr_c[v]; //offset
+    }
+}
+
+/**
+ * @brief Mimics the images shown in paper.
+ */
+void compact_display_pyramid(uint32_t channels, uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c, uint32_t r, uint32_t c, double *dst){
+    assert(r == pyr_r[0]);
+    assert(c == pyr_c[0]);
+
+    //set to zeros
+    for(int i = 0; i < r; i++){
+        for (int j = 0; j < c; j++){
+            for (int k = 0; k < channels; k++){
+                dst[(i*c+j)*channels+k] = 0;
+            }
+        }
+    }
+
+    //fill pixels
+    uint32_t c_offset = 0;
+    uint32_t r_offset = 0;
+    for(int v = 0; v < nlev; v++){
+        r_offset = r-pyr_r[v];
+        for(int i = 0; i < pyr_r[v]; i++){
+            for (int j = 0; j < pyr_c[v]; j++){
+                for (int k = 0; k < channels; k++){
+                    dst[((i+r_offset)*c+(j+c_offset))*channels+k] = pyr[v][(i*pyr_c[v]+j)*channels+k];
+                }
+            }
+        }
+        if(v > 0){
+            c_offset += pyr_c[v]; //add column offset, but not the first time
+        }
+    }
+}
+
+void normalize_image(double *src, uint32_t channels, uint32_t r, uint32_t c, double *dst){
+    //handle negative values
+    double min_value = DBL_MAX;
+    double max_value = -DBL_MAX;
+    for(int i = 0; i < r; i++){
+        for (int j = 0; j < c; j++){
+            for (int k = 0; k < channels; k++){
+                double value = src[(i*c+j)*channels+k];
+                if(value < min_value){
+                    min_value = value;
+                }
+                if(value > max_value){
+                    max_value = value;
+                }
+            }
+        }
+    }
+    assert(min_value < DBL_MAX);
+    assert(max_value > -DBL_MAX);
+    if(min_value < 1.0E-5){
+        for(int i = 0; i < r; i++){
+            for (int j = 0; j < c; j++){
+                for (int k = 0; k < channels; k++){
+                    double value = src[(i*c+j)*channels+k];
+                    dst[(i*c+j)*channels+k] = (value - min_value) / (max_value - min_value);
+                }
+            }
+        }
+    } else {
+        for(int i = 0; i < r; i++){
+            for (int j = 0; j < c; j++){
+                for (int k = 0; k < channels; k++){
+                    dst[(i*c+j)*channels+k] = src[(i*c+j)*channels+k];
+                }
+            }
+        }
     }
 }
 
@@ -731,8 +821,8 @@ void malloc_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, do
         (*pyr)[i] = L; //add entry to array of pointers to image levels
 
         // for next level, width if odd: (W-1)/2+1, otherwise: (W-1)/2
-        r_level = (r_level % 2 == 0) ? (r_level-1)/2 : (r_level-1)/2+1;
-        c_level = (c_level % 2 == 0) ? (c_level-1)/2 : (c_level-1)/2+1;
+        r_level = r_level / 2 + (r_level % 2);
+        c_level = c_level / 2 + (c_level % 2);
     }
 }
 
@@ -1243,20 +1333,35 @@ void load_images(char **path, int nimages, uint32_t **ret_stack, uint32_t *ret_w
     }
 }
 
-void store_image(char* path, double *R, uint32_t height, uint32_t width){
+void store_image(char* path, double *R, uint32_t height, uint32_t width, uint32_t channels){
+    assert(channels == 1 || channels == 3);
     uint32_t npixels = width*height;
 
     TIFF *out = TIFFOpen(path, "w");
     uint32_t* raster = (uint32_t*) _TIFFmalloc(npixels * sizeof(uint32_t));
 
     assert(raster != NULL);
-    for(int i = 0; i < npixels; i++){
-        uint32_t packed = 0;
-        packed |= (uint32_t)(fmin(fmax(0.0, round(R[i*3]*255.0)), 255.0));
-        packed |= ((uint32_t)(fmin(fmax(0.0, round(R[i*3+1]*255.0)), 255.0))) << 8;
-        packed |= ((uint32_t)(fmin(fmax(0.0, round(R[i*3+2]*255.0)), 255.0))) << 16;
-        packed |= ((uint32_t)255) << 24;
-        raster[i] = packed;
+    switch(channels){
+        case 1:
+            for(int i = 0; i < npixels; i++){
+                uint32_t packed = 0;
+                packed |= (uint32_t)(fmin(fmax(0.0, round(R[i]*255.0)), 255.0));
+                packed |= ((uint32_t)(fmin(fmax(0.0, round(R[i]*255.0)), 255.0))) << 8;
+                packed |= ((uint32_t)(fmin(fmax(0.0, round(R[i]*255.0)), 255.0))) << 16;
+                packed |= ((uint32_t)255) << 24;
+                raster[i] = packed;
+            }
+            break;
+        case 3:
+            for(int i = 0; i < npixels; i++){
+                uint32_t packed = 0;
+                packed |= (uint32_t)(fmin(fmax(0.0, round(R[i*3]*255.0)), 255.0));
+                packed |= ((uint32_t)(fmin(fmax(0.0, round(R[i*3+1]*255.0)), 255.0))) << 8;
+                packed |= ((uint32_t)(fmin(fmax(0.0, round(R[i*3+2]*255.0)), 255.0))) << 16;
+                packed |= ((uint32_t)255) << 24;
+                raster[i] = packed;
+            }
+            break;
     }
 
     TIFFSetField(out, TIFFTAG_IMAGEWIDTH, width);

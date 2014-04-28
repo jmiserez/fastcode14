@@ -36,7 +36,11 @@ $(TARGET): $(OBJ) $(TIFFLIB)
 clean:
 	rm -f *.o
 	rm -f $(TARGET)
+	rm -f result.tif
 	rm -f debug.tif
+	rm -f $(wildcard _*.tif)
+	
+
 
 distclean: clean
 	rm -rf tiff-4.0.2
