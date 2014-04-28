@@ -443,6 +443,7 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     free(U);
     free(V);
     free_pyramid(nlev,pyr,pyr_r,pyr_c);
+    free(pyrDisp);
 
     for (int n = 0; n < N; n++){
         free(W[n]);
@@ -518,8 +519,6 @@ void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uin
 
     for(int v = 1; v < nlev; v++){
         //downsample image and store into level
-//        printf("nlev: %d, v: %d, pyr_r[v-1]: %d, pyr_c[v-1]: %d, pyr_r[v]: %d, pyr_c[v]: %d\n",nlev,v, pyr_r[v-1],pyr_c[v-1],pyr_r[v],pyr_c[v]); //TODO DEBUG
-        fflush(stdout);
         downsample(pyr[v-1],pyr_r[v-1],pyr_c[v-1],channels,pyramid_filter,pyramid_filter_len,Z,Z_len,S,S_len,pyr_r[v],pyr_c[v],pyr[v]);
     }
 }
@@ -568,7 +567,6 @@ void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, ui
         elementwise_copy(S,S_r*S_c*channels,T); //TODO: optimize this copy away, can use pointer swaps (handle first and last cases!)
     }
     //coarsest level, residual low pass imaggi
-//    printf("T_len: %d, pyr[nlev-1]: %d\n",T_len,pyr[nlev-1]); //TODO Debug: remove
     assert(T_r*T_c*channels <= T_len);
     assert(T_r*T_c*channels == pyr_r[nlev-1]*pyr_c[nlev-1]*channels);
     elementwise_copy(T,T_r*T_c*channels,pyr[nlev-1]);
@@ -874,6 +872,8 @@ void malloc_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, do
         size_t L_len = r_level*c_level*channels;
         double* L = malloc(L_len*sizeof(double));
         assert(L != NULL);
+
+        zeros(L,L_len);
 
         (*pyr)[i] = L; //add entry to array of pointers to image levels
 
