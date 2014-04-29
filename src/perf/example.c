@@ -3,14 +3,13 @@
 
 #include "perfmon_wrapper.h"
 
-#define COST_MEASURE // this goes before the include!
+// NOTE: COST_MEASURE needs to be defined before including this file if
+//       counters should be used (e.g. as compiler flag).
 #include "cost_model.h"
 
 COST_VARIABLES_HERE
 
-void comp_init();
-void comp_compute();
-void comp_cleanup();
+extern void other_computation(); // defined in other.c
 
 int main(int argc, char *argv[])
 {
@@ -22,7 +21,7 @@ int main(int argc, char *argv[])
     //   Intel 64 and IA-32 Architectures Software Developer’s Manual,
     //     Volume 3B: System Programming Guide, Part 2
     
-    // initialize perfmon
+    // Initialize perfmon -------------------------------------------------
     char *events[] = {
         // on Haswell, can use at most 4, otherwise '0' results
         "PERF_COUNT_HW_CPU_CYCLES",
@@ -41,10 +40,23 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    // measure performance
-    comp_init();
+    // Example 1: Measure performance for MMM in this file. ---------------
+    const int N = 300;
+    double A[N*N];
+    double B[N*N];
+    double C[N*N];
+
     perf_start(data);
-    comp_compute();
+
+    for (int i=0; i<N; ++i) {
+        for (int j=0; j<N; ++j) {
+            for (int k=0; k<N; ++k) {
+                COST_INC_ADD(1); COST_INC_MUL(1);
+                C[i*N+j] = A[i*N+k] * B[k*N+j] + C[i*N+j];
+            }
+        }
+    }
+
     ret = perf_stop(data);
     if (ret < 0) {
         fprintf(stderr, "Error measuring performance.\n");
@@ -52,7 +64,12 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    // report results
+    // Example 2: Measure external computation ----------------------------
+
+    // as of now, only COST model, no perf events yet (need to rewrite...)
+    other_computation();
+
+    // Report results -----------------------------------------------------
     printf("Performance Counters:\n");
     for (struct perf_data *iter = data; iter->name; ++iter) {
         printf("  %-50s : %"PRId64"\n", iter->name, iter->value);
@@ -74,40 +91,8 @@ int main(int argc, char *argv[])
     printf("  Performance     : %.3lf\n", flops/cycles);
     printf("  Cache Miss Rate : %.3lf\n", cache_miss/cache_load);
 
-    // cleanup
+    // Cleanup ------------------------------------------------------------
     perf_cleanup(data);
-    comp_cleanup();
 
     return 0;
-}
-
-// Example MMM ------------------------------------------------------------
-
-const int N = 300;
-double *A, *B, *C;
-
-void comp_init()
-{
-    A = malloc(N*N*sizeof(double));
-    B = malloc(N*N*sizeof(double));
-    C = malloc(N*N*sizeof(double));
-}
-
-void comp_compute()
-{
-    for (int i=0; i<N; ++i) {
-        for (int j=0; j<N; ++j) {
-            for (int k=0; k<N; ++k) {
-                COST_INC_ADD(1); COST_INC_MUL(1);
-                C[i*N+j] = A[i*N+k] * B[k*N+j] + C[i*N+j];
-            }
-        }
-    }
-}
-
-void comp_cleanup()
-{
-    free(A);
-    free(B);
-    free(C);
 }
