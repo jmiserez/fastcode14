@@ -1,5 +1,26 @@
 #include <stdint.h>
 
+/**
+ * Helper macros to compute cost of our computations.
+ *
+ * Usage:
+ *   COST_MEASURE
+ *     If defined, counters are activated.
+ *     Otherwise, no code is added to source.
+ *     NOTE: this must be defined before the header is included
+ *
+ *   COST_VARIABLES_HERE
+ *     Declare this once for your project, e.g. in the main file.
+ *
+ *   COST_INC_yyy(x)
+ *     Increases counter 'yyy' by value 'x'.
+ *
+ *   COST_yyy
+ *     Value of counter 'yyy'.
+ *
+ *   Valid counters are: ADD, MUL, DIV, POW, ABS.
+ */
+
 #define COST_T   uint64_t
 #define PRI_COST PRId64
 
