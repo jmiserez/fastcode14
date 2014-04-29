@@ -3,7 +3,7 @@
 
 #include "cost_model.h"
 
-#define N 20000
+#define N 2000000
 static double A[N];
 static double B[N];
 static double C[N];

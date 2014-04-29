@@ -37,14 +37,24 @@ struct perf_data {
 int perf_init(char **events, struct perf_data **data);
 
 /**
+ * Reset counter values.
+ */
+inline void perf_reset(struct perf_data *data);
+
+/**
  * Starts the performance counters of the given configuration.
  */
 inline void perf_start(struct perf_data *data);
 
 /**
- * Stops performance measurements and updates counter values.
+ * Stops performance measurements of the given configuration.
  */
 inline int perf_stop(struct perf_data *data);
+
+/**
+ * Updates the counter values of the given configuration.
+ */
+int perf_update_values(struct perf_data *data);
 
 /**
  * Frees data in struct perf_data.
@@ -180,20 +190,28 @@ int perf_init(char **events, struct perf_data **data)
 
     }
 
+    perf_reset(perf_data);
+
     return 0;
+}
+
+inline void perf_reset(struct perf_data *data)
+{
+    ioctl(data->fd, PERF_EVENT_IOC_RESET,  PERF_IOC_FLAG_GROUP);
 }
 
 inline void perf_start(struct perf_data *data)
 {
-    ioctl(data->fd, PERF_EVENT_IOC_RESET,  PERF_IOC_FLAG_GROUP);
     ioctl(data->fd, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
 }
 
 inline int perf_stop(struct perf_data *data)
 {
     ioctl(data->fd, PERF_EVENT_IOC_DISABLE,PERF_IOC_FLAG_GROUP);
+}
 
-    // get data
+int perf_update_values(struct perf_data *data)
+{
     int event_count = 0;
     for(; data[event_count].name; ++event_count);
 
@@ -204,9 +222,9 @@ inline int perf_stop(struct perf_data *data)
         return -1;
     }
 
+    // XXX: ret == sizeof(values) ??
     read(data->fd, values, values_size);
     for (int i=0; i<event_count; ++i) {
-        close(data[i].fd);
         data[i].value = values[1+2*i];
     }
 
@@ -220,9 +238,12 @@ void perf_cleanup(struct perf_data *data)
 
     // free all names
     for (struct perf_data *iter = data; iter->name; ++iter) {
+        close(iter->fd);
         free(iter->name);
     }
 
     // free struct
     free(data);
+
+    pfm_terminate();
 }

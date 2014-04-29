@@ -11,6 +11,11 @@ COST_VARIABLES_HERE
 
 extern void other_computation(); // defined in other.c
 
+#define N 300         // could put this into main, but valgrind doesn't
+static double A[N*N]; // like big data on the stack.
+static double B[N*N];
+static double C[N*N];
+
 int main(int argc, char *argv[])
 {
     int ret;
@@ -41,10 +46,6 @@ int main(int argc, char *argv[])
     }
 
     // Example 1: Measure performance for MMM in this file. ---------------
-    const int N = 300;
-    double A[N*N];
-    double B[N*N];
-    double C[N*N];
 
     perf_start(data);
 
@@ -64,12 +65,21 @@ int main(int argc, char *argv[])
         return 0;
     }
 
+    // short cycles check
+    perf_update_values(data);
+    printf("Cycles after example 1: %llu\n", data[0].value);
+
     // Example 2: Measure external computation ----------------------------
 
-    // as of now, only COST model, no perf events yet (need to rewrite...)
+    perf_start(data);    // if desired, do perf_reset() first
     other_computation();
+    perf_stop(data);
 
     // Report results -----------------------------------------------------
+
+    perf_update_values(data);
+
+    printf("Overall results:\n");
     printf("Performance Counters:\n");
     for (struct perf_data *iter = data; iter->name; ++iter) {
         printf("  %-50s : %"PRId64"\n", iter->name, iter->value);
