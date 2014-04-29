@@ -3,7 +3,7 @@ TARGET = driver
 CC = gcc
 CFLAGS = -std=c99 -g -Wall -DDEBUG
 INC_DIR = ../tiff-4.0.2/libtiff
-INC_DIR = ../optimized/
+INC_DIR = ../
 LIB_DIR = ../tiff-4.0.2/libtiff/.libs
 LIBS_STATIC = -ltiff
 LIBS_DYNAMIC = -lm

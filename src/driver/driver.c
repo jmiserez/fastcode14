@@ -19,16 +19,29 @@
 #define TIFF_DEBUG_OUT "out.tif"
 #define TIFF_DEBUG_OUT2 "gradient.o.tif"
 
+typedef struct {
+    char* log_file;
+    char* out_file;
+    char* val_file;
+} cli_options_t;
+
 /*
  * GENERAL I/O
  **/
-const char* usage_str = "./driver [options] <testConfigs> <srcImagePath> <refSolutionPath> [<result log file>]\n"
+const char* usage_str = "./driver [options] <heights> <widths>"
+        "<contrastParm> <saturationParm> <wellexpParm>\n\n"
         "options:\n"
         " --testlibtiff:\n"
         "  performs some tests using libtiff"
-        " --store <file>\n"
-        "  stores the result in <file>\n"
-        "  (otherwise only the error is calculated and the result is abandoned)\n";
+        " --log <file>\n"
+        "  write measurement results into log file <file>.\n"
+        "  (otherwise only the error is calculated and the result is abandoned)"
+        "\n"
+        " --validate <reference>\n"
+        "  compare calculated result against <reference>.\n"
+        " --store <outputFile>\n"
+        "  store result into <outputFile>\n"
+        "\n";
 
 void print_usage() {
     printf("%s", usage_str);
@@ -50,7 +63,8 @@ void run_testconfiguration( result_t* result, testconfig_t* tc ) {
     // ret_image = (double*) malloc( h*w*sizeof(double) );
     // alloc_fusion( h, w, img_count, &segments );
     // alloc_fusion( ... )
-    // exposure_fusion( input_images, r, c, N, {tc[i].contrast, tc[i].saturation, tc[i].exposure}, ret_image,
+    // exposure_fusion( input_images, r, c, N, {tc[i].contrast,
+    // tc[i].saturation, tc[i].exposure}, ret_image,
 
     // convert result into tiff raster
     // uint32_t* raster = rgb2tiff( ret_image, npixels );
@@ -68,44 +82,31 @@ void run_testconfiguration( result_t* result, testconfig_t* tc ) {
     //free_fusion( &segments );
 }
 
-/*
- * MAIN
- **/
-
-/**
- * @brief main
- * @param argc
- * @param argv
- * @return
- */
-int main(int argc, char* argv[]) {
-    const size_t max_test_configs = 1024;
-    testconfig_t tc[max_test_configs];
-
-    result_t result;
-    int tc_count;
-    int i;
-    FILE* f_config;
-    // double *ret_image;
-    // fusion_segments_t segments;
+int parse_cli(cli_options_t* cli_opts, testconfig_t* testconfig,
+                          int argc, char* argv[]) {
 
     // getopt for command-line parsing. See the getopt(3) manpage
     int c;
-    while(true){
+    while (true) {
         static struct option long_options[] = {
-            {"testlibtiff", no_argument, 0, 't'},
-            {"store", required_argument, 0, 's'},
+            {"testlibtiff", no_argument,       0, 't'},
+            {"log",         required_argument, 0, 'l'},
+            {"store",       required_argument, 0, 's'},
+            {"validate",    required_argument, 0, 'v'},
             {0,0,0,0}
         };
 
         int option_index = 0;
         c = getopt_long(argc, argv, "t", long_options, &option_index);
-        if(c == -1){ // -1 indicates end of options reached
+        if (c == -1) { // -1 indicates end of options reached
             break;
         }
-        switch(c){
-        case 0: // the long option with name long_options[option_index].name is found
-            printf("getopt error on long option %s\n", long_options[option_index].name);
+        switch (c) {
+        case 0:
+            // the long option with name long_options[option_index].name is
+            // found
+            printf("getopt error on long option %s\n",
+                   long_options[option_index].name);
             break;
 
         case 't':
@@ -113,7 +114,8 @@ int main(int argc, char* argv[]) {
             debug_tiff_test( TIFF_DEBUG_IN, TIFF_DEBUG_OUT );
 
             uint32_t dbg_w, dbg_h;
-            double *debug_rgb_image = load_tiff_rgb( &dbg_w, &dbg_h, TIFF_DEBUG_IN );
+            double *debug_rgb_image = load_tiff_rgb( &dbg_w, &dbg_h,
+                                                     TIFF_DEBUG_IN );
             printf( "dbg_w: %d, dbg_h: %d\n", dbg_w, dbg_h );
             store_tiff_rgb( debug_rgb_image, dbg_w, dbg_h, TIFF_DEBUG_OUT2 );
 
@@ -123,9 +125,14 @@ int main(int argc, char* argv[]) {
             free_tiff( raster );
             free_rgb( debug_rgb_image );
             break;
-
         case 's':
-
+            cli_opts->out_file = optarg;
+            break;
+        case 'v':
+            cli_opts->val_file = optarg;
+            break;
+        case 'l': // log
+            cli_opts->log_file = optarg;
             break;
 
         case '?':
@@ -138,44 +145,62 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    int num_args_remaining = argc-optind;
+    int num_args_remaining = argc - optind;
+    int ret_optind, tmp_optind = optind;
+    if( (ret_optind = read_testconfiguration(testconfig, num_args_remaining,
+                                             &argv[optind])) < 0 ) {
+        int err_arg = tmp_optind + abs(ret_optind) - 1;
+        fprintf(stderr, "error while parsing argument %d: %s\n", err_arg+1,
+               argv[err_arg]);
+        return -err_arg;
+    } else if ( ret_optind < 5 ) {
+        fprintf( stderr, "too few arguments\n" );
+        return -argc;
+    }
+    return ret_optind + tmp_optind;
+    // next time, we use a language that supports exceptions for the driver code
+    // ;-)
+}
 
-    if( num_args_remaining > 2 ) { //get rest of arguments (optind is defined in getopt.h and used by getopt)
-        char* configFilePath = argv[argc - num_args_remaining    ];
-        char* srcPath        = argv[argc - num_args_remaining + 1];
-        char* refPath        = argv[argc - num_args_remaining + 2];
-        char* resPath        = NULL;
-        FILE* resFile = NULL;
-        if( num_args_remaining > 3 ) {
-            resPath = argv[argc - num_args_remaining + 3];
-            resFile = res_file_open( resPath );
-        }
+/*
+ * MAIN
+ **/
 
-#ifdef DEBUG
-        printf("config file: %s\n", configFilePath);
-        printf("src path:    %s\n", srcPath);
-        printf("ref path:    %s\n", refPath);
+/**
+ * @brief main
+ * @param argc
+ * @param argv
+ * @return
+ */
+int main(int argc, char* argv[]) {
+    testconfig_t testconfig =
+    { {0,0,0},
+      {0,0,0},
+      0.0,
+      0.0,
+      0.0,
+      0,
+      NULL,
+      NULL
+    };
+
+    cli_options_t cli_opts = {
+        NULL,
+        NULL,
+        NULL
+    };
+
+    //result_t result;
+    if ( parse_cli( &cli_opts, &testconfig, argc, argv ) > 0 ) {
+#ifndef NDEBUG
+        print_testconfiguration( &testconfig );
+        if( cli_opts.log_file )
+            printf("log file: %s\n", cli_opts.log_file );
+        if( cli_opts.log_file )
+            printf("log file: %s\n", cli_opts.log_file );
+        if( cli_opts.log_file )
+            printf("log file: %s\n", cli_opts.log_file );
 #endif
-        f_config = fopen( configFilePath, "r" );
-        if( f_config ) {
-            tc_count = read_testconfigurations( tc, max_test_configs, f_config, srcPath, refPath );
-            fclose(f_config);
-
-            for( i = 0; i < tc_count; i++ ) {
-#ifdef DEBUG
-                print_testconfiguration( &tc[i] );
-#endif
-                run_testconfiguration( &result, &tc[i] );
-                if( resFile ) {
-                    write_result( resFile, &tc[i], &result );
-                }
-                write_result( stdout, &tc[i], &result );
-            }
-            tcs_free( tc, tc_count );
-        }
-        if( resFile )
-            res_file_close( resFile );
-    } else
-        print_usage();
-    return 0;
+    //run_testconfiguration( &result, &testconfig );
+    }
 }
