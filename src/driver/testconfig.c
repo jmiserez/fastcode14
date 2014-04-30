@@ -41,10 +41,10 @@ void print_testconfiguration( testconfig_t* tc ) {
     }
 }
 
-double** tc_read_input_images( size_t* read_imgs, uint32_t *ret_w,
-                               uint32_t *ret_h, testconfig_t* tc ) {
+double** tc_read_input_images( size_t* read_imgs, size_t *ret_w,
+                               size_t *ret_h, testconfig_t* tc ) {
     int i = 0;
-    uint32_t w = 0, h = 0, new_w, new_h;
+    size_t w = 0, h = 0, new_w, new_h;
 
     double** images = NULL;
 

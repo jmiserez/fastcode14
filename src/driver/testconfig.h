@@ -21,7 +21,7 @@ typedef struct {
 int read_testconfiguration( testconfig_t* testconfig, int argc, char* argv[] );
 void print_testconfiguration( testconfig_t* tc );
 
-double** tc_read_input_images( size_t* read_imgs, uint32_t *w, uint32_t *h,
+double** tc_read_input_images( size_t* read_imgs, size_t *w, size_t *h,
                                testconfig_t* tc );
 void tc_free_input_images( double** images, size_t n_images );
 
