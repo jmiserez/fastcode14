@@ -1,12 +1,13 @@
 #Makefile
 TARGET = driver
 CC = gcc
-CFLAGS = -std=c99 -g -Wall -DDEBUG
-INC_DIR = ../tiff-4.0.2/libtiff
-INC_DIR = ../
+CFLAGS = -std=c99 -g -Wall -DDEBUG -DCOST_MEASURE
+INC_DIR = -I../tiff-4.0.2/libtiff
+INC_DIR += -I../
+INC_DIR += -I../perf
 LIB_DIR = ../tiff-4.0.2/libtiff/.libs
 LIBS_STATIC = -ltiff
-LIBS_DYNAMIC = -lm
+LIBS_DYNAMIC = -lm -lpfm
 LIBS = -Wl,-Bstatic $(LIBS_STATIC) -Wl,-Bdynamic $(LIBS_DYNAMIC)
 
 TIFFLIB = ../tiff-4.0.2/libtiff/.libs/libtiff.a
@@ -20,7 +21,7 @@ OBJ = $(patsubst %.c, %.o, $(wildcard *.c))
 DEP = $(wildcard *.h) $(TIFFLIB)
 
 %.o: %.c $(DEP)
-	$(CC) -c $(CFLAGS) -I$(INC_DIR) $< -o $@
+	$(CC) -c $(CFLAGS) $(INC_DIR) $< -o $@
 
 .PRECIOUS: $(TARGET) $(OBJECTS)
 

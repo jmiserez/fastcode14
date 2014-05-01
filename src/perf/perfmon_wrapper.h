@@ -34,32 +34,32 @@ struct perf_data {
  * @param data:   address of pointer to store data. allocated by perf_init
  * @returns:      0 on success, -1 on failure
  */
-int perf_init(char **events, struct perf_data **data);
+static int perf_init(char **events, struct perf_data **data);
 
 /**
  * Reset counter values.
  */
-inline void perf_reset(struct perf_data *data);
+static inline void perf_reset(struct perf_data *data);
 
 /**
  * Starts the performance counters of the given configuration.
  */
-inline void perf_start(struct perf_data *data);
+static inline void perf_start(struct perf_data *data);
 
 /**
  * Stops performance measurements of the given configuration.
  */
-inline int perf_stop(struct perf_data *data);
+static inline void perf_stop(struct perf_data *data);
 
 /**
  * Updates the counter values of the given configuration.
  */
-int perf_update_values(struct perf_data *data);
+static int perf_update_values(struct perf_data *data);
 
 /**
  * Frees data in struct perf_data.
  */
-void perf_cleanup(struct perf_data *data);
+static void perf_cleanup(struct perf_data *data);
 
 // ------------------------------------------------------------------------
 // IMPLEMENTATION from here on
@@ -69,7 +69,7 @@ void perf_cleanup(struct perf_data *data);
     fprintf(stderr, "%s: ", __func__); \
     fprintf(stderr, __VA_ARGS__)
 
-inline void perf_fd_error(int fd) {
+static inline void perf_fd_error(int fd) {
     switch (fd) {
     case EINVAL:
         fprintf(stderr, "\tExtra bits in config1\n");
@@ -99,7 +99,7 @@ inline void perf_fd_error(int fd) {
 }
 
 // if failed, still need to call cleanup!
-int perf_init(char **events, struct perf_data **data)
+static int perf_init(char **events, struct perf_data **data)
 {
     int ret;      // generic return value
     *data = NULL; // in case of failure
@@ -182,7 +182,7 @@ int perf_init(char **events, struct perf_data **data)
         perf_data[i].fd = syscall(__NR_perf_event_open, &pe, 0, -1,
                 perf_data->fd, 0);
         if (perf_data[i].fd == -1) {
-            PERF_ERR("Error opening event %llx (%s)\n",
+            PERF_ERR("Error opening event %"PRIx64" (%s)\n",
                     pe.config, perf_data[i].name);
             perf_fd_error(perf_data[i].fd);
             return -1;
@@ -195,22 +195,22 @@ int perf_init(char **events, struct perf_data **data)
     return 0;
 }
 
-inline void perf_reset(struct perf_data *data)
+static inline void perf_reset(struct perf_data *data)
 {
     ioctl(data->fd, PERF_EVENT_IOC_RESET,  PERF_IOC_FLAG_GROUP);
 }
 
-inline void perf_start(struct perf_data *data)
+static inline void perf_start(struct perf_data *data)
 {
     ioctl(data->fd, PERF_EVENT_IOC_ENABLE, PERF_IOC_FLAG_GROUP);
 }
 
-inline int perf_stop(struct perf_data *data)
+static inline void perf_stop(struct perf_data *data)
 {
     ioctl(data->fd, PERF_EVENT_IOC_DISABLE,PERF_IOC_FLAG_GROUP);
 }
 
-int perf_update_values(struct perf_data *data)
+static int perf_update_values(struct perf_data *data)
 {
     int event_count = 0;
     for(; data[event_count].name; ++event_count);
@@ -232,7 +232,7 @@ int perf_update_values(struct perf_data *data)
     return 0;
 }
 
-void perf_cleanup(struct perf_data *data)
+static void perf_cleanup(struct perf_data *data)
 {
     if (!data) return;
 

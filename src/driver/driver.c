@@ -11,13 +11,20 @@
 #include <getopt.h>
 #include <math.h>
 
+#include "debug.h"
+
 #include "result_file.h"
 #include "testconfig.h"
 #include "image_io.h"
 
+#include "perfmon_wrapper.h"
+#include "cost_model.h"
+
 #define TIFF_DEBUG_IN "gradient.tif"
 #define TIFF_DEBUG_OUT "out.tif"
 #define TIFF_DEBUG_OUT2 "gradient.o.tif"
+
+COST_VARIABLES_HERE
 
 typedef struct {
     char* log_file;
@@ -56,13 +63,33 @@ const char* usage_str = "./driver [options] <heights> <widths> "
 
 void print_usage() {
     printf("%s", usage_str);
-    exit(1);
 }
 
 /*
  * PERFORMANCE MEASUREMENT
  **/
-void run_testconfiguration( result_t* result, testconfig_t* tc ) {
+int run_testconfiguration( result_t* result, testconfig_t* tc ) {
+
+    int ret;
+
+    // Initialize performance counters
+    char *events[] = {
+        "PERF_COUNT_HW_CPU_CYCLES",
+        "CACHE-REFERENCES",
+        "CACHE-MISSES",
+        NULL
+    };
+
+    struct perf_data *perf_data;
+    
+    ret = perf_init(events, &perf_data);
+    if (ret < 0) {
+        FUSION_ERR("Could not initialize perfmon.\n");
+        perf_cleanup(perf_data);
+        return -1;
+    }
+
+    // Initialize image data
     size_t w_orig, h_orig, w, h, img_count;
     double** input_images = tc_read_input_images( &img_count, &w_orig, &h_orig,
                                                   tc );
@@ -71,37 +98,83 @@ void run_testconfiguration( result_t* result, testconfig_t* tc ) {
            h_orig);
 #endif
 
-    for( w = tc->width_range.start; w <= tc->width_range.stop;
+    // Perform Computations
+    int err = 0;
+    for( w = tc->width_range.start; w <= tc->width_range.stop && !err;
          w += tc->width_range.step ) {
-        for( h = tc->height_range.start; h <= tc->height_range.stop;
+        for( h = tc->height_range.start; h <= tc->height_range.stop && !err;
              h += tc->height_range.step ) {
 #ifndef NDEBUG
             printf( "fusion for w: %ld, h: %ld\n", w, h );
 #endif
-            //
-            // size_t npixels = w * h;
-            // ret_image = (double*) malloc( h*w*sizeof(double) );
-            // alloc_fusion( h, w, img_count, &segments );
-            // alloc_fusion( ... )
-            // exposure_fusion( input_images, r, c, N, {tc[i].contrast,
-            // tc[i].saturation, tc[i].exposure}, ret_image,
 
-            // convert result into tiff raster
-            // uint32_t* raster = rgb2tiff( ret_image, npixels );
+            void *fusion_data;
+            ret = fusion_alloc(&fusion_data, w, h, img_count);
+            if (ret < 0) {
+                FUSION_ERR("Error in fusion_alloc(*,w=%zu,h=%zu,N=%zu)\n",
+                        w, h, img_count);
+                fusion_free(fusion_data);
+                err = -1;
+            } else {
+                // Reset Counters
+                COST_MODEL_RESET;
+                perf_reset(perf_data);
 
+                // Run exposure fusion
+                perf_start(perf_data);
+                fusion_compute(input_images, w, h, img_count, tc->contrast,
+                        tc->saturation, tc->well_exposed, fusion_data);
+                perf_stop(perf_data);
 
-            // compare to reference
-            // result->error = compare_tif(raster, w, h, tc->ref_path );
+                // Print results
+                perf_update_values(perf_data);
+                printf("--- Showing results for: w=%zu, h=%zu, N=%zu\n",
+                        w, h, img_count);
+                printf("Performance Counters:\n");
+                for (struct perf_data *iter = perf_data; iter->name; ++iter) {
+                    printf("  %-50s : %"PRId64"\n", iter->name, iter->value);
+                }
 
-            // runtime and deviatation from reference solution
+                printf("Cost Model:\n");
+                printf("  Add: %"PRI_COST"\n", COST_ADD);
+                printf("  Mul: %"PRI_COST"\n", COST_MUL);
+                printf("  Div: %"PRI_COST"\n", COST_DIV);
+                printf("  Pow: %"PRI_COST"\n", COST_POW);
+                printf("  Abs: %"PRI_COST"\n", COST_ABS);
 
-            // free resources
-            // free_tiff( raster );
-            // free( ret_image );
-            //free_fusion( &segments );
+                printf("Derived Results\n");
+                double flops      = COST_ADD + COST_MUL + COST_DIV;
+                double cycles     = perf_data[0].value; // index as in 'events'
+                double cache_load = perf_data[1].value;
+                double cache_miss = perf_data[2].value;
+                printf("  Flops           : %.0lf\n", flops);
+                printf("  Performance     : %.3lf\n", flops/cycles);
+                printf("  Cache Miss Rate : %.3lf\n", cache_miss/cache_load);
+
+                // Cleanup
+                fusion_free(fusion_data);
+            }
         }
     }
+
+    // convert result into tiff raster
+    // uint32_t* raster = rgb2tiff( ret_image, npixels );
+
+
+    // compare to reference
+    // result->error = compare_tif(raster, w, h, tc->ref_path );
+
+    // runtime and deviatation from reference solution
+
+    // free resources
+    // free_tiff( raster );
+
+
+    // Cleanup
     tc_free_input_images( input_images, img_count );
+    perf_cleanup(perf_data);
+
+    return err;
 }
 
 int parse_cli(cli_options_t* cli_opts, testconfig_t* testconfig,
@@ -223,6 +296,8 @@ int main(int argc, char* argv[]) {
         if( cli_opts.val_file )
             printf("val file: %s\n", cli_opts.val_file );
 #endif
-        run_testconfiguration( &result, &testconfig );
+        return run_testconfiguration( &result, &testconfig );
     } else print_usage();
+
+    return -1;
 }
