@@ -12,7 +12,7 @@
  * @param segments object that holds pointers to the internally used memory segments
  * @return returns a number of >=0 if successful. <0 on error. In the latter case, you might want to check errno.
  */
-int alloc_fusion(void* segments, int w, int h, int N);
+int alloc_fusion(void** segments, int w, int h, int N);
 
 /**
  * @brief exposure_fusion
