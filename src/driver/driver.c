@@ -21,8 +21,8 @@
 
 typedef struct {
     char* log_file;
-    char* out_file;
-    char* val_file;
+    char* out_file; ///< ouput image written, if desired
+    char* val_file; ///< comparision image, if desired
 } cli_options_t;
 
 /*
@@ -195,21 +195,21 @@ int parse_cli(cli_options_t* cli_opts, testconfig_t* testconfig,
  * @return
  */
 int main(int argc, char* argv[]) {
-    testconfig_t testconfig =
-    { {0,0,0},
-      {0,0,0},
-      0.0,
-      0.0,
-      0.0,
-      0,
-      NULL,
-      NULL
+    testconfig_t testconfig = {
+        .width_range  = {0,0,0},
+        .height_range = {0,0,0},
+        .contrast     = 0.0,
+        .saturation   = 0.0,
+        .well_exposed = 0.0,
+        .n_inputfiles = 0,
+        .input_paths  = NULL,
+        .ref_path     = NULL
     };
 
     cli_options_t cli_opts = {
-        NULL,
-        NULL,
-        NULL
+        .log_file = NULL,
+        .out_file = NULL,
+        .val_file = NULL
     };
 
     result_t result;
@@ -224,6 +224,5 @@ int main(int argc, char* argv[]) {
             printf("val file: %s\n", cli_opts.val_file );
 #endif
         run_testconfiguration( &result, &testconfig );
-    } else
-        print_usage();
+    } else print_usage();
 }
