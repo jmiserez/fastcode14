@@ -12,8 +12,74 @@
 #include <tiffio.h>
 #include "fusion.h"
 
+//#define PRINTPYRAMIDS
+
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
+
+//TODO: rename these variables, preferably automatically
+//TODO: remove length variables (W_len, etc.) here, we should not need them
+//TODO: remove nlev
+typedef struct {
+    //W[n] is a weight map (1 value/pixel), there is one for each of the N images
+
+    size_t R_len; //TODO remove
+    size_t W_len; //TODO remove
+    size_t W_len2; //TODO remove
+    size_t C_len; //TODO remove
+    uint32_t nlev; //TODO remove (could be tricky)
+    size_t Z_len; //TODO remove
+    size_t S_len; //TODO remove
+    size_t T_len; //TODO remove
+    size_t Q_len; //TODO remove
+    size_t U_len; //TODO remove
+    size_t V_len; //TODO remove
+    size_t pyrDisp_len; //TODO remove
+
+    double *R;
+    double **W;
+
+    //C is used as a temporary variable (1 value/pixel)
+    double *C;
+
+    //size fo pyramids
+
+    //result pyramid
+    double **pyr;
+    uint32_t *pyr_r;
+    uint32_t *pyr_c;
+
+    //pyrW[n] is pyramid of weight map for each of the N images
+    double ***pyrW;
+    uint32_t **pyrW_r;
+    uint32_t **pyrW_c;
+
+    //pyrI[n] is image pyramid for each of the N images
+    double ***pyrI;
+    uint32_t **pyrI_r;
+    uint32_t **pyrI_c;
+
+    //TODO: scratch space, reduce this as much as possible by inlining all operations
+
+    //regular size scratch spaces
+    double *Z;
+    double *S;
+    double *T;
+
+    //large (+4 border) scratch spaces
+    double *Q;
+    double *U;
+    double *V;
+
+    //memory to print pyramids (solely used for debugging/verification)
+    double *pyrDisp;
+
+    //TODO: use these new names (or similar)
+//    double** weight_matrices;
+//    double* mono_matrix;
+//    double* temp_matrix;
+//    double* result;
+} segments_t;
 
 void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R);
 
@@ -30,8 +96,7 @@ void compact_display_pyramid(uint32_t channels, uint32_t nlev, double **pyr, uin
 void normalize_image(double *src, uint32_t channels, uint32_t r, uint32_t c, double *dst);
 
 uint32_t compute_nlev(uint32_t r, uint32_t c);
-void malloc_foreach(double **dst, size_t size, uint32_t N);
-void malloc_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double ***pyr, uint32_t **pyr_r, uint32_t **pyr_c);
+int malloc_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double ***pyr, uint32_t **pyr_r, uint32_t **pyr_c);
 void free_pyramid(uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
 
 void rgb2gray(double *im, size_t npixels, double* dst);
@@ -65,61 +130,173 @@ void tiff2rgb(uint32_t *tiff, size_t npixels, double* ret_rgb);
 // Interface
 //
 
-
+//TODO: use calloc instead of malloc
 int fusion_alloc(void** _segments, int w, int h, int N){
+
+    *_segments = malloc(sizeof(segments_t));
+    if(*_segments == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+
+    ((segments_t*)_segments)->R_len = w*h*3;
+    ((segments_t*)_segments)->R = malloc(((segments_t*)_segments)->R_len*sizeof(double));
+    if(((segments_t*)_segments)->R == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+
+    ((segments_t*)_segments)->W_len = N;
+    ((segments_t*)_segments)->W_len2 = w*h;
+    ((segments_t*)_segments)->W = malloc(((segments_t*)_segments)->W_len*sizeof(double*));
+    if(((segments_t*)_segments)->W == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+    for (int n = 0; n < N; n++){
+        ((segments_t*)_segments)->W[n] = malloc(((segments_t*)_segments)->W_len2*sizeof(double));
+        if(((segments_t*)_segments)->W[n] == NULL){
+            return FUSION_ALLOC_FAILURE;
+        }
+    }
+
+    ((segments_t*)_segments)->C_len = w*h;
+    ((segments_t*)_segments)->C = malloc(((segments_t*)_segments)->C_len*sizeof(double));
+    if(((segments_t*)_segments)->C == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+
+    ((segments_t*)_segments)->nlev = (uint32_t)(floor((log2(MIN(w,h)))));
+    ((segments_t*)_segments)->pyr = malloc(((segments_t*)_segments)->nlev*sizeof(double*));
+    if(((segments_t*)_segments)->pyr == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+    ((segments_t*)_segments)->pyr_r = malloc(((segments_t*)_segments)->nlev*sizeof(uint32_t));
+    if(((segments_t*)_segments)->pyr_r == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+    ((segments_t*)_segments)->pyr_c = malloc(((segments_t*)_segments)->nlev*sizeof(uint32_t));
+    if(((segments_t*)_segments)->pyr_c == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+
+    //TODO: allocate all pyramid memory as one chunk, not nlev chunks
+    //TODO: remove writes to pyr_c and pyr_r!
+    //      (as we are not allowed to already write to memory in this fusion_alloc() step).
+
+    ((segments_t*)_segments)->pyrW = malloc(N*sizeof(double**));
+    if(((segments_t*)_segments)->pyrW == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+    ((segments_t*)_segments)->pyrW_r = malloc(N*sizeof(double*));
+    if(((segments_t*)_segments)->pyrW_r == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+    ((segments_t*)_segments)->pyrW_c = malloc(N*sizeof(double*));
+    if(((segments_t*)_segments)->pyrW_c == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+
+    ((segments_t*)_segments)->pyrI = malloc(N*sizeof(double**));
+    if(((segments_t*)_segments)->pyrI == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+    ((segments_t*)_segments)->pyrI_r = malloc(N*sizeof(double*));
+    if(((segments_t*)_segments)->pyrI_r == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+    ((segments_t*)_segments)->pyrI_c = malloc(N*sizeof(double*));
+    if(((segments_t*)_segments)->pyrI_c == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+
+    if(malloc_pyramid(h,w,3,((segments_t*)_segments)->nlev,&(((segments_t*)_segments)->pyr), &(((segments_t*)_segments)->pyr_r), &(((segments_t*)_segments)->pyr_c)) != FUSION_ALLOC_SUCCESS){
+        return FUSION_ALLOC_FAILURE;
+    }
+    for (int n = 0; n < N; n++){
+        if(malloc_pyramid(h,w,1,((segments_t*)_segments)->nlev,&(((segments_t*)_segments)->pyrW[n]), &(((segments_t*)_segments)->pyrW_r[n]), &(((segments_t*)_segments)->pyrW_c[n])) != FUSION_ALLOC_SUCCESS){
+            return FUSION_ALLOC_FAILURE;
+        }
+    }
+    for (int n = 0; n < N; n++){
+        if(malloc_pyramid(h,w,3,((segments_t*)_segments)->nlev,&(((segments_t*)_segments)->pyrI[n]), &(((segments_t*)_segments)->pyrI_r[n]), &(((segments_t*)_segments)->pyrI_c[n])) != FUSION_ALLOC_SUCCESS){
+            return FUSION_ALLOC_FAILURE;
+        }
+    }
+
+    //regular size scratch spaces
+    ((segments_t*)_segments)->Z_len = w*h*3;
+    ((segments_t*)_segments)->S_len = w*h*3;
+    ((segments_t*)_segments)->T_len = w*h*3;
+
+    ((segments_t*)_segments)->Z = malloc(((segments_t*)_segments)->Z_len*sizeof(double));
+    if(((segments_t*)_segments)->Z == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+    ((segments_t*)_segments)->S = malloc(((segments_t*)_segments)->S_len*sizeof(double));
+    if(((segments_t*)_segments)->S == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+    ((segments_t*)_segments)->T = malloc(((segments_t*)_segments)->T_len*sizeof(double));
+    if(((segments_t*)_segments)->T == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+
+    //large (+4 border) scratch spaces
+    //(largest downsampled image + 1px border), upsampled 2x
+    uint32_t largest_upsampled_r = (((h/2) + (h%2)) + 2) * 2;
+    uint32_t largest_upsampled_c = (((w/2) + (w%2)) + 2) * 2;
+
+    ((segments_t*)_segments)->Q_len = largest_upsampled_r*largest_upsampled_c*3;
+    ((segments_t*)_segments)->U_len = largest_upsampled_r*largest_upsampled_c*3;
+    ((segments_t*)_segments)->V_len = largest_upsampled_r*largest_upsampled_c*3;
+
+    ((segments_t*)_segments)->Q = malloc(((segments_t*)_segments)->Q_len*sizeof(double));
+    if(((segments_t*)_segments)->Q == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+    ((segments_t*)_segments)->U = malloc(((segments_t*)_segments)->U_len*sizeof(double));
+    if(((segments_t*)_segments)->U == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+    ((segments_t*)_segments)->V = malloc(((segments_t*)_segments)->V_len*sizeof(double));
+    if(((segments_t*)_segments)->V == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+
+    ((segments_t*)_segments)->pyrDisp_len = (w*2)*h*3;
+    ((segments_t*)_segments)->pyrDisp = malloc(((segments_t*)_segments)->pyrDisp_len*sizeof(double));
+    if(((segments_t*)_segments)->pyrDisp == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+
     return FUSION_ALLOC_SUCCESS;
 }
 
 double* fusion_compute(double** I, int w, int h, int N,
                         double contrast_parm, double sat_parm, double wexp_parm,
                         void* _segments){
-    return NULL;
-}
 
-void fusion_free( void* _segments ){
+    double* R = ((segments_t*)_segments)->R;
 
-}
+    int r = h;
+    int c = w;
 
-//
-// Exposure Fusion functionality
-//
-
-/**
- * @brief Implementation of exposure_fusion.m
- * @param I represents a stack of N color images (at double precision).
- *        Dimensions are (height x width x 3 x N).
- * @param r height of image
- * @param c width of image
- * @param N number of images
- * @param m 3-tuple that controls the per-pixel measures. The elements
- *        control contrast, saturation and well-exposedness,
- *        respectively.
- */
-void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     size_t I_len = N;
-//    size_t I_len2 = r*c*3;
     size_t npixels = r*c;
-
-    double contrast_parm = m[0];
-    double sat_parm = m[1];
-    double wexp_parm = m[2];
 
     //W[n] is a weight map (1 value/pixel)
     //There is one for each of the N images
-    size_t W_len = N;
-    size_t W_len2 = npixels;
-    double** W = malloc(W_len*sizeof(double*));
+    size_t W_len = ((segments_t*)_segments)->W_len;
+    size_t W_len2 = ((segments_t*)_segments)->W_len2;
+    double** W = ((segments_t*)_segments)->W;
     assert(W != NULL);
     assert(W_len == I_len);
 
     for (int n = 0; n < N; n++){
-        W[n] = malloc(W_len2*sizeof(double));
         assert(W[n] != NULL);
     }
 
     //C is used as a temporary variable (1 value/pixel)
-    size_t C_len = npixels;
-    double* C = malloc(C_len*sizeof(double));
+    size_t C_len = ((segments_t*)_segments)->C_len;
+    double* C = ((segments_t*)_segments)->C;
     assert(C != NULL);
     assert(W_len2 == C_len);
 
@@ -165,7 +342,7 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
         assert(sum_weight >= 0.99 && sum_weight <= 1.01); //ensure all weights sum to one for each pixel
     }
 #endif
-#ifndef NDEBUG
+#ifdef PRINTPYRAMIDS
     for(int i = 0; i < W_len; i++){
         char fname[50];
         sprintf(fname, "_W[%d].tif", i);
@@ -178,10 +355,9 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     assert(nlev != 0);
 
     //create empty pyramid
-    double **pyr = NULL;
-    uint32_t *pyr_r = NULL;
-    uint32_t *pyr_c = NULL;
-    malloc_pyramid(r,c,3,nlev,&pyr, &pyr_r, &pyr_c);
+    double **pyr = ((segments_t*)_segments)->pyr;
+    uint32_t *pyr_r = ((segments_t*)_segments)->pyr_r;
+    uint32_t *pyr_c = ((segments_t*)_segments)->pyr_c;
     assert(pyr != NULL);
     assert(pyr_r != NULL);
     assert(pyr_c != NULL);
@@ -191,64 +367,62 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     }
 
     //multiresolution blending
-    double ***pyrW = malloc(N*sizeof(double**));
-    uint32_t **pyrW_r = malloc(N*sizeof(double*));
-    uint32_t **pyrW_c = malloc(N*sizeof(double*));
+    double ***pyrW = ((segments_t*)_segments)->pyrW;
+    uint32_t **pyrW_r = ((segments_t*)_segments)->pyrW_r;
+    uint32_t **pyrW_c = ((segments_t*)_segments)->pyrW_c;
     assert(pyrW != NULL);
     assert(pyrW_r != NULL);
     assert(pyrW_c != NULL);
 
-    double ***pyrI = malloc(N*sizeof(double**));
-    uint32_t **pyrI_r = malloc(N*sizeof(double*));
-    uint32_t **pyrI_c = malloc(N*sizeof(double*));
+    double ***pyrI = ((segments_t*)_segments)->pyrI;
+    uint32_t **pyrI_r = ((segments_t*)_segments)->pyrI_r;
+    uint32_t **pyrI_c = ((segments_t*)_segments)->pyrI_c;
     assert(pyrI != NULL);
     assert(pyrI_r != NULL);
     assert(pyrI_c != NULL);
 
     //scratch space for gaussian/laplacian pyramid
     //TODO: optimize these away if possible
-    size_t Z_len = r*c*3;
-    double* Z = malloc(Z_len*sizeof(double));
+    size_t Z_len = ((segments_t*)_segments)->Z_len;
+    double* Z = ((segments_t*)_segments)->Z;
     assert(Z != NULL);
-    size_t S_len = r*c*3;
-    double* S = malloc(S_len*sizeof(double));
+    size_t S_len = ((segments_t*)_segments)->S_len;
+    double* S = ((segments_t*)_segments)->S;
     assert(S != NULL);
-    size_t T_len = r*c*3;
-    double* T = malloc(T_len*sizeof(double));
+    size_t T_len = ((segments_t*)_segments)->T_len;
+    double* T = ((segments_t*)_segments)->T;
     assert(T != NULL);
     //how much scratch space is needed for upsampling?
 
     //(largest downsampled image + 1px border), upsampled 2x
-    uint32_t largest_upsampled_r = (((r/2) + (r%2)) + 2) * 2;
-    uint32_t largest_upsampled_c = (((c/2) + (c%2)) + 2) * 2;
+//    uint32_t largest_upsampled_r = (((r/2) + (r%2)) + 2) * 2;
+//    uint32_t largest_upsampled_c = (((c/2) + (c%2)) + 2) * 2;
 
 
-    size_t Q_len = largest_upsampled_r*largest_upsampled_c*3;
-    double* Q = malloc(Q_len*sizeof(double));
+    size_t Q_len = ((segments_t*)_segments)->Q_len;
+    double* Q = ((segments_t*)_segments)->Q;
     assert(Q != NULL);
-    size_t U_len = largest_upsampled_r*largest_upsampled_c*3;
-    double* U = malloc(U_len*sizeof(double));
+    size_t U_len = ((segments_t*)_segments)->U_len;
+    double* U = ((segments_t*)_segments)->U;
     assert(U != NULL);
-    size_t V_len = largest_upsampled_r*largest_upsampled_c*3;
-    double* V = malloc(V_len*sizeof(double));
+    size_t V_len = ((segments_t*)_segments)->V_len;
+    double* V = ((segments_t*)_segments)->V;
     assert(V != NULL);
 
     //memory for display_pyramid (twice the width of the input images)
-    size_t pyrDisp_len = r*(c*2)*3;
-    double* pyrDisp = malloc(pyrDisp_len*sizeof(double));
+    size_t pyrDisp_len = ((segments_t*)_segments)->pyrDisp_len;
+    double* pyrDisp = ((segments_t*)_segments)->pyrDisp;
     assert(pyrDisp != NULL);
     zeros(pyrDisp,pyrDisp_len);
 
     for (int n = 0; n < N; n++){
         //construct 1-channel gaussian pyramid from weights
-        malloc_pyramid(r,c,1,nlev,&(pyrW[n]), &(pyrW_r[n]), &(pyrW_c[n]));
         assert(pyrW[n] != NULL);
         assert(pyrW_r[n] != NULL);
         assert(pyrW_c[n] != NULL);
         gaussian_pyramid(W[n],r,c,1,nlev,Z,Z_len,S,S_len,pyrW[n],pyrW_r[n],pyrW_c[n]);
 
         //construct 3-channel laplacian pyramid from images
-        malloc_pyramid(r,c,3,nlev,&(pyrI[n]), &(pyrI_r[n]), &(pyrI_c[n]));
         assert(pyrI[n] != NULL);
         assert(pyrI_r[n] != NULL);
         assert(pyrI_c[n] != NULL);
@@ -269,7 +443,7 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
     //reconstruct laplacian pyramid
     reconstruct_laplacian_pyramid(3,nlev,S,S_len,Q,Q_len,U,U_len,V,V_len,pyr,pyr_r,pyr_c,r,c,R);
 
-#ifndef NDEBUG
+#ifdef PRINTPYRAMIDS
     for(int i = 0; i < I_len; i++){
         char fname[50];
 
@@ -333,29 +507,41 @@ void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
 
     printf("done\n");
 
-    free(C);
-    free(Z);
-    free(S);
-    free(T);
-    free(Q);
-    free(U);
-    free(V);
-    free_pyramid(nlev,pyr,pyr_r,pyr_c);
-    free(pyrDisp);
-
-    for (int n = 0; n < N; n++){
-        free(W[n]);
-        free_pyramid(nlev,pyrI[n],pyrI_r[n],pyrI_c[n]);
-        free_pyramid(nlev,pyrW[n],pyrW_r[n],pyrW_c[n]);
-    }
-    free(pyrI);
-    free(pyrI_r);
-    free(pyrI_c);
-    free(pyrW);
-    free(pyrW_r);
-    free(pyrW_c);
-    free(W);
+    return R;
 }
+
+void fusion_free( void* _segments ){
+    free(((segments_t*)_segments)->C);
+    free(((segments_t*)_segments)->Z);
+    free(((segments_t*)_segments)->Z);
+    free(((segments_t*)_segments)->S);
+    free(((segments_t*)_segments)->T);
+    free(((segments_t*)_segments)->Q);
+    free(((segments_t*)_segments)->U);
+    free(((segments_t*)_segments)->V);
+
+    free_pyramid(((segments_t*)_segments)->nlev,((segments_t*)_segments)->pyr,((segments_t*)_segments)->pyr_r,((segments_t*)_segments)->pyr_c);
+    free(((segments_t*)_segments)->pyrDisp);
+
+    for (int n = 0; n < ((segments_t*)_segments)->W_len; n++){
+        free(((segments_t*)_segments)->W[n]);
+        free_pyramid(((segments_t*)_segments)->nlev,((segments_t*)_segments)->pyrI[n],((segments_t*)_segments)->pyrI_r[n],((segments_t*)_segments)->pyrI_c[n]);
+        free_pyramid(((segments_t*)_segments)->nlev,((segments_t*)_segments)->pyrW[n],((segments_t*)_segments)->pyrW_r[n],((segments_t*)_segments)->pyrW_c[n]);
+    }
+    free(((segments_t*)_segments)->pyrI);
+    free(((segments_t*)_segments)->pyrI_r);
+    free(((segments_t*)_segments)->pyrI_c);
+    free(((segments_t*)_segments)->pyrW);
+    free(((segments_t*)_segments)->pyrW_r);
+    free(((segments_t*)_segments)->pyrW_c);
+    free(((segments_t*)_segments)->W);
+    free(((segments_t*)_segments)->R);
+    free(_segments);
+}
+
+//
+// Exposure Fusion functionality
+//
 
 void contrast(double *im, uint32_t r, uint32_t c, double *C){
     //laplacian filter
@@ -539,27 +725,6 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *fil
     assert(V_len == U_len);
 
     zeros(U,U_len);
-
-//    //pad image ("replicate" style) and upsample 2x. We should get a 2px border. Dst is U.
-//    for(int i = 0; i < r_upsampled; i++){
-//        int small_i = (i-2)/2; //2->0, 3->0, 4->1, 5->1, etc.
-//        if(small_i < 0){ //TODO: get rid of if/else
-//            small_i = 0;
-//        } else if( small_i > r-1 ){
-//            small_i = r-1;
-//        }
-//        for(int j = 0; j < c_upsampled; j++){
-//            int small_j = (i-2)/2;
-//            if(small_j < 0){ //TODO: get rid of if/else
-//                small_j = 0;
-//            } else if( small_j > c-1 ){
-//                small_j = c-1;
-//            }
-//            for(int k = 0; k < channels; k++){
-//                U[(i*(c_upsampled)+j)*channels+k] = im[(small_i*c+small_j)*channels+k]; //TODO: not exactly the same as the Matlab version, as we fill in every pixel (not every 4th pixel with value*4).
-//            }
-//        }
-//    }
 
     for(int i = 0; i < r; i++){
         for(int j = 0; j < c; j++){
@@ -747,17 +912,10 @@ uint32_t compute_nlev(uint32_t r, uint32_t c){
     return (uint32_t)(floor((log2(MIN(r,c)))));
 }
 
-void malloc_foreach(double **dst, size_t size, uint32_t N){
-    for(int i = 0; i < N; i++){
-        dst[i] = malloc(size);
-        assert(dst[i] != NULL);
-    }
-}
-
 /**
  * Allocate memory for the gaussian/laplacian pyramid at *pyr
  */
-void malloc_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double ***pyr, uint32_t **pyr_r, uint32_t **pyr_c){
+int malloc_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double ***pyr, uint32_t **pyr_r, uint32_t **pyr_c){
     size_t pyr_len = nlev;
     *pyr = (double**) malloc(pyr_len*sizeof(double*));
     assert(*pyr != NULL);
@@ -775,7 +933,9 @@ void malloc_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, do
 
         size_t L_len = r_level*c_level*channels;
         double* L = malloc(L_len*sizeof(double));
-        assert(L != NULL);
+        if(L == NULL){
+            return FUSION_ALLOC_FAILURE;
+        }
 
         (*pyr)[i] = L; //add entry to array of pointers to image levels
 
@@ -783,6 +943,7 @@ void malloc_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, do
         r_level = r_level / 2 + (r_level % 2);
         c_level = c_level / 2 + (c_level % 2);
     }
+    return FUSION_ALLOC_SUCCESS;
 }
 
 void free_pyramid(uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c){
@@ -1305,26 +1466,17 @@ void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height, d
         scalar_mult(I[i],npixels*3,1.0/255.0,I[i]);
     }
 
-    // malloc space for the fused image
-    size_t R_len = npixels*3;
-    double *R = malloc(R_len*sizeof(double));
-    assert(R != NULL);
 
-    //TODO: make these parameters changeable
-
-    double m[3];
-    m[0] = m_contrast;
-    m[1] = m_saturation;
-    m[2] = m_well_exposedness;
+    void* segments;
 
     //run fusion
-    exposure_fusion(I, height, width, nimages, m, R);
-
+    fusion_alloc(&segments,width,height,nimages);
+    double *R = fusion_compute(I,width,height,nimages,m_contrast,m_saturation,m_well_exposedness,segments);
     store_image("result.tif", R, height, width, 3);
+    fusion_free(segments);
 
     printf("result.tif written to disk\n");
 
-    free(R);
     for(int i = 0; i < nimages; i++){
         free(I[i]);
     }
