@@ -11,6 +11,7 @@
 #include <getopt.h>
 #include <math.h>
 
+#include "debug.h"
 #include "result_file.h"
 #include "testconfig.h"
 #include "image_io.h"
@@ -62,7 +63,7 @@ void print_usage() {
 /*
  * PERFORMANCE MEASUREMENT
  **/
-void run_testconfiguration( result_t* result, testconfig_t* tc ) {
+int run_testconfiguration( result_t* result, testconfig_t* tc ) {
     size_t w_orig, h_orig, w, h, img_count;
     double** input_images = tc_read_input_images( &img_count, &w_orig, &h_orig,
                                                   tc );
@@ -78,6 +79,20 @@ void run_testconfiguration( result_t* result, testconfig_t* tc ) {
 #ifndef NDEBUG
             printf( "fusion for w: %ld, h: %ld\n", w, h );
 #endif
+
+
+            void *fusion_data;
+            int ret = fusion_alloc(&fusion_data, w, h, img_count);
+            if (ret < 0) {
+                FUSION_ERR("Error in fusion_alloc(*,w=%zu,h=%zu,N=%zu)\n",
+                        w, h, img_count);
+                fusion_free(fusion_data);
+                return -1;
+            }
+
+            printf("done, with memory leak\n");
+
+
             //
             // size_t npixels = w * h;
             // ret_image = (double*) malloc( h*w*sizeof(double) );
