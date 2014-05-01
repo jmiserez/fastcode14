@@ -3,32 +3,21 @@
 #include <stdint.h>
 //#include <stdint-gcc.h> Not available on RedHat6@CAB. Not needed.
 #include <stdlib.h>
-#include <stddef.h>
 #include <stdbool.h>
 #include <assert.h>
 #include <getopt.h>
 #include <math.h>
 #include <float.h>
+
 #include <tiffio.h>
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
-//TODO: move these to fusion.h
-typedef struct {
-    double** weight_matrices;
-    double* mono_matrix;
-    double* temp_matrix;
-    double* result;
-} segments_t;
-
-//TODO: move these to fusion.h
-int alloc_fusion( void* segments, int w, int h, int N);
-void free_fusion( void* segments, int N);
-
+int main(int argc, char *argv[]);
+void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height, double m_contrast, double m_saturation, double m_well_exposedness);
 
 void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R);
-
 void contrast(double *im, uint32_t r, uint32_t c, double *C);
 void saturation(double *im, uint32_t npixels, double *C);
 void well_exposedness(double *im, uint32_t npixels, double *C);
@@ -45,6 +34,13 @@ uint32_t compute_nlev(uint32_t r, uint32_t c);
 void malloc_foreach(double **dst, size_t size, uint32_t N);
 void malloc_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double ***pyr, uint32_t **pyr_r, uint32_t **pyr_c);
 void free_pyramid(uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
+
+double sum3(double r, double g, double b);
+double stdev3(double r, double g, double b);
+void unzip(double *src, size_t src_len, uint32_t n, double **dst);
+void zip(double **src, size_t src_len, uint32_t n, double *dst);
+void fold(double *src, size_t src_len, double (*func)(double,double), double *dst);
+void fold3(double *src, size_t src_len, double (*func)(double,double,double), double *dst);
 
 void rgb2gray(double *im, size_t npixels, double* dst);
 void ones(double *dst, size_t len);
@@ -66,12 +62,147 @@ void conv3x3_monochrome_replicate(double* im, uint32_t r, uint32_t c, double* fx
 void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double *scratch, double* dst);
 void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double *scratch, double* dst);
 
-//TODO: remove all functions after this, use functionality from driver
-int main(int argc, char *argv[]);
-void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height, double m_contrast, double m_saturation, double m_well_exposedness);
 void load_images(char **path, int nimages, uint32_t **ret_stack, uint32_t *ret_widths, uint32_t *ret_heights);
 void store_image(char* path, double *R, uint32_t height, uint32_t width, uint32_t channels);
+
 void tiff2rgb(uint32_t *tiff, size_t npixels, double* ret_rgb);
+int debug_tiff_test(const char *in_img, char *out_img);
+
+
+int main(int argc, char *argv[]){
+
+    double m_contrast = 0.5;
+    double m_saturation = 0.5;
+    double m_well_exposedness = 0.5;
+
+    //getopt for command-line parsing. See the getopt(3) manpage
+    int c;
+    while(true){
+        static struct option long_options[] = {
+            {"testlibtiff", no_argument, 0, 't'},
+            {"c",  required_argument, 0, 'c'},
+            {"s",  required_argument, 0, 's'},
+            {"w",  required_argument, 0, 'w'},
+            {0,0,0,0}
+        };
+
+        int option_index = 0;
+        c = getopt_long(argc, argv, "t", long_options, &option_index);
+        if(c == -1){ // -1 indicates end of options reached
+            break;
+        }
+        switch(c){
+            case 0: // the long option with name long_options[option_index].name is found
+                printf("getopt error on long option %s\n", long_options[option_index].name);
+                break;
+            case 't':
+                printf("getopt: testlibtiff\n");
+                debug_tiff_test("gradient.tif", "out.tif");
+                break;
+            case 'c':
+                m_contrast = atof(optarg);
+                break;
+            case 's':
+                m_saturation = atof(optarg);
+                break;
+            case 'w':
+                m_well_exposedness = atof(optarg);
+                break;
+            case '?':
+                printf("getopt: error on character %c\n", optopt);
+                break;
+            default:
+                printf("getopt: general error\n");
+                abort();
+        }
+    }
+    int num_opts = optind-1;
+    int num_args_remaining = argc-optind;
+
+    if(num_opts == 0 && num_args_remaining == 0){
+        printf("Usage: ./fusion <options> <paths of images>\n");
+        return 0;
+    }
+    if(num_args_remaining > 0){ //get rest of arguments (optind is defined in getopt.h and used by getopt)
+        //use arguments
+
+        //load all images specified on the command line
+        //TODO: extract to function
+        uint32_t nimages = num_args_remaining;
+
+        assert(nimages > 0);
+
+        char** argv_start = &argv[optind];
+        uint32_t **images = malloc(nimages*sizeof(uint32_t*));
+        uint32_t *image_widths = malloc(nimages*sizeof(uint32_t));
+        uint32_t *image_heights = malloc(nimages*sizeof(uint32_t));
+        load_images(argv_start, nimages, images, image_widths, image_heights);
+
+        assert(images != NULL);
+
+#ifndef NDEBUG
+        for(int i = 0; i < nimages; i++){
+            assert(image_widths[i] == image_widths[0]);
+            assert(image_heights[i] == image_heights[0]);
+        }
+#endif
+
+        printf("Running with %d images and m: contrast: %lf, saturation: %lf, wellexposedness: %lf\n",nimages,m_contrast,m_saturation,m_well_exposedness);
+        run(images, nimages, image_widths[0], image_heights[0],m_contrast,m_saturation,m_well_exposedness);
+
+        for(int i = 0; i < nimages; i++){
+            free(images[i]);
+        }
+        free(images);
+        free(image_widths);
+        free(image_heights);
+    }
+    return 0;
+}
+
+/**
+ * @brief Run validation and performance benchmarks
+ */
+void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height, double m_contrast, double m_saturation, double m_well_exposedness){
+    // convert raw images to something we can work with
+    uint32_t npixels = width*height;
+    //malloc space for the array of pointers to the converted images
+    double **I = malloc(nimages*sizeof(double*));
+    for(int i = 0; i < nimages; i++){
+        //malloc space for the double image
+        double *converted_image = malloc(3*npixels*sizeof(double));
+        assert(converted_image != NULL);
+
+        tiff2rgb(images[i], npixels, converted_image);
+        I[i] = converted_image;
+        scalar_mult(I[i],npixels*3,1.0/255.0,I[i]);
+    }
+
+    // malloc space for the fused image
+    size_t R_len = npixels*3;
+    double *R = malloc(R_len*sizeof(double));
+    assert(R != NULL);
+
+    //TODO: make these parameters changeable
+
+    double m[3];
+    m[0] = m_contrast;
+    m[1] = m_saturation;
+    m[2] = m_well_exposedness;
+
+    //run fusion
+    exposure_fusion(I, height, width, nimages, m, R);
+
+    store_image("result.tif", R, height, width, 3);
+
+    printf("result.tif written to disk\n");
+
+    free(R);
+    for(int i = 0; i < nimages; i++){
+        free(I[i]);
+    }
+    free(I);
+}
 
 //
 // Exposure Fusion functionality
@@ -788,6 +919,62 @@ void free_pyramid(uint32_t nlev, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c)
 }
 
 //
+// The following functions are for debugging only.
+//
+
+double sum3(double r, double g, double b){
+    return r+g+b;
+}
+double stdev3(double r, double g, double b){
+    double mu = (r+g+b)/3.0;
+    return sqrt((pow(r-mu,2) + pow(g-mu,2) + pow(b-mu,2))/3.0);
+}
+
+/**
+ * @brief Unzip an array of n-tuples into n arrays of 1 tuples
+ */
+void unzip(double *src, size_t src_len, uint32_t n, double **dst){
+    assert(src_len % n == 0); //ensure there are no left-over elements
+    for(int i = 0; i < src_len/n; i++){
+        for(int k = 0; k < n; k++){
+            dst[k][i] = src[i*n+k];
+        }
+    }
+}
+
+/**
+ * @brief Zip n arrays of 1-tuples into 1 array of n-tuples
+ */
+void zip(double **src, size_t src_len, uint32_t n, double *dst){
+    for(int i = 0; i < src_len; i++){
+        for(int k = 0; k < n; k++){
+            dst[i*n+k] = src[k][i];
+        }
+    }
+}
+
+/**
+ * @brief Sum an array
+ */
+void sum(double *src, size_t src_len, double *dst){
+    double out = 0.0;
+    for(int i = 0; i < src_len; i++){
+        out += src[i];
+    }
+    *dst = out;
+}
+
+/**
+ * @brief Folds an array of n 3-tuples into an array of n 1-tuples
+ */
+void fold3(double *src, size_t src_len, double (*func)(double,double,double), double *dst){
+    assert(src_len % 3 == 0); //ensure there are no left-over elements
+    for(int i = 0; i < src_len; i++){
+        dst[i] = func(src[3*i],src[3*i+1],src[3*i+2]);
+    }
+}
+
+//
 // MATLAB-equivalent functionality
 //
 
@@ -1188,141 +1375,9 @@ void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t cha
 }
 
 
-
-//TODO: remove all code after this, use functionality in driver
 //
-// Driver functionality
+// TIFF functionality
 //
-
-int main(int argc, char *argv[]){
-
-    double m_contrast = 0.5;
-    double m_saturation = 0.5;
-    double m_well_exposedness = 0.5;
-
-    //getopt for command-line parsing. See the getopt(3) manpage
-    int c;
-    while(true){
-        static struct option long_options[] = {
-            {"c",  required_argument, 0, 'c'},
-            {"s",  required_argument, 0, 's'},
-            {"w",  required_argument, 0, 'w'},
-            {0,0,0,0}
-        };
-
-        int option_index = 0;
-        c = getopt_long(argc, argv, "t", long_options, &option_index);
-        if(c == -1){ // -1 indicates end of options reached
-            break;
-        }
-        switch(c){
-            case 0: // the long option with name long_options[option_index].name is found
-                printf("getopt error on long option %s\n", long_options[option_index].name);
-                break;
-            case 'c':
-                m_contrast = atof(optarg);
-                break;
-            case 's':
-                m_saturation = atof(optarg);
-                break;
-            case 'w':
-                m_well_exposedness = atof(optarg);
-                break;
-            case '?':
-                printf("getopt: error on character %c\n", optopt);
-                break;
-            default:
-                printf("getopt: general error\n");
-                abort();
-        }
-    }
-    int num_opts = optind-1;
-    int num_args_remaining = argc-optind;
-
-    if(num_opts == 0 && num_args_remaining == 0){
-        printf("Usage: ./fusion <options> <paths of images>\n");
-        return 0;
-    }
-    if(num_args_remaining > 0){ //get rest of arguments (optind is defined in getopt.h and used by getopt)
-        //use arguments
-
-        //load all images specified on the command line
-        //TODO: extract to function
-        uint32_t nimages = num_args_remaining;
-
-        assert(nimages > 0);
-
-        char** argv_start = &argv[optind];
-        uint32_t **images = malloc(nimages*sizeof(uint32_t*));
-        uint32_t *image_widths = malloc(nimages*sizeof(uint32_t));
-        uint32_t *image_heights = malloc(nimages*sizeof(uint32_t));
-        load_images(argv_start, nimages, images, image_widths, image_heights);
-
-        assert(images != NULL);
-
-#ifndef NDEBUG
-        for(int i = 0; i < nimages; i++){
-            assert(image_widths[i] == image_widths[0]);
-            assert(image_heights[i] == image_heights[0]);
-        }
-#endif
-
-        printf("Running with %d images and m: contrast: %lf, saturation: %lf, wellexposedness: %lf\n",nimages,m_contrast,m_saturation,m_well_exposedness);
-        run(images, nimages, image_widths[0], image_heights[0],m_contrast,m_saturation,m_well_exposedness);
-
-        for(int i = 0; i < nimages; i++){
-            free(images[i]);
-        }
-        free(images);
-        free(image_widths);
-        free(image_heights);
-    }
-    return 0;
-}
-
-/**
- * @brief Run validation and performance benchmarks
- */
-void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height, double m_contrast, double m_saturation, double m_well_exposedness){
-    // convert raw images to something we can work with
-    uint32_t npixels = width*height;
-    //malloc space for the array of pointers to the converted images
-    double **I = malloc(nimages*sizeof(double*));
-    for(int i = 0; i < nimages; i++){
-        //malloc space for the double image
-        double *converted_image = malloc(3*npixels*sizeof(double));
-        assert(converted_image != NULL);
-
-        tiff2rgb(images[i], npixels, converted_image);
-        I[i] = converted_image;
-        scalar_mult(I[i],npixels*3,1.0/255.0,I[i]);
-    }
-
-    // malloc space for the fused image
-    size_t R_len = npixels*3;
-    double *R = malloc(R_len*sizeof(double));
-    assert(R != NULL);
-
-    //TODO: make these parameters changeable
-
-    double m[3];
-    m[0] = m_contrast;
-    m[1] = m_saturation;
-    m[2] = m_well_exposedness;
-
-    //run fusion
-    exposure_fusion(I, height, width, nimages, m, R);
-
-    store_image("result.tif", R, height, width, 3);
-
-    printf("result.tif written to disk\n");
-
-    free(R);
-    for(int i = 0; i < nimages; i++){
-        free(I[i]);
-    }
-    free(I);
-}
 
 /**
  * @brief Load a series of images
@@ -1422,4 +1477,112 @@ void tiff2rgb(uint32_t *tiff, size_t npixels, double* ret_rgb){
         ret_rgb[i*3+2] = b;
     }
 }
+/**
+ * @brief Converts a TIFF image to an RGB array of unsigned 8 bit ints, omitting the A channel.
+ * @param tiff
+ * @param npixels
+ * @param ret_rgb
+ */
+void tiff2rgb8(uint32_t *tiff, size_t npixels, uint8_t* ret_rgb){
+    for(int i = 0; i < npixels; i++){
+        unsigned char r = TIFFGetR(tiff[i]);
+        unsigned char g = TIFFGetG(tiff[i]);
+        unsigned char b = TIFFGetB(tiff[i]);
+        ret_rgb[i*3] = r;
+        ret_rgb[i*3+1] = g;
+        ret_rgb[i*3+2] = b;
+    }
+}
+/**
+ * @brief Separates a TIFF image into it's channels, omitting the A channel.
+ * @param tiff
+ * @param npixels
+ * @param ret_r
+ * @param ret_g
+ * @param ret_b
+ */
+void tiff2channels(uint32_t *tiff, size_t npixels, double* ret_r, double* ret_g, double* ret_b){
+    for(int i = 0; i < npixels; i++){
+        unsigned char r = TIFFGetR(tiff[i]);
+        unsigned char g = TIFFGetG(tiff[i]);
+        unsigned char b = TIFFGetB(tiff[i]);
+        ret_r[i] = r;
+        ret_g[i] = g;
+        ret_b[i] = b;
+    }
+}
+/**
+ * @brief Separates a TIFF image into it's channels, omitting the A channel.
+ * @param tiff
+ * @param npixels
+ * @param ret_r
+ * @param ret_g
+ * @param ret_b
+ */
+void tiff2channels8(uint32_t *tiff, size_t npixels, uint8_t* ret_r, uint8_t* ret_g, uint8_t* ret_b){
+    for(int i = 0; i < npixels; i++){
+        unsigned char r = TIFFGetR(tiff[i]);
+        unsigned char g = TIFFGetG(tiff[i]);
+        unsigned char b = TIFFGetB(tiff[i]);
+        ret_r[i] = r;
+        ret_g[i] = g;
+        ret_b[i] = b;
+    }
+}
 
+int debug_tiff_test(const char *in_img, char *out_img){
+    TIFF* tif = TIFFOpen(in_img, "r");
+
+    if (tif) {
+        uint32_t w, h;
+        size_t npixels;
+        uint32_t* raster;
+
+        TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &w);
+        TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &h);
+        npixels = w * h;
+        printf("w=%d h=%d\n",w,h);
+        raster = (uint32_t*) _TIFFmalloc(npixels * sizeof (uint32_t));
+        if (raster != NULL) {
+            if (TIFFReadRGBAImageOriented(tif, w, h, raster, ORIENTATION_TOPLEFT, 0)) { //same as GIMP and others
+                for(int i = 0; i < npixels; i++){
+                    unsigned char r = TIFFGetR(raster[i]);
+                    unsigned char g = TIFFGetG(raster[i]);
+                    unsigned char b = TIFFGetB(raster[i]);
+                    unsigned char a = TIFFGetA(raster[i]);
+                    printf("[%u %u %u %u] ", r,g,b,a);
+                    if(i%w == w-1){
+                        printf("\n");
+                    }
+                }
+            }
+            _TIFFfree(raster);
+        }
+        TIFFClose(tif);
+        TIFF *out= TIFFOpen(out_img, "w");
+        int samplesperpixel = 4;
+        int width = 256;
+        int height = 256;
+        char image[width*height*samplesperpixel];
+        for(int i = 0; i < 256; i++){
+            for(int k = 0; k < 256*4; k+=4){
+                image[i*256*4+k+0] = ((i+k)/6+k-i) % 256; //R
+                image[i*256*4+k+1] = ((i+k)/4+i-k) % 256; //G
+                image[i*256*4+k+2] = (i+k)/2+k % 256;  //B
+                image[i*256*4+k+3] = i; //A
+            }
+        }
+        TIFFSetField(out, TIFFTAG_IMAGEWIDTH, width);
+        TIFFSetField(out, TIFFTAG_IMAGELENGTH, height);
+        TIFFSetField(out, TIFFTAG_SAMPLESPERPIXEL, samplesperpixel);
+        TIFFSetField(out, TIFFTAG_BITSPERSAMPLE, 8);
+        TIFFSetField(out, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
+        TIFFSetField(out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+        TIFFSetField(out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+
+        TIFFSetField(out, TIFFTAG_ROWSPERSTRIP, height);
+        TIFFWriteEncodedStrip(out, 0, &image[0], width*height*samplesperpixel);
+        TIFFClose(out);
+    }
+    return 0;
+}

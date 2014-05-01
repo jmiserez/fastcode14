@@ -5,14 +5,17 @@
 #define FUSION_ALLOC_FAILURE -1
 
 /**
- * @brief alloc_fusion allocates memory for internal data structures used by the fusion algorithm.
+ * @brief fusion_alloc allocates memory for internal data structures used by the 
+ *        fusion algorithm.
  * @param r height of the images
  * @param c width of the images
  * @param N number of images
- * @param segments object that holds pointers to the internally used memory segments
- * @return returns a number of >=0 if successful. <0 on error. In the latter case, you might want to check errno.
+ * @param segments object that holds pointers to the internally used memory
+ *        segments
+ * @return returns a number of >=0 if successful. <0 on error. In the latter
+ *         case, you might want to check errno.
  */
-int alloc_fusion(void* segments, int w, int h, int N);
+int fusion_alloc(void** _segments, int w, int h, int N);
 
 /**
  * @brief exposure_fusion
@@ -24,10 +27,10 @@ int alloc_fusion(void* segments, int w, int h, int N);
  * @param R
  * @param segments
  */
-double* exposure_fusion(double** I, int w, int h, int N,
+double* fusion_compute(double** I, int w, int h, int N,
                         double contrast_parm, double sat_parm, double wexp_parm,
                         void* _segments);
 
-void free_fusion( void* segments, int N );
+void fusion_free( void* _segments );
 
 #endif // FUSION_H
