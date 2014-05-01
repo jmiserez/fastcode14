@@ -157,6 +157,19 @@ int run_testconfiguration( result_t* result, testconfig_t* tc ) {
         }
     }
 
+    // convert result into tiff raster
+    // uint32_t* raster = rgb2tiff( ret_image, npixels );
+
+
+    // compare to reference
+    // result->error = compare_tif(raster, w, h, tc->ref_path );
+
+    // runtime and deviatation from reference solution
+
+    // free resources
+    // free_tiff( raster );
+
+
     // Cleanup
     tc_free_input_images( input_images, img_count );
     perf_cleanup(perf_data);
