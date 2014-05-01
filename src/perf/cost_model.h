@@ -27,6 +27,7 @@
 #ifndef COST_MEASURE
 
 #define COST_VARIABLES_HERE
+#define COST_MODEL_RESET
 
 #define COST_ADD ((const COST_T) 0)
 #define COST_MUL ((const COST_T) 0)
@@ -55,6 +56,12 @@ extern COST_T __cost_abs;
     COST_T __cost_pow = 0;   \
     COST_T __cost_abs = 0;
 
+#define COST_MODEL_RESET \
+    __cost_add = 0;      \
+    __cost_mul = 0;      \
+    __cost_div = 0;      \
+    __cost_pow = 0;      \
+    __cost_abs = 0;
 
 #define COST_ADD ((const COST_T) __cost_add)
 #define COST_MUL ((const COST_T) __cost_mul)
