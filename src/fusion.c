@@ -15,7 +15,7 @@
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
 int main(int argc, char *argv[]);
-void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height);
+void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height, double m_contrast, double m_saturation, double m_well_exposedness);
 
 void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R);
 void contrast(double *im, uint32_t r, uint32_t c, double *C);
@@ -71,11 +71,18 @@ int debug_tiff_test(const char *in_img, char *out_img);
 
 int main(int argc, char *argv[]){
 
+    double m_contrast = 0.5;
+    double m_saturation = 0.5;
+    double m_well_exposedness = 0.5;
+
     //getopt for command-line parsing. See the getopt(3) manpage
     int c;
     while(true){
         static struct option long_options[] = {
             {"testlibtiff", no_argument, 0, 't'},
+            {"c",  required_argument, 0, 'c'},
+            {"s",  required_argument, 0, 's'},
+            {"w",  required_argument, 0, 'w'},
             {0,0,0,0}
         };
 
@@ -91,6 +98,15 @@ int main(int argc, char *argv[]){
             case 't':
                 printf("getopt: testlibtiff\n");
                 debug_tiff_test("gradient.tif", "out.tif");
+                break;
+            case 'c':
+                m_contrast = atof(optarg);
+                break;
+            case 's':
+                m_saturation = atof(optarg);
+                break;
+            case 'w':
+                m_well_exposedness = atof(optarg);
                 break;
             case '?':
                 printf("getopt: error on character %c\n", optopt);
@@ -131,7 +147,8 @@ int main(int argc, char *argv[]){
         }
 #endif
 
-        run(images, nimages, image_widths[0], image_heights[0]);
+        printf("Running with %d images and m: contrast: %lf, saturation: %lf, wellexposedness: %lf\n",nimages,m_contrast,m_saturation,m_well_exposedness);
+        run(images, nimages, image_widths[0], image_heights[0],m_contrast,m_saturation,m_well_exposedness);
 
         for(int i = 0; i < nimages; i++){
             free(images[i]);
@@ -146,7 +163,7 @@ int main(int argc, char *argv[]){
 /**
  * @brief Run validation and performance benchmarks
  */
-void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height){
+void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height, double m_contrast, double m_saturation, double m_well_exposedness){
     // convert raw images to something we can work with
     uint32_t npixels = width*height;
     //malloc space for the array of pointers to the converted images
@@ -169,9 +186,9 @@ void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height){
     //TODO: make these parameters changeable
 
     double m[3];
-    m[0] = 0.5;
-    m[1] = 0.5;
-    m[2] = 0.5;
+    m[0] = m_contrast;
+    m[1] = m_saturation;
+    m[2] = m_well_exposedness;
 
     //run fusion
     exposure_fusion(I, height, width, nimages, m, R);
