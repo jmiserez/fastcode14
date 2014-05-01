@@ -10,22 +10,10 @@
 #include <math.h>
 #include <float.h>
 #include <tiffio.h>
+#include "fusion.h"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
-
-//TODO: move these to fusion.h
-typedef struct {
-    double** weight_matrices;
-    double* mono_matrix;
-    double* temp_matrix;
-    double* result;
-} segments_t;
-
-//TODO: move these to fusion.h
-int alloc_fusion( void* segments, int w, int h, int N);
-void free_fusion( void* segments, int N);
-
 
 void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R);
 
@@ -72,6 +60,25 @@ void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height, d
 void load_images(char **path, int nimages, uint32_t **ret_stack, uint32_t *ret_widths, uint32_t *ret_heights);
 void store_image(char* path, double *R, uint32_t height, uint32_t width, uint32_t channels);
 void tiff2rgb(uint32_t *tiff, size_t npixels, double* ret_rgb);
+
+//
+// Interface
+//
+
+
+int fusion_alloc(void** _segments, int w, int h, int N){
+    return FUSION_ALLOC_SUCCESS;
+}
+
+double* fusion_compute(double** I, int w, int h, int N,
+                        double contrast_parm, double sat_parm, double wexp_parm,
+                        void* _segments){
+    return NULL;
+}
+
+void fusion_free( void* _segments ){
+
+}
 
 //
 // Exposure Fusion functionality
