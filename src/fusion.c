@@ -133,47 +133,47 @@ void tiff2rgb(uint32_t *tiff, size_t npixels, double* ret_rgb);
 //TODO: use calloc instead of malloc
 int fusion_alloc(void** _segments, int w, int h, int N){
 
-    *_segments = malloc(sizeof(segments_t));
-    if(*_segments == NULL){
+    segments_t *mem = malloc(sizeof(segments_t));
+    if(mem == NULL){
         return FUSION_ALLOC_FAILURE;
     }
 
-    ((segments_t*)_segments)->R_len = w*h*3;
-    ((segments_t*)_segments)->R = malloc(((segments_t*)_segments)->R_len*sizeof(double));
-    if(((segments_t*)_segments)->R == NULL){
+    mem->R_len = w*h*3;
+    mem->R = malloc(mem->R_len*sizeof(double));
+    if(mem->R == NULL){
         return FUSION_ALLOC_FAILURE;
     }
 
-    ((segments_t*)_segments)->W_len = N;
-    ((segments_t*)_segments)->W_len2 = w*h;
-    ((segments_t*)_segments)->W = malloc(((segments_t*)_segments)->W_len*sizeof(double*));
-    if(((segments_t*)_segments)->W == NULL){
+    mem->W_len = N;
+    mem->W_len2 = w*h;
+    mem->W = malloc(mem->W_len*sizeof(double*));
+    if(mem->W == NULL){
         return FUSION_ALLOC_FAILURE;
     }
     for (int n = 0; n < N; n++){
-        ((segments_t*)_segments)->W[n] = malloc(((segments_t*)_segments)->W_len2*sizeof(double));
-        if(((segments_t*)_segments)->W[n] == NULL){
+        mem->W[n] = malloc(mem->W_len2*sizeof(double));
+        if(mem->W[n] == NULL){
             return FUSION_ALLOC_FAILURE;
         }
     }
 
-    ((segments_t*)_segments)->C_len = w*h;
-    ((segments_t*)_segments)->C = malloc(((segments_t*)_segments)->C_len*sizeof(double));
-    if(((segments_t*)_segments)->C == NULL){
+    mem->C_len = w*h;
+    mem->C = malloc(mem->C_len*sizeof(double));
+    if(mem->C == NULL){
         return FUSION_ALLOC_FAILURE;
     }
 
-    ((segments_t*)_segments)->nlev = (uint32_t)(floor((log2(MIN(w,h)))));
-    ((segments_t*)_segments)->pyr = malloc(((segments_t*)_segments)->nlev*sizeof(double*));
-    if(((segments_t*)_segments)->pyr == NULL){
+    mem->nlev = (uint32_t)(floor((log2(MIN(w,h)))));
+    mem->pyr = malloc(mem->nlev*sizeof(double*));
+    if(mem->pyr == NULL){
         return FUSION_ALLOC_FAILURE;
     }
-    ((segments_t*)_segments)->pyr_r = malloc(((segments_t*)_segments)->nlev*sizeof(uint32_t));
-    if(((segments_t*)_segments)->pyr_r == NULL){
+    mem->pyr_r = malloc(mem->nlev*sizeof(uint32_t));
+    if(mem->pyr_r == NULL){
         return FUSION_ALLOC_FAILURE;
     }
-    ((segments_t*)_segments)->pyr_c = malloc(((segments_t*)_segments)->nlev*sizeof(uint32_t));
-    if(((segments_t*)_segments)->pyr_c == NULL){
+    mem->pyr_c = malloc(mem->nlev*sizeof(uint32_t));
+    if(mem->pyr_c == NULL){
         return FUSION_ALLOC_FAILURE;
     }
 
@@ -181,61 +181,61 @@ int fusion_alloc(void** _segments, int w, int h, int N){
     //TODO: remove writes to pyr_c and pyr_r!
     //      (as we are not allowed to already write to memory in this fusion_alloc() step).
 
-    ((segments_t*)_segments)->pyrW = malloc(N*sizeof(double**));
-    if(((segments_t*)_segments)->pyrW == NULL){
+    mem->pyrW = malloc(N*sizeof(double**));
+    if(mem->pyrW == NULL){
         return FUSION_ALLOC_FAILURE;
     }
-    ((segments_t*)_segments)->pyrW_r = malloc(N*sizeof(double*));
-    if(((segments_t*)_segments)->pyrW_r == NULL){
+    mem->pyrW_r = malloc(N*sizeof(double*));
+    if(mem->pyrW_r == NULL){
         return FUSION_ALLOC_FAILURE;
     }
-    ((segments_t*)_segments)->pyrW_c = malloc(N*sizeof(double*));
-    if(((segments_t*)_segments)->pyrW_c == NULL){
-        return FUSION_ALLOC_FAILURE;
-    }
-
-    ((segments_t*)_segments)->pyrI = malloc(N*sizeof(double**));
-    if(((segments_t*)_segments)->pyrI == NULL){
-        return FUSION_ALLOC_FAILURE;
-    }
-    ((segments_t*)_segments)->pyrI_r = malloc(N*sizeof(double*));
-    if(((segments_t*)_segments)->pyrI_r == NULL){
-        return FUSION_ALLOC_FAILURE;
-    }
-    ((segments_t*)_segments)->pyrI_c = malloc(N*sizeof(double*));
-    if(((segments_t*)_segments)->pyrI_c == NULL){
+    mem->pyrW_c = malloc(N*sizeof(double*));
+    if(mem->pyrW_c == NULL){
         return FUSION_ALLOC_FAILURE;
     }
 
-    if(malloc_pyramid(h,w,3,((segments_t*)_segments)->nlev,&(((segments_t*)_segments)->pyr), &(((segments_t*)_segments)->pyr_r), &(((segments_t*)_segments)->pyr_c)) != FUSION_ALLOC_SUCCESS){
+    mem->pyrI = malloc(N*sizeof(double**));
+    if(mem->pyrI == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+    mem->pyrI_r = malloc(N*sizeof(double*));
+    if(mem->pyrI_r == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+    mem->pyrI_c = malloc(N*sizeof(double*));
+    if(mem->pyrI_c == NULL){
+        return FUSION_ALLOC_FAILURE;
+    }
+
+    if(malloc_pyramid(h,w,3,mem->nlev,&(mem->pyr), &(mem->pyr_r), &(mem->pyr_c)) != FUSION_ALLOC_SUCCESS){
         return FUSION_ALLOC_FAILURE;
     }
     for (int n = 0; n < N; n++){
-        if(malloc_pyramid(h,w,1,((segments_t*)_segments)->nlev,&(((segments_t*)_segments)->pyrW[n]), &(((segments_t*)_segments)->pyrW_r[n]), &(((segments_t*)_segments)->pyrW_c[n])) != FUSION_ALLOC_SUCCESS){
+        if(malloc_pyramid(h,w,1,mem->nlev,&(mem->pyrW[n]), &(mem->pyrW_r[n]), &(mem->pyrW_c[n])) != FUSION_ALLOC_SUCCESS){
             return FUSION_ALLOC_FAILURE;
         }
     }
     for (int n = 0; n < N; n++){
-        if(malloc_pyramid(h,w,3,((segments_t*)_segments)->nlev,&(((segments_t*)_segments)->pyrI[n]), &(((segments_t*)_segments)->pyrI_r[n]), &(((segments_t*)_segments)->pyrI_c[n])) != FUSION_ALLOC_SUCCESS){
+        if(malloc_pyramid(h,w,3,mem->nlev,&(mem->pyrI[n]), &(mem->pyrI_r[n]), &(mem->pyrI_c[n])) != FUSION_ALLOC_SUCCESS){
             return FUSION_ALLOC_FAILURE;
         }
     }
 
     //regular size scratch spaces
-    ((segments_t*)_segments)->Z_len = w*h*3;
-    ((segments_t*)_segments)->S_len = w*h*3;
-    ((segments_t*)_segments)->T_len = w*h*3;
+    mem->Z_len = w*h*3;
+    mem->S_len = w*h*3;
+    mem->T_len = w*h*3;
 
-    ((segments_t*)_segments)->Z = malloc(((segments_t*)_segments)->Z_len*sizeof(double));
-    if(((segments_t*)_segments)->Z == NULL){
+    mem->Z = malloc(mem->Z_len*sizeof(double));
+    if(mem->Z == NULL){
         return FUSION_ALLOC_FAILURE;
     }
-    ((segments_t*)_segments)->S = malloc(((segments_t*)_segments)->S_len*sizeof(double));
-    if(((segments_t*)_segments)->S == NULL){
+    mem->S = malloc(mem->S_len*sizeof(double));
+    if(mem->S == NULL){
         return FUSION_ALLOC_FAILURE;
     }
-    ((segments_t*)_segments)->T = malloc(((segments_t*)_segments)->T_len*sizeof(double));
-    if(((segments_t*)_segments)->T == NULL){
+    mem->T = malloc(mem->T_len*sizeof(double));
+    if(mem->T == NULL){
         return FUSION_ALLOC_FAILURE;
     }
 
@@ -244,26 +244,26 @@ int fusion_alloc(void** _segments, int w, int h, int N){
     uint32_t largest_upsampled_r = (((h/2) + (h%2)) + 2) * 2;
     uint32_t largest_upsampled_c = (((w/2) + (w%2)) + 2) * 2;
 
-    ((segments_t*)_segments)->Q_len = largest_upsampled_r*largest_upsampled_c*3;
-    ((segments_t*)_segments)->U_len = largest_upsampled_r*largest_upsampled_c*3;
-    ((segments_t*)_segments)->V_len = largest_upsampled_r*largest_upsampled_c*3;
+    mem->Q_len = largest_upsampled_r*largest_upsampled_c*3;
+    mem->U_len = largest_upsampled_r*largest_upsampled_c*3;
+    mem->V_len = largest_upsampled_r*largest_upsampled_c*3;
 
-    ((segments_t*)_segments)->Q = malloc(((segments_t*)_segments)->Q_len*sizeof(double));
-    if(((segments_t*)_segments)->Q == NULL){
+    mem->Q = malloc(mem->Q_len*sizeof(double));
+    if(mem->Q == NULL){
         return FUSION_ALLOC_FAILURE;
     }
-    ((segments_t*)_segments)->U = malloc(((segments_t*)_segments)->U_len*sizeof(double));
-    if(((segments_t*)_segments)->U == NULL){
+    mem->U = malloc(mem->U_len*sizeof(double));
+    if(mem->U == NULL){
         return FUSION_ALLOC_FAILURE;
     }
-    ((segments_t*)_segments)->V = malloc(((segments_t*)_segments)->V_len*sizeof(double));
-    if(((segments_t*)_segments)->V == NULL){
+    mem->V = malloc(mem->V_len*sizeof(double));
+    if(mem->V == NULL){
         return FUSION_ALLOC_FAILURE;
     }
 
-    ((segments_t*)_segments)->pyrDisp_len = (w*2)*h*3;
-    ((segments_t*)_segments)->pyrDisp = malloc(((segments_t*)_segments)->pyrDisp_len*sizeof(double));
-    if(((segments_t*)_segments)->pyrDisp == NULL){
+    mem->pyrDisp_len = (w*2)*h*3;
+    mem->pyrDisp = malloc(mem->pyrDisp_len*sizeof(double));
+    if(mem->pyrDisp == NULL){
         return FUSION_ALLOC_FAILURE;
     }
 
@@ -274,7 +274,8 @@ double* fusion_compute(double** I, int w, int h, int N,
                         double contrast_parm, double sat_parm, double wexp_parm,
                         void* _segments){
 
-    double* R = ((segments_t*)_segments)->R;
+    segments_t *mem = _segments;
+    double* R = mem->R;
 
     int r = h;
     int c = w;
@@ -284,9 +285,9 @@ double* fusion_compute(double** I, int w, int h, int N,
 
     //W[n] is a weight map (1 value/pixel)
     //There is one for each of the N images
-    size_t W_len = ((segments_t*)_segments)->W_len;
-    size_t W_len2 = ((segments_t*)_segments)->W_len2;
-    double** W = ((segments_t*)_segments)->W;
+    size_t W_len = mem->W_len;
+    size_t W_len2 = mem->W_len2;
+    double** W = mem->W;
     assert(W != NULL);
     assert(W_len == I_len);
 
@@ -295,8 +296,8 @@ double* fusion_compute(double** I, int w, int h, int N,
     }
 
     //C is used as a temporary variable (1 value/pixel)
-    size_t C_len = ((segments_t*)_segments)->C_len;
-    double* C = ((segments_t*)_segments)->C;
+    size_t C_len = mem->C_len;
+    double* C = mem->C;
     assert(C != NULL);
     assert(W_len2 == C_len);
 
@@ -355,9 +356,9 @@ double* fusion_compute(double** I, int w, int h, int N,
     assert(nlev != 0);
 
     //create empty pyramid
-    double **pyr = ((segments_t*)_segments)->pyr;
-    uint32_t *pyr_r = ((segments_t*)_segments)->pyr_r;
-    uint32_t *pyr_c = ((segments_t*)_segments)->pyr_c;
+    double **pyr = mem->pyr;
+    uint32_t *pyr_r = mem->pyr_r;
+    uint32_t *pyr_c = mem->pyr_c;
     assert(pyr != NULL);
     assert(pyr_r != NULL);
     assert(pyr_c != NULL);
@@ -367,30 +368,30 @@ double* fusion_compute(double** I, int w, int h, int N,
     }
 
     //multiresolution blending
-    double ***pyrW = ((segments_t*)_segments)->pyrW;
-    uint32_t **pyrW_r = ((segments_t*)_segments)->pyrW_r;
-    uint32_t **pyrW_c = ((segments_t*)_segments)->pyrW_c;
+    double ***pyrW = mem->pyrW;
+    uint32_t **pyrW_r = mem->pyrW_r;
+    uint32_t **pyrW_c = mem->pyrW_c;
     assert(pyrW != NULL);
     assert(pyrW_r != NULL);
     assert(pyrW_c != NULL);
 
-    double ***pyrI = ((segments_t*)_segments)->pyrI;
-    uint32_t **pyrI_r = ((segments_t*)_segments)->pyrI_r;
-    uint32_t **pyrI_c = ((segments_t*)_segments)->pyrI_c;
+    double ***pyrI = mem->pyrI;
+    uint32_t **pyrI_r = mem->pyrI_r;
+    uint32_t **pyrI_c = mem->pyrI_c;
     assert(pyrI != NULL);
     assert(pyrI_r != NULL);
     assert(pyrI_c != NULL);
 
     //scratch space for gaussian/laplacian pyramid
     //TODO: optimize these away if possible
-    size_t Z_len = ((segments_t*)_segments)->Z_len;
-    double* Z = ((segments_t*)_segments)->Z;
+    size_t Z_len = mem->Z_len;
+    double* Z = mem->Z;
     assert(Z != NULL);
-    size_t S_len = ((segments_t*)_segments)->S_len;
-    double* S = ((segments_t*)_segments)->S;
+    size_t S_len = mem->S_len;
+    double* S = mem->S;
     assert(S != NULL);
-    size_t T_len = ((segments_t*)_segments)->T_len;
-    double* T = ((segments_t*)_segments)->T;
+    size_t T_len = mem->T_len;
+    double* T = mem->T;
     assert(T != NULL);
     //how much scratch space is needed for upsampling?
 
@@ -399,19 +400,19 @@ double* fusion_compute(double** I, int w, int h, int N,
 //    uint32_t largest_upsampled_c = (((c/2) + (c%2)) + 2) * 2;
 
 
-    size_t Q_len = ((segments_t*)_segments)->Q_len;
-    double* Q = ((segments_t*)_segments)->Q;
+    size_t Q_len = mem->Q_len;
+    double* Q = mem->Q;
     assert(Q != NULL);
-    size_t U_len = ((segments_t*)_segments)->U_len;
-    double* U = ((segments_t*)_segments)->U;
+    size_t U_len = mem->U_len;
+    double* U = mem->U;
     assert(U != NULL);
-    size_t V_len = ((segments_t*)_segments)->V_len;
-    double* V = ((segments_t*)_segments)->V;
+    size_t V_len = mem->V_len;
+    double* V = mem->V;
     assert(V != NULL);
 
     //memory for display_pyramid (twice the width of the input images)
-    size_t pyrDisp_len = ((segments_t*)_segments)->pyrDisp_len;
-    double* pyrDisp = ((segments_t*)_segments)->pyrDisp;
+    size_t pyrDisp_len = mem->pyrDisp_len;
+    double* pyrDisp = mem->pyrDisp;
     assert(pyrDisp != NULL);
     zeros(pyrDisp,pyrDisp_len);
 
@@ -511,31 +512,32 @@ double* fusion_compute(double** I, int w, int h, int N,
 }
 
 void fusion_free( void* _segments ){
-    free(((segments_t*)_segments)->C);
-    free(((segments_t*)_segments)->Z);
-    free(((segments_t*)_segments)->Z);
-    free(((segments_t*)_segments)->S);
-    free(((segments_t*)_segments)->T);
-    free(((segments_t*)_segments)->Q);
-    free(((segments_t*)_segments)->U);
-    free(((segments_t*)_segments)->V);
+    segments_t *mem = _segments;
+    free(mem->C);
+    free(mem->Z);
+    free(mem->Z);
+    free(mem->S);
+    free(mem->T);
+    free(mem->Q);
+    free(mem->U);
+    free(mem->V);
 
-    free_pyramid(((segments_t*)_segments)->nlev,((segments_t*)_segments)->pyr,((segments_t*)_segments)->pyr_r,((segments_t*)_segments)->pyr_c);
-    free(((segments_t*)_segments)->pyrDisp);
+    free_pyramid(mem->nlev,mem->pyr,mem->pyr_r,mem->pyr_c);
+    free(mem->pyrDisp);
 
-    for (int n = 0; n < ((segments_t*)_segments)->W_len; n++){
-        free(((segments_t*)_segments)->W[n]);
-        free_pyramid(((segments_t*)_segments)->nlev,((segments_t*)_segments)->pyrI[n],((segments_t*)_segments)->pyrI_r[n],((segments_t*)_segments)->pyrI_c[n]);
-        free_pyramid(((segments_t*)_segments)->nlev,((segments_t*)_segments)->pyrW[n],((segments_t*)_segments)->pyrW_r[n],((segments_t*)_segments)->pyrW_c[n]);
+    for (int n = 0; n < mem->W_len; n++){
+        free(mem->W[n]);
+        free_pyramid(mem->nlev,mem->pyrI[n],mem->pyrI_r[n],mem->pyrI_c[n]);
+        free_pyramid(mem->nlev,mem->pyrW[n],mem->pyrW_r[n],mem->pyrW_c[n]);
     }
-    free(((segments_t*)_segments)->pyrI);
-    free(((segments_t*)_segments)->pyrI_r);
-    free(((segments_t*)_segments)->pyrI_c);
-    free(((segments_t*)_segments)->pyrW);
-    free(((segments_t*)_segments)->pyrW_r);
-    free(((segments_t*)_segments)->pyrW_c);
-    free(((segments_t*)_segments)->W);
-    free(((segments_t*)_segments)->R);
+    free(mem->pyrI);
+    free(mem->pyrI_r);
+    free(mem->pyrI_c);
+    free(mem->pyrW);
+    free(mem->pyrW_r);
+    free(mem->pyrW_c);
+    free(mem->W);
+    free(mem->R);
     free(_segments);
 }
 
