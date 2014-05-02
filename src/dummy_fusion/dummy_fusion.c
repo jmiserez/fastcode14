@@ -26,6 +26,8 @@ double* fusion_compute(double** I, int w, int h, int N,
         }
     }
 
+    some_update(); // remote file call
+
     return mydata;
 }
 

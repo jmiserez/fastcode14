@@ -1,0 +1,7 @@
+VERSION   = dummy_fusion
+
+CF_OPT    = -O2 -fno-tree-vectorize
+CF_DEBUG  = -DDEBUG # -DNDEBUG ...
+CF_COST   = -DCOST_MEASURE
+
+CF_CONFIG = $(CF_OPT) $(CF_DEBUG) $(CF_COST)
