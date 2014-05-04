@@ -35,7 +35,8 @@ uint32_t* load_image( uint32_t *ret_width, uint32_t *ret_height, char *path ) {
     assert(raster != NULL);
     ret_value = raster;
 
-    if (!TIFFReadRGBAImageOriented(tif, *ret_width, *ret_height, raster, ORIENTATION_TOPLEFT, 0)) {
+    if (!TIFFReadRGBAImageOriented(tif, *ret_width, *ret_height, raster,
+                                   ORIENTATION_TOPLEFT, 0)) {
         //same as any image viewer
         ret_value = NULL;
     }
@@ -210,10 +211,6 @@ int debug_tiff_test( const char *in_img, char *out_img ){
     return 0;
 }
 
-void free_rgb( double* rgb_image ) {
-    free(rgb_image);
-}
-
 double compare_tif( uint32_t *raster, uint32_t w, uint32_t h, char* path ) {
     uint32_t i, ref_w, ref_h;
     uint32_t* ref_raster = load_image( &ref_w, &ref_h, path );
@@ -240,4 +237,73 @@ double compare_tif( uint32_t *raster, uint32_t w, uint32_t h, char* path ) {
 
 void free_tiff( uint32_t* raster ) {
     _TIFFfree( raster );
+}
+
+void free_rgb( double* rgb_image ) {
+    free(rgb_image);
+}
+
+void free_rgbs( double** rgb_images, size_t img_count ) {
+    size_t i;
+    for( i = 0; i < img_count; i++ ) {
+        free(rgb_images[i]);
+    }
+    free( rgb_images );
+}
+
+/**
+ * @brief crop_topleft_rgb extracts topleft rectangular box from rgb_image and
+ * returns the resulting image as a newly allocated double array.
+ * @param rgb_image
+ * @param w_orig width of original image
+ * @param h_orig height of original image
+ * @param w width of target image
+ * @param h height of target image
+ * @param force_copy Indicates whether the image shall be copied even though
+ * the resulting rectangular box has the same size as the original image.
+ * @return target image
+ */
+double* crop_topleft_rgb( double* rgb_image, size_t w_orig, size_t h_orig,
+                  size_t w, size_t h, bool force_copy ) {
+    size_t npixels = w * h, i, j, trgt_idx, orig_idx;
+    if( (w == w_orig) && (h == h_orig) && !force_copy )
+        return rgb_image;
+    if( (w <= w_orig) && (h <= h_orig) ) {
+        double* trgt_image = (double*) malloc(3 * npixels * sizeof(double));
+        for( i = 0; i < h; i++ ) {
+            for( j = 0; j < w; j++ ) {
+                trgt_idx = 3*(i*w + j);
+                orig_idx = 3*(i*w_orig + j);
+                trgt_image[trgt_idx  ] = rgb_image[orig_idx  ]; // R
+                trgt_image[trgt_idx+1] = rgb_image[orig_idx+1]; // G
+                trgt_image[trgt_idx+2] = rgb_image[orig_idx+2]; // B
+            }
+        }
+        return trgt_image;
+    }
+    return NULL;
+}
+
+/**
+ * @brief crop_topleft_rgbs applies crop_topleft_rgb to an array of images.
+ * @param rgb_images source images
+ * @param w_orig original width of the images
+ * @param h_orig original height of the images
+ * @param image_count number of images
+ * @param w target width
+ * @param h target height
+ * @param force_copy indicates whether the source images shall be copied even
+ * though they have the same size as the target images (copy if true)
+ * @return pointer to an array of pointers to the images.
+ */
+double** crop_topleft_rgbs( double** rgb_images, size_t w_orig,
+                            size_t h_orig, size_t image_count,
+                            size_t w, size_t h, bool force_copy ) {
+    double** trgt_images = (double**) malloc( image_count * sizeof( double ));
+    size_t i;
+    for( i = 0; i < image_count; i++ ) {
+        trgt_images[i] = crop_topleft_rgb( rgb_images[i], w_orig, h_orig,
+                                        w, h, force_copy );
+    }
+    return trgt_images;
 }

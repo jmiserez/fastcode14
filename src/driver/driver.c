@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdbool.h>
 #include <assert.h>
 #include <getopt.h>
 #include <math.h>
@@ -44,10 +45,15 @@ const char* usage_str = "./driver [options] <heights> <widths> "
         "  write measurement results into log file <file>.\n"
         "  (otherwise only the error is calculated and the result is abandoned)"
         "\n"
-        " --validate <reference>\n"
-        "  compare calculated result against <reference>.\n"
-        " --store <outputFile>\n"
-        "  store result into <outputFile>\n"
+        " --validate <ref>\n"
+        "  compare calculated result against <ref>.\n"
+        "  The driver can be configured to execute exposure fusion for\n"
+        "  different widths and heights. If the current width and height are\n"
+        "  smaller than the width and height of the reference image, the\n"
+        "  current result image is validated against the rectangular\n"
+        "  subsection with respective dimensions.\n"
+        " --store <prefix>\n"
+        "  store result into <prefix>-<w>x<h>.tif\n"
         "\n\n"
         "Example:\n"
         " $ ./driver --log file.log --val val.tif --store out.tif "
@@ -107,22 +113,27 @@ int run_testconfiguration( result_t* result, testconfig_t* tc ) {
 #ifndef NDEBUG
             printf( "fusion for w: %ld, h: %ld\n", w, h );
 #endif
+            // crop the images
+            double** target_images = crop_topleft_rgbs( input_images, w_orig,
+                                                        h_orig, img_count,
+                                                        w, h, true );
 
-            void *fusion_data;
+            void *fusion_data; ///< memory segments used by the current
+            // implementation
             ret = fusion_alloc(&fusion_data, w, h, img_count);
             if (ret < 0) {
                 FUSION_ERR("Error in fusion_alloc(*,w=%zu,h=%zu,N=%zu)\n",
                         w, h, img_count);
                 fusion_free(fusion_data);
                 err = -1;
-            } else {
+            } else { // fusion alloc succeeded
                 // Reset Counters
                 COST_MODEL_RESET;
                 perf_reset(perf_data);
 
                 // Run exposure fusion
                 perf_start(perf_data);
-                fusion_compute(input_images, w, h, img_count, tc->contrast,
+                fusion_compute(target_images, w, h, img_count, tc->contrast,
                         tc->saturation, tc->well_exposed, fusion_data);
                 perf_stop(perf_data);
 
@@ -153,9 +164,15 @@ int run_testconfiguration( result_t* result, testconfig_t* tc ) {
 
                 // Cleanup
                 fusion_free(fusion_data);
-            }
-        }
-    }
+
+
+
+            } // fusion alloc succeeded
+
+            // free target images
+            free_rgbs( target_images, img_count );
+        } // heights loop
+    } // widths loop
 
     // convert result into tiff raster
     // uint32_t* raster = rgb2tiff( ret_image, npixels );

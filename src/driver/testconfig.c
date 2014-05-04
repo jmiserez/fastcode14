@@ -50,10 +50,13 @@ double** tc_read_input_images( size_t* read_imgs, size_t *ret_w,
 
     if( tc->n_inputfiles > 0 ) {
         images = (double**) malloc( tc->n_inputfiles * sizeof(double*));
-        images[0] = load_tiff_rgb( &w, &h, tc->input_paths[0] );
+        images[0] = load_tiff_rgb( (uint32_t*) &w, (uint32_t*) &h,
+                                   tc->input_paths[0] );
         if( (images[0] != NULL) ) {
             for( i = 1; i < tc->n_inputfiles; i++ ) {
-                images[i] = load_tiff_rgb( &new_w, &new_h, tc->input_paths[i] );
+                images[i] = load_tiff_rgb( (uint32_t*) &new_w,
+                                           (uint32_t*)&new_h,
+                                           tc->input_paths[i] );
                 if( !(new_w == w && new_h == h) || (images[i] == NULL) ) {
                     free(images[i]);
                     i--;
