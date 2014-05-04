@@ -1,3 +1,6 @@
+// matlab-based implementation as shown in meeting
+#include <cost_model.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -121,18 +124,13 @@ void conv3x3_monochrome_replicate(double* im, uint32_t r, uint32_t c, double* fx
 void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double *scratch, double* dst);
 void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double *scratch, double* dst);
 
-//TODO: remove all functions after this, use functionality from driver
-int main(int argc, char *argv[]);
-void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height, double m_contrast, double m_saturation, double m_well_exposedness);
-void load_images(char **path, int nimages, uint32_t **ret_stack, uint32_t *ret_widths, uint32_t *ret_heights);
+//TODO: move to separate (debug) c file
 void store_image(char* path, double *R, uint32_t height, uint32_t width, uint32_t channels);
-void tiff2rgb(uint32_t *tiff, size_t npixels, double* ret_rgb);
 
 //
 // Interface
 //
 
-//TODO: use calloc instead of malloc
 int fusion_alloc(void** _segments, int w, int h, int N){
 
     segments_t *mem = malloc(sizeof(segments_t));
@@ -1352,171 +1350,7 @@ void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t cha
     }
 }
 
-
-
-//TODO: remove all code after this, use functionality in driver
-//
-// Driver functionality
-//
-
-int main(int argc, char *argv[]){
-
-    double m_contrast = 0.5;
-    double m_saturation = 0.5;
-    double m_well_exposedness = 0.5;
-
-    //getopt for command-line parsing. See the getopt(3) manpage
-    int c;
-    while(true){
-        static struct option long_options[] = {
-            {"c",  required_argument, 0, 'c'},
-            {"s",  required_argument, 0, 's'},
-            {"w",  required_argument, 0, 'w'},
-            {0,0,0,0}
-        };
-
-        int option_index = 0;
-        c = getopt_long(argc, argv, "t", long_options, &option_index);
-        if(c == -1){ // -1 indicates end of options reached
-            break;
-        }
-        switch(c){
-            case 0: // the long option with name long_options[option_index].name is found
-                printf("getopt error on long option %s\n", long_options[option_index].name);
-                break;
-            case 'c':
-                m_contrast = atof(optarg);
-                break;
-            case 's':
-                m_saturation = atof(optarg);
-                break;
-            case 'w':
-                m_well_exposedness = atof(optarg);
-                break;
-            case '?':
-                printf("getopt: error on character %c\n", optopt);
-                break;
-            default:
-                printf("getopt: general error\n");
-                abort();
-        }
-    }
-    int num_opts = optind-1;
-    int num_args_remaining = argc-optind;
-
-    if(num_opts == 0 && num_args_remaining == 0){
-        printf("Usage: ./fusion <options> <paths of images>\n");
-        return 0;
-    }
-    if(num_args_remaining > 0){ //get rest of arguments (optind is defined in getopt.h and used by getopt)
-        //use arguments
-
-        //load all images specified on the command line
-        //TODO: extract to function
-        uint32_t nimages = num_args_remaining;
-
-        assert(nimages > 0);
-
-        char** argv_start = &argv[optind];
-        uint32_t **images = malloc(nimages*sizeof(uint32_t*));
-        uint32_t *image_widths = malloc(nimages*sizeof(uint32_t));
-        uint32_t *image_heights = malloc(nimages*sizeof(uint32_t));
-        load_images(argv_start, nimages, images, image_widths, image_heights);
-
-        assert(images != NULL);
-
-#ifndef NDEBUG
-        for(int i = 0; i < nimages; i++){
-            assert(image_widths[i] == image_widths[0]);
-            assert(image_heights[i] == image_heights[0]);
-        }
-#endif
-
-        printf("Running with %d images and m: contrast: %lf, saturation: %lf, wellexposedness: %lf\n",nimages,m_contrast,m_saturation,m_well_exposedness);
-        run(images, nimages, image_widths[0], image_heights[0],m_contrast,m_saturation,m_well_exposedness);
-
-        for(int i = 0; i < nimages; i++){
-            free(images[i]);
-        }
-        free(images);
-        free(image_widths);
-        free(image_heights);
-    }
-    return 0;
-}
-
-/**
- * @brief Run validation and performance benchmarks
- */
-void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height, double m_contrast, double m_saturation, double m_well_exposedness){
-    // convert raw images to something we can work with
-    uint32_t npixels = width*height;
-    //malloc space for the array of pointers to the converted images
-    double **I = malloc(nimages*sizeof(double*));
-    for(int i = 0; i < nimages; i++){
-        //malloc space for the double image
-        double *converted_image = malloc(3*npixels*sizeof(double));
-        assert(converted_image != NULL);
-
-        tiff2rgb(images[i], npixels, converted_image);
-        I[i] = converted_image;
-        scalar_mult(I[i],npixels*3,1.0/255.0,I[i]);
-    }
-
-
-    void* segments;
-
-    //run fusion
-    fusion_alloc(&segments,width,height,nimages);
-    double *R = fusion_compute(I,width,height,nimages,m_contrast,m_saturation,m_well_exposedness,segments);
-    store_image("result.tif", R, height, width, 3);
-    fusion_free(segments);
-
-    printf("result.tif written to disk\n");
-
-    for(int i = 0; i < nimages; i++){
-        free(I[i]);
-    }
-    free(I);
-}
-
-/**
- * @brief Load a series of images
- * @param path A list of image paths to load
- * @param nimages Number of images to load
- * @param reduce Factor by which to reduce the image sizes
- * @param ret_stack (out) Stack of images
- */
-void load_images(char **path, int nimages, uint32_t **ret_stack, uint32_t *ret_widths, uint32_t *ret_heights){
-    for(int i = 0; i < nimages; i++){
-        TIFF* tif = TIFFOpen(path[i], "r");
-        assert(tif != NULL);
-        uint32_t width, height;
-        uint32_t* raster;
-
-        TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &width);
-        TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &height);
-        size_t npixels = width * height;
-
-        ret_widths[i] = width;
-        ret_heights[i] = height;
-
-        raster = (uint32_t*) _TIFFmalloc(npixels * sizeof (uint32_t));
-        assert(raster != NULL);
-        uint32_t *ret_img = (uint32_t*) malloc(npixels * sizeof (uint32_t));
-        assert(ret_img != NULL);
-
-        if (TIFFReadRGBAImageOriented(tif, width, height, raster, ORIENTATION_TOPLEFT, 0)) { //same as any image viewer
-            for(int k = 0; k < npixels; k++){
-                ret_img[k] = raster[k];
-            }
-        }
-        ret_stack[i] = ret_img;
-        _TIFFfree(raster);
-        TIFFClose(tif);
-    }
-}
-
+//TODO: move to separate (debug) c file.
 void store_image(char* path, double *R, uint32_t height, uint32_t width, uint32_t channels){
     assert(channels == 1 || channels == 3);
     uint32_t npixels = width*height;
@@ -1561,21 +1395,3 @@ void store_image(char* path, double *R, uint32_t height, uint32_t width, uint32_
     _TIFFfree(raster);
     TIFFClose(out);
 }
-
-/**
- * @brief Converts a TIFF image to an RGB array of doubles, omitting the A channel.
- * @param tiff The TIFF image in ABGR format (MSB to LSB)
- * @param pixels Size of image in pixels
- * @param rgb (out) Output image, array of npixels*3 doubles
- */
-void tiff2rgb(uint32_t *tiff, size_t npixels, double* ret_rgb){
-    for(int i = 0; i < npixels; i++){
-        unsigned char r = TIFFGetR(tiff[i]);
-        unsigned char g = TIFFGetG(tiff[i]);
-        unsigned char b = TIFFGetB(tiff[i]);
-        ret_rgb[i*3] = r;
-        ret_rgb[i*3+1] = g;
-        ret_rgb[i*3+2] = b;
-    }
-}
-
