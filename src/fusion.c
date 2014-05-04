@@ -170,18 +170,6 @@ int fusion_alloc(void** _segments, int w, int h, int N){
     }
 
     mem->nlev = (uint32_t)(floor((log2(MIN(w,h)))));
-    mem->pyr = calloc(mem->nlev,sizeof(double*));
-    if(mem->pyr == NULL){
-        return FUSION_ALLOC_FAILURE;
-    }
-    mem->pyr_r = calloc(mem->nlev,sizeof(uint32_t));
-    if(mem->pyr_r == NULL){
-        return FUSION_ALLOC_FAILURE;
-    }
-    mem->pyr_c = calloc(mem->nlev,sizeof(uint32_t));
-    if(mem->pyr_c == NULL){
-        return FUSION_ALLOC_FAILURE;
-    }
 
     //TODO: allocate all pyramid memory as one chunk, not nlev chunks
     //TODO: remove writes to pyr_c and pyr_r!
@@ -409,7 +397,6 @@ double* fusion_compute(double** I, int w, int h, int N,
     //(largest downsampled image + 1px border), upsampled 2x
 //    uint32_t largest_upsampled_r = (((r/2) + (r%2)) + 2) * 2;
 //    uint32_t largest_upsampled_c = (((c/2) + (c%2)) + 2) * 2;
-
 
     size_t Q_len = mem->Q_len;
     double* Q = mem->Q;
