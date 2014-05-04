@@ -273,6 +273,8 @@ int fusion_alloc(void** _segments, int w, int h, int N){
         return FUSION_ALLOC_FAILURE;
     }
 
+    *_segments = mem;
+
     return FUSION_ALLOC_SUCCESS;
 }
 
@@ -524,7 +526,6 @@ void fusion_free( void* _segments ){
     segments_t *mem = _segments;
     free(mem->mono);
     free(mem->C);
-    free(mem->Z);
     free(mem->Z);
     free(mem->S);
     free(mem->T);
