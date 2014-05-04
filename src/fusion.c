@@ -26,6 +26,7 @@ typedef struct {
     size_t R_len; //TODO remove
     size_t W_len; //TODO remove
     size_t W_len2; //TODO remove
+    size_t mono_len; //TODO remove
     size_t C_len; //TODO remove
     uint32_t nlev; //TODO remove (could be tricky)
     size_t Z_len; //TODO remove
@@ -39,6 +40,7 @@ typedef struct {
     double *R;
     double **W;
 
+    double *mono;
     //C is used as a temporary variable (1 value/pixel)
     double *C;
 
@@ -83,7 +85,7 @@ typedef struct {
 
 void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R);
 
-void contrast(double *im, uint32_t r, uint32_t c, double *C);
+void contrast(double *im, uint32_t r, uint32_t c, double *mono, double *C);
 void saturation(double *im, uint32_t npixels, double *C);
 void well_exposedness(double *im, uint32_t npixels, double *C);
 void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double *Z, size_t Z_len, double *S, size_t S_len, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
@@ -139,40 +141,44 @@ int fusion_alloc(void** _segments, int w, int h, int N){
     }
 
     mem->R_len = w*h*3;
-    mem->R = malloc(mem->R_len*sizeof(double));
+    mem->R = calloc(mem->R_len,sizeof(double));
     if(mem->R == NULL){
         return FUSION_ALLOC_FAILURE;
     }
 
     mem->W_len = N;
     mem->W_len2 = w*h;
-    mem->W = malloc(mem->W_len*sizeof(double*));
+    mem->W = calloc(mem->W_len,sizeof(double*));
     if(mem->W == NULL){
         return FUSION_ALLOC_FAILURE;
     }
     for (int n = 0; n < N; n++){
-        mem->W[n] = malloc(mem->W_len2*sizeof(double));
+        mem->W[n] = calloc(mem->W_len2,sizeof(double));
         if(mem->W[n] == NULL){
             return FUSION_ALLOC_FAILURE;
         }
     }
 
+    mem->mono_len = w*h; //1 value/pixel
+    mem->mono = calloc(mem->mono_len,sizeof(double));
+    assert(mem->mono != NULL);
+
     mem->C_len = w*h;
-    mem->C = malloc(mem->C_len*sizeof(double));
+    mem->C = calloc(mem->C_len,sizeof(double));
     if(mem->C == NULL){
         return FUSION_ALLOC_FAILURE;
     }
 
     mem->nlev = (uint32_t)(floor((log2(MIN(w,h)))));
-    mem->pyr = malloc(mem->nlev*sizeof(double*));
+    mem->pyr = calloc(mem->nlev,sizeof(double*));
     if(mem->pyr == NULL){
         return FUSION_ALLOC_FAILURE;
     }
-    mem->pyr_r = malloc(mem->nlev*sizeof(uint32_t));
+    mem->pyr_r = calloc(mem->nlev,sizeof(uint32_t));
     if(mem->pyr_r == NULL){
         return FUSION_ALLOC_FAILURE;
     }
-    mem->pyr_c = malloc(mem->nlev*sizeof(uint32_t));
+    mem->pyr_c = calloc(mem->nlev,sizeof(uint32_t));
     if(mem->pyr_c == NULL){
         return FUSION_ALLOC_FAILURE;
     }
@@ -181,28 +187,28 @@ int fusion_alloc(void** _segments, int w, int h, int N){
     //TODO: remove writes to pyr_c and pyr_r!
     //      (as we are not allowed to already write to memory in this fusion_alloc() step).
 
-    mem->pyrW = malloc(N*sizeof(double**));
+    mem->pyrW = calloc(N,sizeof(double**));
     if(mem->pyrW == NULL){
         return FUSION_ALLOC_FAILURE;
     }
-    mem->pyrW_r = malloc(N*sizeof(double*));
+    mem->pyrW_r = calloc(N,sizeof(double*));
     if(mem->pyrW_r == NULL){
         return FUSION_ALLOC_FAILURE;
     }
-    mem->pyrW_c = malloc(N*sizeof(double*));
+    mem->pyrW_c = calloc(N,sizeof(double*));
     if(mem->pyrW_c == NULL){
         return FUSION_ALLOC_FAILURE;
     }
 
-    mem->pyrI = malloc(N*sizeof(double**));
+    mem->pyrI = calloc(N,sizeof(double**));
     if(mem->pyrI == NULL){
         return FUSION_ALLOC_FAILURE;
     }
-    mem->pyrI_r = malloc(N*sizeof(double*));
+    mem->pyrI_r = calloc(N,sizeof(double*));
     if(mem->pyrI_r == NULL){
         return FUSION_ALLOC_FAILURE;
     }
-    mem->pyrI_c = malloc(N*sizeof(double*));
+    mem->pyrI_c = calloc(N,sizeof(double*));
     if(mem->pyrI_c == NULL){
         return FUSION_ALLOC_FAILURE;
     }
@@ -226,15 +232,15 @@ int fusion_alloc(void** _segments, int w, int h, int N){
     mem->S_len = w*h*3;
     mem->T_len = w*h*3;
 
-    mem->Z = malloc(mem->Z_len*sizeof(double));
+    mem->Z = calloc(mem->Z_len,sizeof(double));
     if(mem->Z == NULL){
         return FUSION_ALLOC_FAILURE;
     }
-    mem->S = malloc(mem->S_len*sizeof(double));
+    mem->S = calloc(mem->S_len,sizeof(double));
     if(mem->S == NULL){
         return FUSION_ALLOC_FAILURE;
     }
-    mem->T = malloc(mem->T_len*sizeof(double));
+    mem->T = calloc(mem->T_len,sizeof(double));
     if(mem->T == NULL){
         return FUSION_ALLOC_FAILURE;
     }
@@ -248,21 +254,21 @@ int fusion_alloc(void** _segments, int w, int h, int N){
     mem->U_len = largest_upsampled_r*largest_upsampled_c*3;
     mem->V_len = largest_upsampled_r*largest_upsampled_c*3;
 
-    mem->Q = malloc(mem->Q_len*sizeof(double));
+    mem->Q = calloc(mem->Q_len,sizeof(double));
     if(mem->Q == NULL){
         return FUSION_ALLOC_FAILURE;
     }
-    mem->U = malloc(mem->U_len*sizeof(double));
+    mem->U = calloc(mem->U_len,sizeof(double));
     if(mem->U == NULL){
         return FUSION_ALLOC_FAILURE;
     }
-    mem->V = malloc(mem->V_len*sizeof(double));
+    mem->V = calloc(mem->V_len,sizeof(double));
     if(mem->V == NULL){
         return FUSION_ALLOC_FAILURE;
     }
 
     mem->pyrDisp_len = (w*2)*h*3;
-    mem->pyrDisp = malloc(mem->pyrDisp_len*sizeof(double));
+    mem->pyrDisp = calloc(mem->pyrDisp_len,sizeof(double));
     if(mem->pyrDisp == NULL){
         return FUSION_ALLOC_FAILURE;
     }
@@ -301,12 +307,15 @@ double* fusion_compute(double** I, int w, int h, int N,
     assert(C != NULL);
     assert(W_len2 == C_len);
 
+    double *mono = mem->mono;
+    assert(mono != NULL);
+
     //for each image, calculate the weight maps
     for (int n = 0; n < N; n++){
         ones(W[n], W_len2);
 
         if(contrast_parm > 0){
-            contrast(I[n],r,c,C);
+            contrast(I[n],r,c,mono,C);
             scalar_pow(C,C_len,contrast_parm,C);
             elementwise_mult(W[n],W_len2,C,W[n]);
         }
@@ -513,6 +522,7 @@ double* fusion_compute(double** I, int w, int h, int N,
 
 void fusion_free( void* _segments ){
     segments_t *mem = _segments;
+    free(mem->mono);
     free(mem->C);
     free(mem->Z);
     free(mem->Z);
@@ -545,7 +555,7 @@ void fusion_free( void* _segments ){
 // Exposure Fusion functionality
 //
 
-void contrast(double *im, uint32_t r, uint32_t c, double *C){
+void contrast(double *im, uint32_t r, uint32_t c, double *mono, double *C){
     //laplacian filter
     double h[] = {
         0.0, 1.0, 0.0,
@@ -554,12 +564,9 @@ void contrast(double *im, uint32_t r, uint32_t c, double *C){
     };
     zeros(C, r*c);
     //for each image, calculate contrast measure on grayscale version of the image
-    size_t mono_len = r*c; //1 value/pixel
-    double *mono = malloc(mono_len*sizeof(double));
-    assert(mono != NULL);
+
     rgb2gray(im, r*c, mono);
     conv3x3_monochrome_replicate(mono,r,c,h,C);
-    free(mono);
 }
 
 
@@ -919,11 +926,11 @@ uint32_t compute_nlev(uint32_t r, uint32_t c){
  */
 int malloc_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, double ***pyr, uint32_t **pyr_r, uint32_t **pyr_c){
     size_t pyr_len = nlev;
-    *pyr = (double**) malloc(pyr_len*sizeof(double*));
+    *pyr = (double**) calloc(pyr_len,sizeof(double*));
     assert(*pyr != NULL);
-    *pyr_r = (uint32_t*) malloc(nlev * sizeof(uint32_t));
+    *pyr_r = (uint32_t*) calloc(nlev,sizeof(uint32_t));
     assert(*pyr_r != NULL);
-    *pyr_c = (uint32_t*) malloc(nlev * sizeof(uint32_t));
+    *pyr_c = (uint32_t*) calloc(nlev,sizeof(uint32_t));
     assert(*pyr_c != NULL);
 
     uint32_t r_level = r;
@@ -934,7 +941,7 @@ int malloc_pyramid(uint32_t r, uint32_t c, uint32_t channels, uint32_t nlev, dou
         (*pyr_c)[i] = c_level; //store dimension c at level i
 
         size_t L_len = r_level*c_level*channels;
-        double* L = malloc(L_len*sizeof(double));
+        double* L = calloc(L_len,sizeof(double));
         if(L == NULL){
             return FUSION_ALLOC_FAILURE;
         }
