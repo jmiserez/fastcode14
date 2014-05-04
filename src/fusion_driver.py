@@ -3,7 +3,7 @@
 import subprocess
 
 example_config = {
-	'versions'             : [ "dummy_fusion" ],
+	'versions'             : [ "01ref_matlab" ],
 	'performance_counters' : True,
 	'optimization_flags'   : "-O3 -fno-tree-vectorize",
 	'debug'                : True,
