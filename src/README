@@ -2,5 +2,5 @@ Prerequisites:
 ==============
 
 Ubuntu:
-sudo apt-get install libtiff5 libtiff5-dev
+sudo apt-get install libtiff5 libtiff5-dev libpfm4 libpfm4-dev
 
