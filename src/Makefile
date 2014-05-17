@@ -64,7 +64,10 @@ main0: main.c code0.o $(DEP)
 	$(CC) main.c code0.o $(CFLAGS) $(NBDEF) $(OPCOUNT0) $(INC_DIR) $(LIB_DIR) $(LIBS) -o $@
 	
 self: self.c $(DEP)
-	$(CC) $(CFLAGS) $(INC_DIR) $(LIB_DIR) $(LIBS) -o $@ mak
+	$(CC) $(CFLAGS) $(INC_DIR) $(LIB_DIR) $(LIBS) -o $@ $< $(DEP)
+	
+example: example.c other_comp.c $(DEP)
+	$(CC) $(CFLAGS) $(INC_DIR) $(LIB_DIR) $(LIBS) -o $@ $< $(DEP)
 
 
 #clean default
