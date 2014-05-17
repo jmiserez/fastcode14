@@ -220,6 +220,9 @@ void run(uint32_t **images, uint32_t nimages, uint32_t width, uint32_t height, d
  *        respectively.
  */
 void exposure_fusion(double** I, int r, int c, int N, double m[3], double* R){
+#ifndef NDEBUG
+    printf("exposure_fusion");
+#endif
     size_t I_len = N;
 //    size_t I_len2 = r*c*3;
     size_t npixels = r*c;

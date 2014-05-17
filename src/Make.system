@@ -1,0 +1,67 @@
+# Fastcode Project: Exposure Fusion
+
+include Make.sysconfig         # provides VERSION and CF_CONFIG
+include $(VERSION)/Make.config # provides FUSION_SRC
+
+TARGET       = bin/driver_$(VERSION)
+
+SHELL        = /bin/bash
+CC           = gcc
+CF_GENERAL   = -std=c99 -Wall -D_GNU_SOURCE
+CF           = $(CF_GENERAL) $(CF_CONFIG)
+
+INC_DIR      += -Itiff-4.0.2/libtiff
+INC_DIR      += -Ilibpfm-4.5.0/include
+INC_DIR      += -Idriver
+INC_DIR      += -Iperf
+INC_DIR      += -I.
+
+DRIVER_SRC   = driver/driver.c driver/image_io.c driver/result_file.c driver/testconfig.c driver/urange.c
+PERF_SRC     = # none
+FULL_SRC     = $(DRIVER_SRC) $(PERF_SRC) $(FUSION_SRC)
+
+FULL_OBJ     = $(patsubst %.c, %.o, $(FULL_SRC))
+
+TIFFLIB      = tiff-4.0.2/libtiff/.libs/libtiff.a
+PFMLIB       = libpfm-4.5.0/lib/libpfm.a
+
+LIB_DIR      = -Ltiff-4.0.2/libtiff/.libs -Llibpfm-4.5.0/lib
+LIBS_STATIC  = -ltiff -lpfm
+LIBS_DYNAMIC = -lm
+LIBS         = -Wl,-Bstatic $(LIBS_STATIC) -Wl,-Bdynamic $(LIBS_DYNAMIC)
+
+DEPS = $(wildcard *.h) $(TIFFLIB) $(PFMLIB)
+
+.PHONY: distclean clean all default
+
+default: all
+
+all: $(TARGET)
+
+clean:
+	rm -f  $(FULL_OBJ)
+	rm -rf bin/
+
+distclean: clean
+	rm -rf tiff-4.0.2
+	rm -rf libpfm-4.5.0
+
+%.o: %.c $(TIFFLIB)
+	$(CC) $(CF) $(INC_DIR) -c $< -o $@
+
+$(TIFFLIB): tiff-4.0.2.tar.gz
+	rm -rf tiff-4.0.2
+	tar -xzf tiff-4.0.2.tar.gz
+	cd tiff-4.0.2 && ./configure --enable-static --disable-shared --disable-jpeg --disable-lzma --disable-zlib --disable-jbig
+	cd tiff-4.0.2 && make -j16
+	
+$(PFMLIB): libpfm-4.5.0.tar.gz
+	rm -rf libpfm-4.5.0
+	tar -xzf libpfm-4.5.0.tar.gz
+	cd libpfm-4.5.0 && make -j16
+
+$(TARGET): $(FULL_OBJ) $(DEPS)
+	mkdir -p bin/
+	$(CC) $(FULL_OBJ) $(LIB_DIR) $(LIBS) -o $@
+	
+
