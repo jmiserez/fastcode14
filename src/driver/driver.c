@@ -161,7 +161,7 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
                 //store image
                 if(cli_opts->out_file != NULL){
                     char sbuf[255];
-                    snprintf(sbuf,255,"%s-%dx%d.tif",cli_opts->out_file,w,h);
+                    snprintf(sbuf,255,"%s-%zux%zu.tif",cli_opts->out_file,w,h);
                     store_tiff_rgb(result,w,h,sbuf);
                 }
                 printf("--- Showing results for: w=%zu, h=%zu, N=%zu\n",
@@ -176,7 +176,7 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
 
                     printf("Performance Counters:\n");
 
-                    double rmse = rmse(result, val_crop, w, h);
+                    double rmse = compare_rmse(result, val_crop, w, h);
                     printf("  RMSE          : %.0lf\n", rmse);
                     if(rmse > cli_opts->val_threshold){
                         FUSION_ERR("Error in validation(*,w=%zu,h=%zu,rmse=%lf)\n",
@@ -255,19 +255,19 @@ int parse_cli(cli_options_t* cli_opts, testconfig_t* testconfig,
 
         case 'd':
             printf("getopt: testlibtiff\n");
-            debug_tiff_test( TIFF_DEBUG_IN, TIFF_DEBUG_OUT );
+//            debug_tiff_test( TIFF_DEBUG_IN, TIFF_DEBUG_OUT );
 
-            uint32_t dbg_w, dbg_h;
-            double *debug_rgb_image = load_tiff_rgb( &dbg_w, &dbg_h,
-                                                     TIFF_DEBUG_IN );
-            printf( "dbg_w: %d, dbg_h: %d\n", dbg_w, dbg_h );
-            store_tiff_rgb( debug_rgb_image, dbg_w, dbg_h, TIFF_DEBUG_OUT2 );
+//            uint32_t dbg_w, dbg_h;
+//            double *debug_rgb_image = load_tiff_rgb( &dbg_w, &dbg_h,
+//                                                     TIFF_DEBUG_IN );
+//            printf( "dbg_w: %d, dbg_h: %d\n", dbg_w, dbg_h );
+//            store_tiff_rgb( debug_rgb_image, dbg_w, dbg_h, TIFF_DEBUG_OUT2 );
 
-            uint32_t* raster = rgb2tiff(debug_rgb_image, dbg_w*dbg_h);
-            double err = compare_tif(raster, dbg_w, dbg_h, TIFF_DEBUG_IN );
-            printf("error is: %lf\n", err);
-            free_tiff( raster );
-            free_rgb( debug_rgb_image );
+//            uint32_t* raster = rgb2tiff(debug_rgb_image, dbg_w*dbg_h);
+//            double err = compare_tif(raster, dbg_w, dbg_h, TIFF_DEBUG_IN );
+//            printf("error is: %lf\n", err);
+//            free_tiff( raster );
+//            free_rgb( debug_rgb_image );
             break;
         case 's':
             cli_opts->out_file = optarg;

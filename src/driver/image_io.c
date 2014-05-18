@@ -211,10 +211,10 @@ int debug_tiff_test( const char *in_img, char *out_img ){
     return 0;
 }
 
-double rmse(double *image, double *reference, uint32_t w, uint32_t h){
+double compare_rmse(double *image, double *reference, uint32_t w, uint32_t h){
     double res = 0.0;
-#ifdef DEBUG
-    printf("w: %d,h: %d,w: %d,h: %d,w_ref: %d,h_ref: %d\n", w, h, w_ref, h_ref);
+#ifdef NDEBUG
+    printf("w: %d,h: %d\n", w, h);
 #endif
     for(int i = 0; i < h; i++){
         for(int k = 0; k < w; k++){

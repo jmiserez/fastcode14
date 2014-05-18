@@ -6,8 +6,6 @@ driver/debug.h
 driver/driver.c
 driver/driver.o
 driver/image_io.c
-driver/image_io.h
-driver/image_io.o
 driver/Makefile
 driver/result_file.o
 driver/testconfig.c

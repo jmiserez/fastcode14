@@ -16,7 +16,7 @@ INC_DIR      += -Idriver
 INC_DIR      += -Iperf
 INC_DIR      += -I.
 
-DRIVER_SRC   = driver/driver.c driver/image_io.c driver/result_file.c driver/testconfig.c driver/urange.c
+DRIVER_SRC   = driver/driver.c driver/image_io.c driver/testconfig.c driver/urange.c
 PERF_SRC     = # none
 FULL_SRC     = $(DRIVER_SRC) $(PERF_SRC) $(FUSION_SRC)
 
@@ -30,7 +30,7 @@ LIBS_STATIC  = -ltiff -lpfm
 LIBS_DYNAMIC = -lm
 LIBS         = -Wl,-Bstatic $(LIBS_STATIC) -Wl,-Bdynamic $(LIBS_DYNAMIC)
 
-DEPS = $(wildcard *.h) $(TIFFLIB) $(PFMLIB)
+DEPS = $(TIFFLIB) $(PFMLIB) driver/image_io.h driver/testconfig.h driver/urange.h
 
 .PHONY: distclean clean all default
 
@@ -46,7 +46,7 @@ distclean: clean
 	rm -rf tiff-4.0.2
 	rm -rf libpfm-4.5.0
 
-%.o: %.c $(TIFFLIB)
+%.o: %.c $(DEPS)
 	$(CC) $(CF) $(INC_DIR) -c $< -o $@
 
 $(TIFFLIB): tiff-4.0.2.tar.gz
