@@ -213,7 +213,7 @@ int debug_tiff_test( const char *in_img, char *out_img ){
 
 double compare_rmse(double *image, double *reference, uint32_t w, uint32_t h){
     double res = 0.0;
-#ifdef NDEBUG
+#ifdef DEBUG
     printf("w: %d,h: %d\n", w, h);
 #endif
     for(int i = 0; i < h; i++){
@@ -228,7 +228,11 @@ double compare_rmse(double *image, double *reference, uint32_t w, uint32_t h){
         }
     }
     double npixels = w*h;
+#ifdef DEBUG
+    printf("Total Squared Error: %lf, Pixels: %.0lf, MSE: %lf, RMSE: %lf\n", res, npixels, res / npixels, sqrt(res / npixels));
+#endif
     res = sqrt(res / npixels);
+
     return res;
 }
 

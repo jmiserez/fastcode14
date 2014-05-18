@@ -62,6 +62,6 @@ $(PFMLIB): libpfm-4.5.0.tar.gz
 
 $(TARGET): $(FULL_OBJ) $(DEPS)
 	mkdir -p bin/
-	$(CC) $(FULL_OBJ) $(LIB_DIR) $(LIBS) -o $@
+	$(CC) $(CF) $(FULL_OBJ) $(LIB_DIR) $(LIBS) -o $@
 	
 

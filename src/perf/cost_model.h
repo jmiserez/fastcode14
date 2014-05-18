@@ -18,7 +18,7 @@
  *   COST_yyy
  *     Value of counter 'yyy'.
  *
- *   Valid counters are: ADD, MUL, DIV, POW, ABS.
+ *   Valid counters are: ADD, MUL, DIV, POW, ABS, SQRT.
  */
 
 #define COST_T   uint64_t
@@ -34,12 +34,18 @@
 #define COST_DIV ((const COST_T) 0)
 #define COST_POW ((const COST_T) 0)
 #define COST_ABS ((const COST_T) 0)
+#define COST_SQRT ((const COST_T) 0)
+#define COST_OTHER ((const COST_T) 0)
+#define COST_CMP ((const COST_T) 0)
 
 #define COST_INC_ADD(x)
 #define COST_INC_MUL(x)
 #define COST_INC_DIV(x)
 #define COST_INC_POW(x)
 #define COST_INC_ABS(x)
+#define COST_INC_SQRT(x)
+#define COST_INC_OTHER(x)
+#define COST_INC_CMP(x)
 
 #else
 
@@ -48,31 +54,46 @@ extern COST_T __cost_mul;
 extern COST_T __cost_div;
 extern COST_T __cost_pow;
 extern COST_T __cost_abs;
+extern COST_T __cost_sqrt;
+extern COST_T __cost_other;
+extern COST_T __cost_cmp;
 
 #define COST_VARIABLES_HERE  \
     COST_T __cost_add = 0;   \
     COST_T __cost_mul = 0;   \
     COST_T __cost_div = 0;   \
     COST_T __cost_pow = 0;   \
-    COST_T __cost_abs = 0;
+    COST_T __cost_abs = 0;   \
+    COST_T __cost_sqrt = 0;  \
+    COST_T __cost_other = 0;  \
+    COST_T __cost_cmp = 0;
 
 #define COST_MODEL_RESET \
     __cost_add = 0;      \
     __cost_mul = 0;      \
     __cost_div = 0;      \
     __cost_pow = 0;      \
-    __cost_abs = 0;
+    __cost_abs = 0;      \
+    __cost_sqrt = 0;      \
+    __cost_other = 0;      \
+    __cost_cmp = 0;
 
 #define COST_ADD ((const COST_T) __cost_add)
 #define COST_MUL ((const COST_T) __cost_mul)
 #define COST_DIV ((const COST_T) __cost_div)
 #define COST_POW ((const COST_T) __cost_pow)
 #define COST_ABS ((const COST_T) __cost_abs)
+#define COST_SQRT ((const COST_T) __cost_sqrt)
+#define COST_OTHER ((const COST_T) __cost_other)
+#define COST_CMP ((const COST_T) __cost_cmp)
 
 #define COST_INC_ADD(x) {__cost_add += (x);}
 #define COST_INC_MUL(x) {__cost_mul += (x);}
 #define COST_INC_DIV(x) {__cost_div += (x);}
 #define COST_INC_POW(x) {__cost_pow += (x);}
 #define COST_INC_ABS(x) {__cost_abs += (x);}
+#define COST_INC_SQRT(x) {__cost_sqrt += (x);}
+#define COST_INC_OTHER(x) {__cost_other += (x);}
+#define COST_INC_CMP(x) {__cost_cmp += (x);}
 
 #endif

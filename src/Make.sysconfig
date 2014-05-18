@@ -1,5 +1,5 @@
 VERSION    = 01ref_matlab
 CF_COST    = -DCOST_MEASURE
 CF_OPT     = -O3 -m64 -march=native -mno-abm -fno-tree-vectorize -g
-CF_DEBUG   = -DDEBUG
+CF_DEBUG   =  -DDEBUG -pg
 CF_CONFIG  = $(CF_OPT) $(CF_COST) $(CF_DEBUG)

@@ -177,7 +177,7 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
                     printf("Performance Counters:\n");
 
                     double rmse = compare_rmse(result, val_crop, w, h);
-                    printf("  RMSE          : %.0lf\n", rmse);
+                    printf("  RMSE          : %0.5lf\n", rmse);
                     if(rmse > cli_opts->val_threshold){
                         FUSION_ERR("Error in validation(*,w=%zu,h=%zu,rmse=%lf)\n",
                                 w, h, rmse);

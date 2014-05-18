@@ -5,11 +5,13 @@ import subprocess
 example_config = {
     'versions'             : [ "01ref_matlab" ],
     'logtofile'            : True,
-	'performance_counters' : True,
+    'cost_measure'         : True,
 	'optimization_flags'   : "-O3 -m64 -march=native -mno-abm -fno-tree-vectorize -g",
 	'debug'                : True,
 	'ndebug'               : False,
-	'driver_args'          : "--store zzz --val ../testdata/house_out/A-3-1-1-1.tif --threshold 1.0 752:1:752 500:1:500 1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif"
+	'gprof'                : True,
+	'openmode'             : 'w',
+	'driver_args'          : "--store zzz --val ../testdata/house_out/A-3-1-1-1.tif --threshold 1.0 752:1:752 500:1:500 1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif ../testdata/srcImages/A.2.tif ../testdata/srcImages/A.3.tif"
 }
 
 def add_config(key, val, f):
@@ -19,19 +21,21 @@ def write_config(version, config):
 	with open("Make.sysconfig", "w") as f:
 		add_config("VERSION", version, f)
 
-		if config['performance_counters']:
+		if config['cost_measure']:
 			cost = "-DCOST_MEASURE"
 		else:
 			cost = ""
 		add_config("CF_COST", cost, f)
 
-		add_config("CF_OPT", config['optimization_flags'], f)
+		add_config("CF_OPT", config['optimization_flags'], f)		
 
 		debug = ""
 		if config['debug']:
-			debug += "-DDEBUG"
+			debug += " -DDEBUG"
 		if config['ndebug']:
-			debug += "-DNDEBUG"
+			debug += " -DNDEBUG"
+		if config['gprof']:
+			debug += " -pg"
 		add_config("CF_DEBUG", debug, f)
 
 		add_config("CF_CONFIG", "$(CF_OPT) $(CF_COST) $(CF_DEBUG)", f)
@@ -55,7 +59,7 @@ if __name__ == "__main__":
 		write_config(version, config)
 		logfile = version + ".build.log"
 		print "%s: cleaning " % version
-		with open(logfile, "w") as log:
+		with open(logfile, config['openmode']) as log:
 			if config['logtofile']:
 				ret = subprocess.call(["make", "-fMake.system", "clean"], stdout=log)
 			else:
@@ -70,7 +74,7 @@ if __name__ == "__main__":
 		write_config(version, config)
 		logfile = version + ".build.log"
 		print "%s: building" % version
-		with open(logfile, "a") as log:
+		with open(logfile, config['openmode']) as log:
 			if config['logtofile']:
 				ret = subprocess.call(["make", "-fMake.system"], stdout=log)
 			else:
@@ -85,17 +89,37 @@ if __name__ == "__main__":
 		print "%s: running" % version
 		binary = "./bin/driver_" + version
 		runfile = version + ".run.log"
-		with open(runfile, "w") as rf:
+		with open(runfile, config['openmode']) as rf:
 			arg = binary + " " + config['driver_args']
 			#print arg
 			#arg = arg.split()
-			#print arg
 			if config['logtofile']:
+				rf.write(arg+'\n')
 				ret = subprocess.call(arg, stdout=rf, shell=True)
 			else:
+				print arg
 				ret = subprocess.call(arg, shell=True)
 			if ret == 0:
 				print "%s: run successful. output in %s" % (version, runfile)
+				if config['gprof']:
+					title("Profiling Builds")
+					for version in config['versions']:
+						print "%s: profiling" % version
+						binary = "./bin/driver_" + version
+						profilefile = version + ".profile.log"
+						with open(profilefile, config['openmode']) as pf:
+							arg = "gprof " + binary + " gmon.out"
+							if config['logtofile']:
+								pf.write(arg+'\n')
+								ret = subprocess.call(arg, stdout=pf, shell=True)
+							else:
+								print arg
+								ret = subprocess.call(arg, shell=True)
+							if ret == 0:
+								print "%s: profiling successful. output in %s" % (version, profilefile)
+							else:
+								print "%s: ERROR profiling. see %s for details" % (version, profilefile)
+
 			else:
 				print "%s: ERROR running. see %s for details" % (version, runfile)
 

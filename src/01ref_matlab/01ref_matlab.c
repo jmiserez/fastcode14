@@ -15,6 +15,8 @@
 #include <tiffio.h>
 #include "fusion.h"
 
+#include "cost_model.h"
+
 //#define PRINTPYRAMIDS
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
@@ -267,7 +269,6 @@ int fusion_alloc(void** _segments, int w, int h, int N){
 double* fusion_compute(double** I, int w, int h, int N,
                         double contrast_parm, double sat_parm, double wexp_parm,
                         void* _segments){
-
     segments_t *mem = _segments;
     double* R = mem->R;
 
@@ -285,9 +286,11 @@ double* fusion_compute(double** I, int w, int h, int N,
     assert(W != NULL);
     assert(W_len == I_len);
 
+#ifndef NDEBUG
     for (int n = 0; n < N; n++){
         assert(W[n] != NULL);
     }
+#endif
 
     //C is used as a temporary variable (1 value/pixel)
     size_t C_len = mem->C_len;
@@ -567,7 +570,13 @@ void saturation(double *im, uint32_t npixels, double *C){
         double g = im[i*3+1];
         double b = im[i*3+2];
         double mu = (r + g + b) / 3.0;
-        C[i] = sqrt(pow(r-mu,2) + pow(g-mu,2) + pow(b-mu,2)/3.0);
+        COST_INC_ADD(2);
+        COST_INC_DIV(1);
+        C[i] = sqrt((pow(r-mu,2) + pow(g-mu,2) + pow(b-mu,2))/3.0);
+        COST_INC_SQRT(1);
+        COST_INC_POW(3);
+        COST_INC_DIV(1);
+        COST_INC_ADD(5);
     }
 }
 
@@ -583,7 +592,13 @@ void well_exposedness(double *im, uint32_t npixels, double *C){
         r = exp(-0.5*pow(r - 0.5,2) / pow(sig,2));
         g = exp(-0.5*pow(g - 0.5,2) / pow(sig,2));
         b = exp(-0.5*pow(b - 0.5,2) / pow(sig,2));
+        COST_INC_ADD(3);
+        COST_INC_MUL(3);
+        COST_INC_DIV(3);
+        COST_INC_POW(6);
+        COST_INC_OTHER(3);
         C[i] = r*g*b;
+        COST_INC_MUL(2);
     }
 }
 
@@ -725,6 +740,7 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *fil
         for(int j = 0; j < c; j++){
             for(int k = 0; k < channels; k++){
                 U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[(i*c+j)*channels+k];
+                COST_INC_MUL(1);
             }
         }
     }
@@ -733,6 +749,7 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *fil
     for(int j = 0; j < c; j++){
         for(int k = 0; k < channels; k++){
             U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i+1)*c+(j  ))*channels+k];
+            COST_INC_MUL(1);
         }
     }
     //bottom row
@@ -740,6 +757,7 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *fil
     for(int j = 0; j < c; j++){
         for(int k = 0; k < channels; k++){
             U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i-1)*c+(j  ))*channels+k];
+            COST_INC_MUL(1);
         }
     }
     //left edge
@@ -747,6 +765,7 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *fil
     for(int i = 0; i < r; i++){
         for(int k = 0; k < channels; k++){
             U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i  )*c+(j+1))*channels+k];
+            COST_INC_MUL(1);
         }
     }
     //right edge
@@ -754,6 +773,7 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *fil
     for(int i = 0; i < r; i++){
         for(int k = 0; k < channels; k++){
             U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i  )*c+(j-1))*channels+k];
+            COST_INC_MUL(1);
         }
     }
     //corners
@@ -768,6 +788,7 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *fil
         U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i-1)*c+(j+1))*channels+k];
         j = c;
         U[((2*(i+padding))*c_upsampled+(2*(j+padding)))*channels+k] = 4*im[((i-1)*c+(j-1))*channels+k];
+        COST_INC_MUL(4);
     }
 
     //blur
@@ -865,9 +886,11 @@ void normalize_image(double *src, uint32_t channels, uint32_t r, uint32_t c, dou
         for (int j = 0; j < c; j++){
             for (int k = 0; k < channels; k++){
                 double value = src[(i*c+j)*channels+k];
+                COST_INC_CMP(1);
                 if(value < min_value){
                     min_value = value;
                 }
+                COST_INC_CMP(1);
                 if(value > max_value){
                     max_value = value;
                 }
@@ -876,12 +899,15 @@ void normalize_image(double *src, uint32_t channels, uint32_t r, uint32_t c, dou
     }
     assert(min_value < DBL_MAX);
     assert(max_value > -DBL_MAX);
+    COST_INC_CMP(1);
     if(min_value < 1.0E-5){
         for(int i = 0; i < r; i++){
             for (int j = 0; j < c; j++){
                 for (int k = 0; k < channels; k++){
                     double value = src[(i*c+j)*channels+k];
                     dst[(i*c+j)*channels+k] = (value - min_value) / (max_value - min_value);
+                    COST_INC_ADD(2);
+                    COST_INC_DIV(1);
                 }
             }
         }
@@ -904,6 +930,7 @@ void normalize_image(double *src, uint32_t channels, uint32_t r, uint32_t c, dou
  * Compute the highest possible pyramid
  */
 uint32_t compute_nlev(uint32_t r, uint32_t c){
+    COST_INC_OTHER(2);
     return (uint32_t)(floor((log2(MIN(r,c)))));
 }
 
@@ -969,6 +996,8 @@ void rgb2gray(double *im, size_t npixels, double* dst){
         double g = im[i*3+1];
         double b = im[i*3+2];
         dst[i] = 0.2989 * r + 0.5870 * g + 0.1140 * b; //retain luminance, discard hue and saturation
+        COST_INC_ADD(2);
+        COST_INC_MUL(3);
     }
 }
 
@@ -996,43 +1025,43 @@ void zeros_foreach(double **dst, size_t len, uint32_t N){
 
 void scalar_add(double *src, size_t src_len, double val, double *dst){
     for(int i = 0; i < src_len; i++){
-        dst[i] = src[i] + val;
+        dst[i] = src[i] + val; COST_INC_ADD(1);
     }
 }
 
 void scalar_mult(double *src, size_t src_len, double val, double *dst){
     for(int i = 0; i < src_len; i++){
-        dst[i] = src[i] * val;
+        dst[i] = src[i] * val; COST_INC_MUL(1);
     }
 }
 
 void scalar_div(double *src, size_t src_len, double val, double *dst){
     for(int i = 0; i < src_len; i++){
-        dst[i] = src[i] / val;
+        dst[i] = src[i] / val; COST_INC_DIV(1);
     }
 }
 
 void scalar_pow(double *src, size_t src_len, double val, double *dst){
     for(int i = 0; i < src_len; i++){
-        dst[i] = pow(fabs(src[i]),val);
+        dst[i] = pow(fabs(src[i]),val); COST_INC_POW(1); COST_INC_ABS(1);
     }
 }
 
 void elementwise_mult(double *src1, size_t src1_len, double *src2, double *dst){
     for(int i = 0; i < src1_len; i++){
-        dst[i] = src1[i] * src2[i];
+        dst[i] = src1[i] * src2[i]; COST_INC_MUL(1);
     }
 }
 
 void elementwise_div(double *src1, size_t src1_len, double *src2, double *dst){
     for(int i = 0; i < src1_len; i++){
-        dst[i] = src1[i] / src2[i]; //beware of division by zero
+        dst[i] = src1[i] / src2[i]; COST_INC_DIV(1);//beware of division by zero
     }
 }
 
 void elementwise_add(double *src1, size_t src1_len, double *src2, double *dst){
     for(int i = 0; i < src1_len; i++){
-        dst[i] = src1[i] + src2[i];
+        dst[i] = src1[i] + src2[i]; COST_INC_ADD(1);
     }
 }
 
@@ -1045,19 +1074,19 @@ void elementwise_copy(double *src, size_t src_len, double *dst){
 
 void elementwise_sub(double *src1, size_t src1_len, double *src2, double *dst){
     for(int i = 0; i < src1_len; i++){
-        dst[i] = src1[i] - src2[i];
+        dst[i] = src1[i] - src2[i]; COST_INC_ADD(1);
     }
 }
 
 void elementwise_sqrt(double *src, size_t src_len, double *dst){
     for(int i = 0; i < src_len; i++){
-        dst[i] = sqrt(src[i]);
+        dst[i] = sqrt(src[i]); COST_INC_SQRT(1);
     }
 }
 
 void scalar_abs(double *src, size_t src_len, double *dst){
     for(int i = 0; i < src_len; i++){
-        dst[i] = fabs(src[i]);
+        dst[i] = fabs(src[i]); COST_INC_ABS(1);
     }
 }
 
@@ -1071,6 +1100,8 @@ void conv3x3_monochrome_replicate(double* im, uint32_t r, uint32_t c, double* f,
                     im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j+1)]*f[2] +
                     im[(i)  *c+(j-1)]*f[3] + im[(i)  *c+(j)]*f[4] + im[(i)  *c+(j+1)]*f[5] +
                     im[(i+1)*c+(j-1)]*f[6] + im[(i+1)*c+(j)]*f[7] + im[(i+1)*c+(j+1)]*f[8];
+             COST_INC_ADD(6);
+             COST_INC_MUL(8);
         }
     }
     //edges
@@ -1080,11 +1111,15 @@ void conv3x3_monochrome_replicate(double* im, uint32_t r, uint32_t c, double* f,
                 im[(i-1)*c+(j)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j+1)]*f[2] +
                 im[(i)  *c+(j)]*f[3] + im[(i)  *c+(j)]*f[4] + im[(i)  *c+(j+1)]*f[5] +
                 im[(i+1)*c+(j)]*f[6] + im[(i+1)*c+(j)]*f[7] + im[(i+1)*c+(j+1)]*f[8];
+        COST_INC_ADD(6);
+        COST_INC_MUL(8);
         j = c-1;
         dst[i*c+j] =
                 im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j)]*f[2] +
                 im[(i)  *c+(j-1)]*f[3] + im[(i)  *c+(j)]*f[4] + im[(i)  *c+(j)]*f[5] +
                 im[(i+1)*c+(j-1)]*f[6] + im[(i+1)*c+(j)]*f[7] + im[(i+1)*c+(j)]*f[8];
+        COST_INC_ADD(6);
+        COST_INC_MUL(8);
     }
     for(int j = 1; j < c-1; j++){
         int i = 0;
@@ -1092,11 +1127,15 @@ void conv3x3_monochrome_replicate(double* im, uint32_t r, uint32_t c, double* f,
                 im[(i)  *c+(j-1)]*f[0] + im[(i)  *c+(j)]*f[1] + im[(i)  *c+(j+1)]*f[2] +
                 im[(i)  *c+(j-1)]*f[3] + im[(i)  *c+(j)]*f[4] + im[(i)  *c+(j+1)]*f[5] +
                 im[(i+1)*c+(j-1)]*f[6] + im[(i+1)*c+(j)]*f[7] + im[(i+1)*c+(j+1)]*f[8];
+        COST_INC_ADD(6);
+        COST_INC_MUL(8);
         i = r-1;
         dst[i*c+j] =
                 im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j+1)]*f[2] +
                 im[(i)  *c+(j-1)]*f[3] + im[(i)  *c+(j)]*f[4] + im[(i)  *c+(j+1)]*f[5] +
                 im[(i)  *c+(j-1)]*f[6] + im[(i)  *c+(j)]*f[7] + im[(i)  *c+(j+1)]*f[8];
+        COST_INC_ADD(6);
+        COST_INC_MUL(8);
     }
     //corners
     //top left
@@ -1106,6 +1145,8 @@ void conv3x3_monochrome_replicate(double* im, uint32_t r, uint32_t c, double* f,
             im[(i  )*c+(j)]*f[0] + im[(i  )*c+(j)]*f[1] + im[(i  )*c+(j+1)]*f[2] +
             im[(i  )*c+(j)]*f[3] + im[(i  )*c+(j)]*f[4] + im[(i  )*c+(j+1)]*f[5] +
             im[(i+1)*c+(j)]*f[6] + im[(i+1)*c+(j)]*f[7] + im[(i+1)*c+(j+1)]*f[8];
+    COST_INC_ADD(6);
+    COST_INC_MUL(8);
     //top right
     i = 0;
     j = c-1;
@@ -1113,6 +1154,8 @@ void conv3x3_monochrome_replicate(double* im, uint32_t r, uint32_t c, double* f,
             im[(i  )*c+(j-1)]*f[0] + im[(i  )*c+(j)]*f[1] + im[(i  )*c+(j  )]*f[2] +
             im[(i  )*c+(j-1)]*f[3] + im[(i  )*c+(j)]*f[4] + im[(i  )*c+(j  )]*f[5] +
             im[(i+1)*c+(j-1)]*f[6] + im[(i+1)*c+(j)]*f[7] + im[(i+1)*c+(j  )]*f[8];
+    COST_INC_ADD(6);
+    COST_INC_MUL(8);
     //bottom left
     i = r-1;
     j = 0;
@@ -1120,6 +1163,8 @@ void conv3x3_monochrome_replicate(double* im, uint32_t r, uint32_t c, double* f,
             im[(i-1)*c+(j  )]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j+1)]*f[2] +
             im[(i  )*c+(j  )]*f[3] + im[(i  )*c+(j)]*f[4] + im[(i  )*c+(j+1)]*f[5] +
             im[(i  )*c+(j  )]*f[6] + im[(i  )*c+(j)]*f[7] + im[(i  )*c+(j+1)]*f[8];
+    COST_INC_ADD(6);
+    COST_INC_MUL(8);
     //bottom right
     i = r-1;
     j = c-1;
@@ -1127,6 +1172,8 @@ void conv3x3_monochrome_replicate(double* im, uint32_t r, uint32_t c, double* f,
             im[(i-1)*c+(j-1)]*f[0] + im[(i-1)*c+(j)]*f[1] + im[(i-1)*c+(j  )]*f[2] +
             im[(i  )*c+(j-1)]*f[3] + im[(i  )*c+(j)]*f[4] + im[(i  )*c+(j  )]*f[5] +
             im[(i  )*c+(j-1)]*f[6] + im[(i  )*c+(j)]*f[7] + im[(i  )*c+(j  )]*f[8];
+    COST_INC_ADD(6);
+    COST_INC_MUL(8);
 
 }
 
@@ -1146,6 +1193,8 @@ void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t cha
                         im[((i  )*c+(j  ))*channels+k]*fx[2] +
                         im[((i  )*c+(j+1))*channels+k]*fx[3] +
                         im[((i  )*c+(j+2))*channels+k]*fx[4];
+                COST_INC_ADD(4);
+                COST_INC_MUL(5);
             }
         }
         //left edge
@@ -1157,6 +1206,8 @@ void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t cha
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
                     im[((i  )*c+(j+1))*channels+k]*fx[3] +
                     im[((i  )*c+(j+2))*channels+k]*fx[4];
+            COST_INC_ADD(4);
+            COST_INC_MUL(5);
         }
         j = 1; // -1 [-1 0 1 2 ... ]
         for(int k = 0; k < channels; k++){
@@ -1166,6 +1217,8 @@ void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t cha
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
                     im[((i  )*c+(j+1))*channels+k]*fx[3] +
                     im[((i  )*c+(j+2))*channels+k]*fx[4];
+            COST_INC_ADD(4);
+            COST_INC_MUL(5);
         }
         //right edge
         j = c-2; // [ ... -2 -1 0 1] 1
@@ -1176,6 +1229,8 @@ void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t cha
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
                     im[((i  )*c+(j+1))*channels+k]*fx[3] +
                     im[((i  )*c+(j+1))*channels+k]*fx[4];
+            COST_INC_ADD(4);
+            COST_INC_MUL(5);
         }
         j = c-1; // [ ... -2 -1 0] 0 -1
         for(int k = 0; k < channels; k++){
@@ -1185,6 +1240,8 @@ void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t cha
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
                     im[((i  )*c+(j  ))*channels+k]*fx[3] +
                     im[((i  )*c+(j-1))*channels+k]*fx[4];
+            COST_INC_ADD(4);
+            COST_INC_MUL(5);
         }
     }
     //vertical filter
@@ -1197,6 +1254,8 @@ void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t cha
                         scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
                         scratch[((i+1)*c+(j  ))*channels+k]*fy[3] +
                         scratch[((i+2)*c+(j  ))*channels+k]*fy[4];
+                COST_INC_ADD(4);
+                COST_INC_MUL(5);
             }
         }
         //top edge
@@ -1208,6 +1267,8 @@ void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t cha
                     scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
                     scratch[((i+1)*c+(j  ))*channels+k]*fy[3] +
                     scratch[((i+2)*c+(j  ))*channels+k]*fy[4];
+            COST_INC_ADD(4);
+            COST_INC_MUL(5);
         }
         i = 1; // -1 [-1 0 1 2 ... ]
         for(int k = 0; k < channels; k++){
@@ -1217,6 +1278,8 @@ void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t cha
                     scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
                     scratch[((i+1)*c+(j  ))*channels+k]*fy[3] +
                     scratch[((i+2)*c+(j  ))*channels+k]*fy[4];
+            COST_INC_ADD(4);
+            COST_INC_MUL(5);
         }
         //bottom edge
         i = r-2; // [ ... -2 -1 0 1] 1
@@ -1227,6 +1290,8 @@ void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t cha
                     scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
                     scratch[((i+1)*c+(j  ))*channels+k]*fy[3] +
                     scratch[((i+1)*c+(j  ))*channels+k]*fy[4];
+            COST_INC_ADD(4);
+            COST_INC_MUL(5);
         }
         i = r-1; // [ ... -2 -1 0] 0 -1
         for(int k = 0; k < channels; k++){
@@ -1236,6 +1301,8 @@ void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t cha
                     scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
                     scratch[((i  )*c+(j  ))*channels+k]*fy[3] +
                     scratch[((i-1)*c+(j  ))*channels+k]*fy[4];
+            COST_INC_ADD(4);
+            COST_INC_MUL(5);
         }
     }
 }
@@ -1256,6 +1323,8 @@ void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t cha
                         im[((i  )*c+(j  ))*channels+k]*fx[2] +
                         im[((i  )*c+(j+1))*channels+k]*fx[3] +
                         im[((i  )*c+(j+2))*channels+k]*fx[4];
+                COST_INC_ADD(4);
+                COST_INC_MUL(5);
             }
         }
         //left edge
@@ -1267,6 +1336,8 @@ void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t cha
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
                     im[((i  )*c+(j+1))*channels+k]*fx[3] +
                     im[((i  )*c+(j+2))*channels+k]*fx[4];
+            COST_INC_ADD(4);
+            COST_INC_MUL(5);
         }
         j = 1; // -1 [-1 0 1 2 ... ]
         for(int k = 0; k < channels; k++){
@@ -1276,6 +1347,8 @@ void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t cha
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
                     im[((i  )*c+(j+1))*channels+k]*fx[3] +
                     im[((i  )*c+(j+2))*channels+k]*fx[4];
+            COST_INC_ADD(4);
+            COST_INC_MUL(5);
         }
         //right edge
         j = c-2; // [ ... -2 -1 0 1] 1
@@ -1286,6 +1359,8 @@ void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t cha
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
                     im[((i  )*c+(j+1))*channels+k]*fx[3] +
                     im[((i  )*c+(j+1))*channels+k]*fx[4];
+            COST_INC_ADD(4);
+            COST_INC_MUL(5);
         }
         j = c-1; // [ ... -2 -1 0] 0 0
         for(int k = 0; k < channels; k++){
@@ -1295,6 +1370,8 @@ void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t cha
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
                     im[((i  )*c+(j  ))*channels+k]*fx[3] +
                     im[((i  )*c+(j  ))*channels+k]*fx[4];
+            COST_INC_ADD(4);
+            COST_INC_MUL(5);
         }
     }
     //vertical filter
@@ -1307,6 +1384,8 @@ void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t cha
                         scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
                         scratch[((i+1)*c+(j  ))*channels+k]*fy[3] +
                         scratch[((i+2)*c+(j  ))*channels+k]*fy[4];
+                COST_INC_ADD(4);
+                COST_INC_MUL(5);
             }
         }
         //top edge
@@ -1318,6 +1397,8 @@ void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t cha
                     scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
                     scratch[((i+1)*c+(j  ))*channels+k]*fy[3] +
                     scratch[((i+2)*c+(j  ))*channels+k]*fy[4];
+            COST_INC_ADD(4);
+            COST_INC_MUL(5);
         }
         i = 1; // -1 [-1 0 1 2 ... ]
         for(int k = 0; k < channels; k++){
@@ -1327,6 +1408,8 @@ void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t cha
                     scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
                     scratch[((i+1)*c+(j  ))*channels+k]*fy[3] +
                     scratch[((i+2)*c+(j  ))*channels+k]*fy[4];
+            COST_INC_ADD(4);
+            COST_INC_MUL(5);
         }
         //bottom edge
         i = r-2; // [ ... -2 -1 0 1] 1
@@ -1337,6 +1420,8 @@ void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t cha
                     scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
                     scratch[((i+1)*c+(j  ))*channels+k]*fy[3] +
                     scratch[((i+1)*c+(j  ))*channels+k]*fy[4];
+            COST_INC_ADD(4);
+            COST_INC_MUL(5);
         }
         i = r-1; // [ ... -2 -1 0] 0 0
         for(int k = 0; k < channels; k++){
@@ -1346,6 +1431,8 @@ void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t cha
                     scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
                     scratch[((i  )*c+(j  ))*channels+k]*fy[3] +
                     scratch[((i  )*c+(j  ))*channels+k]*fy[4];
+            COST_INC_ADD(4);
+            COST_INC_MUL(5);
         }
     }
 }
