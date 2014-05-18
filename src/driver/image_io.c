@@ -211,27 +211,24 @@ int debug_tiff_test( const char *in_img, char *out_img ){
     return 0;
 }
 
-double compare_tif( uint32_t *raster, uint32_t w, uint32_t h, char* path ) {
-    uint32_t i, ref_w, ref_h;
-    uint32_t* ref_raster = load_image( &ref_w, &ref_h, path );
-    double res  = 0.0;
-
+double rmse(double *image, double *reference, uint32_t w, uint32_t h){
+    double res = 0.0;
 #ifdef DEBUG
-    printf("w: %d,h: %d,ref_w: %d,ref_h: %d\n", w, h, ref_w, ref_h);
+    printf("w: %d,h: %d,w: %d,h: %d,w_ref: %d,h_ref: %d\n", w, h, w_ref, h_ref);
 #endif
-    if( ref_raster ) {
-        if( (ref_h == h) && (ref_w == w) ) {
-            uint32_t npixels = ref_h * ref_w;
-            for( i = 0; i < npixels; i++ ) {
-                res += abs(TIFFGetR(raster[i]) - TIFFGetR(ref_raster[i]));
-                res += abs(TIFFGetG(raster[i]) - TIFFGetG(ref_raster[i]));
-                res += abs(TIFFGetB(raster[i]) - TIFFGetB(ref_raster[i]));
-            }
-        } else
-            res = -INFINITY;
-        free_tiff(ref_raster);
-    } else
-        res = INFINITY;
+    for(int i = 0; i < h; i++){
+        for(int k = 0; k < w; k++){
+
+            //all channels weighted equally
+            double r = fabs(reference[i*w+k] - image[i*w+k]);
+            double g = fabs(reference[i*w+k+1] - image[i*w+k+1]);
+            double b = fabs(reference[i*w+k+2] - image[i*w+k+2]);
+
+            res = res + r*r+g*g+b*b;
+        }
+    }
+    double npixels = w*h;
+    res = sqrt(res / npixels);
     return res;
 }
 

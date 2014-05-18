@@ -1,6 +1,7 @@
 01ref_matlab/01ref_matlab.c
+01ref_matlab/01ref_matlab.o
 01ref_matlab/Make.config
-01ref_matlab/Make.config~
+bin/driver_01ref_matlab
 driver/debug.h
 driver/driver.c
 driver/driver.o
@@ -8,8 +9,6 @@ driver/image_io.c
 driver/image_io.h
 driver/image_io.o
 driver/Makefile
-driver/result_file.c
-driver/result_file.h
 driver/result_file.o
 driver/testconfig.c
 driver/testconfig.h
@@ -1178,10 +1177,18 @@ tiff-4.0.2/TODO
 tiff-4.0.2/VERSION
 01ref_matlab.build.log
 01ref_matlab.run.log
+debug.sh
+dummy_fusion.build.log
+dummy_fusion.run.log
+fusion.config
+fusion.creator
+fusion.creator.user
+fusion.files
 fusion.h
+fusion.includes
 fusion_driver.py
-fusion_driver.py~
 libpfm-4.5.0.tar.gz
+make.sh
 Make.sysconfig
 Make.sysconfig.example
 Make.system

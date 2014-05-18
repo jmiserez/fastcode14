@@ -22,6 +22,8 @@ double** crop_topleft_rgbs( double** rgb_images, size_t w_orig,
                             size_t h_orig, size_t image_count,
                             size_t w, size_t h, bool force_copy );
 
+double rmse(double *image, double *reference, uint32_t w, uint32_t h);
+
 void free_rgbs( double** rgb_images, size_t img_count );
 void free_rgb( double * rgb_image );
 

@@ -14,7 +14,6 @@
 
 #include "debug.h"
 
-#include "result_file.h"
 #include "testconfig.h"
 #include "image_io.h"
 
@@ -27,10 +26,12 @@
 
 COST_VARIABLES_HERE
 
+
 typedef struct {
     char* log_file;
     char* out_file; ///< output image written, if desired
     char* val_file; ///< comparision image, if desired
+    double val_threshold;
 } cli_options_t;
 
 /*
@@ -40,10 +41,7 @@ const char* usage_str = "./driver [options] <heights> <widths> "
         "<contrastParm> <saturationParm> <wellexpParm>\n\n"
         "options:\n"
         " --testlibtiff:\n"
-        "  performs some tests using libtiff"
-        " --log <file>\n"
-        "  write measurement results into log file <file>.\n"
-        "  (otherwise only the error is calculated and the result is abandoned)"
+        "  performs some tests using libtiff\n"
         "\n"
         " --validate <ref>\n"
         "  compare calculated result against <ref>.\n"
@@ -52,11 +50,15 @@ const char* usage_str = "./driver [options] <heights> <widths> "
         "  smaller than the width and height of the reference image, the\n"
         "  current result image is validated against the rectangular\n"
         "  subsection with respective dimensions.\n"
+        "\n"
+        " --threshold <double>\n"
+        "  threshold for validation.\n"
+        "\n"
         " --store <prefix>\n"
         "  store result into <prefix>-<w>x<h>.tif\n"
         "\n\n"
         "Example:\n"
-        " $ ./driver --log file.log --val val.tif --store out.tif "
+        " $ ./driver --val val.tif --store out.tif "
         "100:50:1000\\\n100:50:1000 0.1 0.2 0.3 input1.tif input2.tif\n\n"
         "When executed using these arguments, the driver reads files \n"
         "input1.tif and input 2.tif and executes the exposure fusion \n"
@@ -65,7 +67,7 @@ const char* usage_str = "./driver [options] <heights> <widths> "
         "The contrast parameter is 0.1, the saturation parameter 0.2 and the\n"
         "well-exposedness parameter is 0.3.\n\n"
         "The resulting image is written to out.tif and validated against the\n"
-        "image stored in val.tif. A log file is written to file.log\n";
+        "image stored in val.tif.\n";
 
 void print_usage() {
     printf("%s", usage_str);
@@ -74,7 +76,7 @@ void print_usage() {
 /*
  * PERFORMANCE MEASUREMENT
  **/
-int run_testconfiguration( result_t* result, testconfig_t* tc ) {
+int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
 
     int ret;
 
@@ -104,6 +106,19 @@ int run_testconfiguration( result_t* result, testconfig_t* tc ) {
            h_orig);
 #endif
 
+    size_t val_read_w = 0;
+    size_t val_read_h = 0;
+    double *val = NULL;
+    if(cli_opts->val_file != NULL){
+        //load validation image
+        val = load_tiff_rgb( (uint32_t*)&val_read_w,
+                                   (uint32_t*)&val_read_h,
+                                   cli_opts->val_file );
+        assert(val != NULL);
+        assert(val_read_w == w_orig);
+        assert(val_read_h == h_orig);
+    }
+
     // Perform Computations
     int err = 0;
     for( w = tc->width_range.start; w <= tc->width_range.stop && !err;
@@ -127,20 +142,50 @@ int run_testconfiguration( result_t* result, testconfig_t* tc ) {
                 fusion_free(fusion_data);
                 err = -1;
             } else { // fusion alloc succeeded
+
+                //TODO: warmup caches
+
                 // Reset Counters
                 COST_MODEL_RESET;
                 perf_reset(perf_data);
 
                 // Run exposure fusion
                 perf_start(perf_data);
-                fusion_compute(target_images, w, h, img_count, tc->contrast,
+                double *result = fusion_compute(target_images, w, h, img_count, tc->contrast,
                         tc->saturation, tc->well_exposed, fusion_data);
                 perf_stop(perf_data);
 
                 // Print results
                 perf_update_values(perf_data);
+
+                //store image
+                if(cli_opts->out_file != NULL){
+                    char sbuf[255];
+                    snprintf(sbuf,255,"%s-%dx%d.tif",cli_opts->out_file,w,h);
+                    store_tiff_rgb(result,w,h,sbuf);
+                }
                 printf("--- Showing results for: w=%zu, h=%zu, N=%zu\n",
                         w, h, img_count);
+                //validate image
+                if(cli_opts->val_file != NULL){
+                    //crop validation image
+                    assert(val_read_w >= w);
+                    assert(val_read_h >= h);
+                    double *val_crop = crop_topleft_rgb(val,val_read_w,val_read_h,w,h,true);
+                    assert(val_crop != NULL);
+
+                    printf("Performance Counters:\n");
+
+                    double rmse = rmse(result, val_crop, w, h);
+                    printf("  RMSE          : %.0lf\n", rmse);
+                    if(rmse > cli_opts->val_threshold){
+                        FUSION_ERR("Error in validation(*,w=%zu,h=%zu,rmse=%lf)\n",
+                                w, h, rmse);
+                        err = -2;
+                    }
+                    free(val_crop);
+                }
+
                 printf("Performance Counters:\n");
                 for (struct perf_data *iter = perf_data; iter->name; ++iter) {
                     printf("  %-50s : %"PRId64"\n", iter->name, iter->value);
@@ -164,9 +209,6 @@ int run_testconfiguration( result_t* result, testconfig_t* tc ) {
 
                 // Cleanup
                 fusion_free(fusion_data);
-
-
-
             } // fusion alloc succeeded
 
             // free target images
@@ -174,19 +216,9 @@ int run_testconfiguration( result_t* result, testconfig_t* tc ) {
         } // heights loop
     } // widths loop
 
-    // convert result into tiff raster
-    // uint32_t* raster = rgb2tiff( ret_image, npixels );
-
-
-    // compare to reference
-    // result->error = compare_tif(raster, w, h, tc->ref_path );
-
-    // runtime and deviatation from reference solution
-
-    // free resources
-    // free_tiff( raster );
-
-
+    if(val != NULL){
+        free(val);
+    }
     // Cleanup
     tc_free_input_images( input_images, img_count );
     perf_cleanup(perf_data);
@@ -201,10 +233,10 @@ int parse_cli(cli_options_t* cli_opts, testconfig_t* testconfig,
     int c;
     while (true) {
         static struct option long_options[] = {
-            {"testlibtiff", no_argument,       0, 't'},
-            {"log",         required_argument, 0, 'l'},
+            {"testlibtiff", no_argument,       0, 'd'},
             {"store",       required_argument, 0, 's'},
             {"validate",    required_argument, 0, 'v'},
+            {"threshold",   required_argument, 0, 't'},
             {0,0,0,0}
         };
 
@@ -221,7 +253,7 @@ int parse_cli(cli_options_t* cli_opts, testconfig_t* testconfig,
                    long_options[option_index].name);
             break;
 
-        case 't':
+        case 'd':
             printf("getopt: testlibtiff\n");
             debug_tiff_test( TIFF_DEBUG_IN, TIFF_DEBUG_OUT );
 
@@ -243,10 +275,9 @@ int parse_cli(cli_options_t* cli_opts, testconfig_t* testconfig,
         case 'v':
             cli_opts->val_file = optarg;
             break;
-        case 'l': // log
-            cli_opts->log_file = optarg;
+        case 't':
+            cli_opts->val_threshold = atof(optarg);
             break;
-
         case '?':
             printf("getopt: error on character %c\n", optopt);
             break;
@@ -297,23 +328,19 @@ int main(int argc, char* argv[]) {
     };
 
     cli_options_t cli_opts = {
-        .log_file = NULL,
         .out_file = NULL,
         .val_file = NULL
     };
 
-    result_t result;
     if ( parse_cli( &cli_opts, &testconfig, argc, argv ) > 0 ) {
 #ifndef NDEBUG
         print_testconfiguration( &testconfig );
-        if( cli_opts.log_file )
-            printf("log file: %s\n", cli_opts.log_file );
         if( cli_opts.out_file )
             printf("out file: %s\n", cli_opts.out_file );
         if( cli_opts.val_file )
             printf("val file: %s\n", cli_opts.val_file );
 #endif
-        return run_testconfiguration( &result, &testconfig );
+        return run_testconfiguration( &cli_opts, &testconfig );
     } else print_usage();
 
     return -1;

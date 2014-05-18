@@ -4,12 +4,12 @@ import subprocess
 
 example_config = {
     'versions'             : [ "01ref_matlab" ],
+    'logtofile'            : True,
 	'performance_counters' : True,
 	'optimization_flags'   : "-O3 -m64 -march=native -mno-abm -fno-tree-vectorize -g",
 	'debug'                : True,
 	'ndebug'               : False,
-	'driver_args'          : "752:1:752 500:1:500 1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif"
-	#'driver_args'          : ["100:25:150", "100:25:300", "1.0", "1.0", "1.0", "../testdata/srcImages/A.0.tif"]
+	'driver_args'          : "--store zzz --val ../testdata/house_out/A-3-1-1-1.tif --threshold 1.0 752:1:752 500:1:500 1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif"
 }
 
 def add_config(key, val, f):
@@ -54,38 +54,49 @@ if __name__ == "__main__":
 		print "%s: writing build configuration" % version
 		write_config(version, config)
 		logfile = version + ".build.log"
-#		print "%s: cleaning all" % version
-#		with open(logfile, "w") as log:
-#			ret = subprocess.call(["make", "-fMake.system", "clean"])#, stdout=log)
-#		if ret == 0:
-#			#print "%s: clean successful. output in %s" % (version, logfile)
-#			print "%s: clean successful."
-#		else:
-#			#print "%s: error cleaning. see %s for details" % (version, logfile)
-#			print "%s: error cleaning"
+		print "%s: cleaning " % version
+		with open(logfile, "w") as log:
+			if config['logtofile']:
+				ret = subprocess.call(["make", "-fMake.system", "clean"], stdout=log)
+			else:
+				ret = subprocess.call(["make", "-fMake.system", "clean"])
+			if ret == 0:
+				print "%s: clean successful. output in %s" % (version, logfile)
+			else:
+				print "%s: ERROR cleaning. see %s for details" % (version, logfile)
+
+	for version in config['versions']:
+		print "%s: writing build configuration" % version
+		write_config(version, config)
+		logfile = version + ".build.log"
 		print "%s: building" % version
 		with open(logfile, "a") as log:
-			ret = subprocess.call(["make", "-fMake.system"])#, stdout=log)
-		if ret == 0:
-			#print "%s: build successful. output in %s" % (version, logfile)
-			print "%s: build successful."
-		else:
-			#print "%s: error building. see %s for details" % (version, logfile)
-			print "%s: error building."
-	
+			if config['logtofile']:
+				ret = subprocess.call(["make", "-fMake.system"], stdout=log)
+			else:
+				ret = subprocess.call(["make", "-fMake.system"])
+			if ret == 0:
+				print "%s: build successful. output in %s" % (version, logfile)
+			else:
+				print "%s: ERROR building. see %s for details" % (version, logfile)
+
 	title("Running Builds")
 	for version in config['versions']:
 		print "%s: running" % version
 		binary = "./bin/driver_" + version
 		runfile = version + ".run.log"
 		with open(runfile, "w") as rf:
-			#subprocess.call([[binary] + config['driver_args']], stdout=run)
 			arg = binary + " " + config['driver_args']
 			#print arg
 			#arg = arg.split()
 			#print arg
-			#subprocess.call(arg, stdout=rf, shell=True)
-			subprocess.call(arg, shell=True)
-		print "%s: finished. output in %s" % (version, runfile)
-	
+			if config['logtofile']:
+				ret = subprocess.call(arg, stdout=rf, shell=True)
+			else:
+				ret = subprocess.call(arg, shell=True)
+			if ret == 0:
+				print "%s: run successful. output in %s" % (version, runfile)
+			else:
+				print "%s: ERROR running. see %s for details" % (version, runfile)
+
 	title("Done")
