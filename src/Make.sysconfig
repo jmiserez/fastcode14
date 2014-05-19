@@ -1,6 +1,6 @@
-VERSION    = 01ref_matlab
+VERSION    = 02baseline
 CF_COST    = -DCOST_MEASURE
-CF_WARMUP  = -DWARMUP_COUNT=3
+CF_WARMUP  = -DWARMUP_COUNT=1
 CF_OPT     = -O3 -m64 -march=native -mno-abm -fno-tree-vectorize
-CF_DEBUG   =  -DNDEBUG
+CF_DEBUG   =  -DDEBUG -g
 CF_CONFIG  = $(CF_OPT) $(CF_COST) $(CF_WARMUP) $(CF_DEBUG)
