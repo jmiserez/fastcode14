@@ -6,24 +6,41 @@ import sys
 example_config = {
 #    'versions'             : [ "01ref_matlab" ],
     'versions'             : [ "02baseline" ],
-    'do_benchmark'         : False,
+    'do_benchmark'         : True,
+    'do_develop'           : True,
+    'do_gprof'             : False,
     'logtofile'            : False,
-    'cost_measure'         : True,
-    'optimization_flags'   : "-O3 -m64 -march=native -mno-abm -fno-tree-vectorize",
-    'debug'                : False,
-    'gprof'                : True,
-    'warmup_count'         : 1,
-    'warmup_benchmark'     : 5,
     'openmode'             : 'a',
-#	'driver_args'          : "--store zzz --val ../testdata/house_out/A-3-1-1-1.tif --threshold 0.1 752:1:752 500:1:500 1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif ../testdata/srcImages/A.2.tif ../testdata/srcImages/A.3.tif"
-    'driver_args'          : "--s zzz --v ../testdata/house_out/A-3-1-1-1.tif --w 752 --h 500 --t 0.1 "
-                             "752:25:752 500:25:500 "
+    'optimization_flags'   : "-O3 -m64 -march=native -mno-abm -fno-tree-vectorize",
+    'warmup_dev'           : 1,
+    'warmup_benchmark'     : 5,
+    'driver_args'          : "--v ../testdata/house_out/A-3-1-1-1.tif --w 752 --h 500 --t 0.1 "
+                             "752:1:752 500:1:500 "
+                             "1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif ../testdata/srcImages/A.2.tif ../testdata/srcImages/A.3.tif",
+    'dev_driver_args'      : "--s out --v ../testdata/house_out/A-3-1-1-1.tif --w 752 --h 500 --t 0.1 "
+                             "752:1:752 500:1:500 "
                              "1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif ../testdata/srcImages/A.2.tif ../testdata/srcImages/A.3.tif"
 
 }
 
 def add_config(key, val, f):
 	print >> f, "%-10s = %s" % (key, val)
+
+def update_for_gprof(config):
+	config['cost_measure'] = False
+	config['debug'] = False
+	config['gprof'] = True
+	config['warmup_count'] = 0
+	config['read_flops'] = False
+
+def update_for_development(config):
+	config['cost_measure'] = True
+	config['logtofile'] = False
+	config['debug'] = False
+	config['gprof'] = False
+	config['warmup_count'] = config['warmup_dev']
+	config['read_flops'] = False
+	config['driver_args'] = config['dev_driver_args']
 
 def update_for_benchmark_cost(config):
 	config['cost_measure'] = True
@@ -161,15 +178,26 @@ if __name__ == "__main__":
 	for key in config:
 		print "  %-20s : %s" % (key, config[key])
 
-	if config['do_benchmark']:
-		title("BENCHMARK: MEASURING COSTS")
-		update_for_benchmark_cost(config)
-		build_and_run(config)
-		title("BENCHMARK: MEASURING PERFORMANCE")
-		update_for_benchmark_performance(config)
-		build_and_run(config);
-		title("BENCHMARK: DONE")
+	if config['do_develop']:
+		cfg = config.copy()
+		title("DEV: DEBUGGING")
+		update_for_development(cfg)
+		build_and_run(cfg);
+		title("DEV: DONE")
 
+	if config['do_benchmark']:
+		cfg = config.copy()
+		update_for_benchmark_cost(cfg)
+		build_and_run(cfg)
+		title("BENCHMARK: MEASURING PERFORMANCE")
+		update_for_benchmark_performance(cfg)
+		build_and_run(cfg);
+		title("BENCHMARK: DONE")
 	else:
-		build_and_run(config)
+		if config['do_gprof']:
+			cfg = config.copy()
+			update_for_gprof(cfg)
+			build_and_run(cfg)
+		else:
+			build_and_run(config)
 

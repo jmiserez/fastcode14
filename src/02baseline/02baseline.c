@@ -899,8 +899,6 @@ void conv3x3_monochrome_replicate(double* im, uint32_t r, uint32_t c, double* ds
  */
 void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t channels, double* scratch, double* dst){
     //r is height (vertical), c is width (horizontal)
-
-
     //horizontal filter
     for(int i = 0; i < r; i++){ //every 2nd row
         for(int j = 2; j < c-2; j++){
