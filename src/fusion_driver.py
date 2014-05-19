@@ -4,16 +4,18 @@ import subprocess
 
 example_config = {
     'versions'             : [ "01ref_matlab" ],
+#     'versions'             : [ "02baseline" ],
     'logtofile'            : True,
     'cost_measure'         : True,
     'optimization_flags'   : "-O3 -m64 -march=native -mno-abm -fno-tree-vectorize",
     'debug'                : False,
-#	'ndebug'               : False,
-	'gprof'                : False,
-	'warmup_count'         : 5,
-	'openmode'             : 'a',
+    'gprof'                : False,
+    'warmup_count'         : 3,
+    'openmode'             : 'a',
 #	'driver_args'          : "--store zzz --val ../testdata/house_out/A-3-1-1-1.tif --threshold 0.1 752:1:752 500:1:500 1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif ../testdata/srcImages/A.2.tif ../testdata/srcImages/A.3.tif"
-	'driver_args'          : "--v ../testdata/house_out/A-3-1-1-1.tif --w 752 --h 500 --t 0.1 50:50:750 500:1:500 1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif ../testdata/srcImages/A.2.tif ../testdata/srcImages/A.3.tif"
+    'driver_args'          : "--v ../testdata/house_out/A-3-1-1-1.tif --w 752 --h 500 --t 0.1 "
+                             "10:10:752 500:1:500 "
+                             "1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif ../testdata/srcImages/A.2.tif ../testdata/srcImages/A.3.tif"
 
 }
 

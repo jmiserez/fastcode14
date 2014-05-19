@@ -223,7 +223,8 @@ static int perf_update_values(struct perf_data *data)
     }
 
     // XXX: ret == sizeof(values) ??
-    ssize_t ret = read(data->fd, values, values_size);
+//    ssize_t ret = read(data->fd, values, values_size);
+    read(data->fd, values, values_size);
     assert(ret > 0);
     for (int i=0; i<event_count; ++i) {
         data[i].value = values[1+2*i];

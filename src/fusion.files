@@ -1193,3 +1193,6 @@ Make.system
 Make.system~
 README
 tiff-4.0.2.tar.gz
+02baseline/02baseline.c
+02baseline/02baseline.o
+02baseline/Make.config

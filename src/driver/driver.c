@@ -188,6 +188,12 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
          w += tc->width_range.step ) {
         for( h = tc->height_range.start; h <= tc->height_range.stop && !err;
              h += tc->height_range.step ) {
+
+//    h = tc->height_range.start;
+//    for( w = tc->width_range.start;
+//         w <= tc->width_range.stop &&  h <= tc->height_range.stop && !err;
+//         w += tc->width_range.step, h += tc->height_range.step ) {
+
 #ifndef NDEBUG
             printf( "fusion for w: %ld, h: %ld\n", w, h );
 #endif

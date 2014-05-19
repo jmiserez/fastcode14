@@ -17,8 +17,6 @@
 
 #include "cost_model.h"
 
-//#define PRINTPYRAMIDS
-
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
@@ -125,9 +123,6 @@ void scalar_abs(double *src, size_t src_len, double *dst);
 void conv3x3_monochrome_replicate(double* im, uint32_t r, uint32_t c, double* fxy, double* dst);
 void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double *scratch, double* dst);
 void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double *fy, double *scratch, double* dst);
-
-//TODO: move to separate (debug) c file
-void store_image(char* path, double *R, uint32_t height, uint32_t width, uint32_t channels);
 
 //
 // Interface
@@ -255,12 +250,6 @@ int fusion_alloc(void** _segments, int w, int h, int N){
         return FUSION_ALLOC_FAILURE;
     }
 
-    mem->pyrDisp_len = (w*2)*h*3;
-    mem->pyrDisp = calloc(mem->pyrDisp_len,sizeof(double));
-    if(mem->pyrDisp == NULL){
-        return FUSION_ALLOC_FAILURE;
-    }
-
     *_segments = mem;
 
     return FUSION_ALLOC_SUCCESS;
@@ -343,14 +332,6 @@ double* fusion_compute(double** I, int w, int h, int N,
         assert(sum_weight >= 0.99 && sum_weight <= 1.01); //ensure all weights sum to one for each pixel
     }
 #endif
-#ifdef PRINTPYRAMIDS
-    for(int i = 0; i < W_len; i++){
-        char fname[50];
-        sprintf(fname, "_W[%d].tif", i);
-        store_image(fname, W[i], r, c, 1);
-        printf("%s written to disk\n", fname);
-    }
-#endif
 
     uint32_t nlev = compute_nlev(r,c);
     assert(nlev != 0);
@@ -393,11 +374,6 @@ double* fusion_compute(double** I, int w, int h, int N,
     size_t T_len = mem->T_len;
     double* T = mem->T;
     assert(T != NULL);
-    //how much scratch space is needed for upsampling?
-
-    //(largest downsampled image + 1px border), upsampled 2x
-//    uint32_t largest_upsampled_r = (((r/2) + (r%2)) + 2) * 2;
-//    uint32_t largest_upsampled_c = (((c/2) + (c%2)) + 2) * 2;
 
     size_t Q_len = mem->Q_len;
     double* Q = mem->Q;
@@ -408,12 +384,6 @@ double* fusion_compute(double** I, int w, int h, int N,
     size_t V_len = mem->V_len;
     double* V = mem->V;
     assert(V != NULL);
-
-    //memory for display_pyramid (twice the width of the input images)
-    size_t pyrDisp_len = mem->pyrDisp_len;
-    double* pyrDisp = mem->pyrDisp;
-    assert(pyrDisp != NULL);
-    zeros(pyrDisp,pyrDisp_len);
 
     for (int n = 0; n < N; n++){
         //construct 1-channel gaussian pyramid from weights
@@ -443,69 +413,7 @@ double* fusion_compute(double** I, int w, int h, int N,
     //reconstruct laplacian pyramid
     reconstruct_laplacian_pyramid(3,nlev,S,S_len,Q,Q_len,U,U_len,V,V_len,pyr,pyr_r,pyr_c,r,c,R);
 
-#ifdef PRINTPYRAMIDS
-    for(int i = 0; i < I_len; i++){
-        char fname[50];
-
-        //pyrW
-        display_pyramid(1,nlev,pyrW[i],pyrW_r[i],pyrW_c[i],r,c*2,pyrDisp);
-        sprintf(fname, "_pyrW[%d].tif", i);
-        store_image(fname, pyrDisp, r, c*2, 1);
-        printf("%s written to disk\n", fname);
-
-        normalize_image(pyrDisp,1,r,c*2,pyrDisp);
-        sprintf(fname, "_pyrW_norm[%d].tif", i);
-        store_image(fname, pyrDisp, r, c*2, 1);
-        printf("%s written to disk\n", fname);
-
-        compact_display_pyramid(1,nlev,pyrW[i],pyrW_r[i],pyrW_c[i],r,c,pyrDisp);
-        sprintf(fname, "_pyrW_compact[%d].tif", i);
-        store_image(fname, pyrDisp, r, c, 1);
-        printf("%s written to disk\n", fname);
-
-        normalize_image(pyrDisp,1,r,c,pyrDisp);
-        sprintf(fname, "_pyrW_compact_norm[%d].tif", i);
-        store_image(fname, pyrDisp, r, c, 1);
-        printf("%s written to disk\n", fname);
-
-        //pyrI
-        display_pyramid(3,nlev,pyrI[i],pyrI_r[i],pyrI_c[i],r,c*2,pyrDisp);
-        sprintf(fname, "_pyrI[%d].tif", i);
-        store_image(fname, pyrDisp, r, c*2, 3);
-        printf("%s written to disk\n", fname);
-
-        normalize_image(pyrDisp,3,r,c*2,pyrDisp);
-        sprintf(fname, "_pyrI_norm[%d].tif", i);
-        store_image(fname, pyrDisp, r, c*2, 3);
-        printf("%s written to disk\n", fname);
-
-        compact_display_pyramid(3,nlev,pyrI[i],pyrI_r[i],pyrI_c[i],r,c,pyrDisp);
-        sprintf(fname, "_pyrI_compact[%d].tif", i);
-        store_image(fname, pyrDisp, r, c, 3);
-        printf("%s written to disk\n", fname);
-
-        normalize_image(pyrDisp,3,r,c,pyrDisp);
-        sprintf(fname, "_pyrI_compact_norm[%d].tif", i);
-        store_image(fname, pyrDisp, r, c, 3);
-        printf("%s written to disk\n", fname);
-    }
-
-    display_pyramid(3,nlev,pyr,pyr_r,pyr_c,r,c*2,pyrDisp);
-    store_image("_pyr.tif", pyrDisp, r, c*2, 3);
-    printf("_pyr.tif written to disk\n");
-    normalize_image(pyrDisp,3,r,c*2,pyrDisp);
-    store_image("_pyr_norm.tif", pyrDisp, r, c*2, 3);
-    printf("_pyr_norm.tif written to disk\n");
-
-    compact_display_pyramid(3,nlev,pyr,pyr_r,pyr_c,r,c,pyrDisp);
-    store_image("_pyr_compact.tif", pyrDisp, r, c, 3);
-    printf("_pyr_compact.tif written to disk\n");
-    normalize_image(pyrDisp,3,r,c,pyrDisp);
-    store_image("_pyr_compact_norm.tif", pyrDisp, r, c, 3);
-    printf("_pyr_compact_norm.tif written to disk\n");
-#endif
-
-#ifndef NDEBUG
+#ifdef DEBUG
     printf("done\n");
 #endif
 
@@ -524,7 +432,6 @@ void fusion_free( void* _segments ){
     free(mem->V);
 
     free_pyramid(mem->nlev,mem->pyr,mem->pyr_r,mem->pyr_c);
-    free(mem->pyrDisp);
 
     for (int n = 0; n < mem->W_len; n++){
         free(mem->W[n]);
@@ -547,7 +454,7 @@ void fusion_free( void* _segments ){
 //
 
 void contrast(double *im, uint32_t r, uint32_t c, double *mono, double *C){
-    //laplacian filter
+    //laplacian filter, not separable
     double h[] = {
         0.0, 1.0, 0.0,
         1.0, -4.0, 1.0,
@@ -813,7 +720,7 @@ void display_pyramid(uint32_t channels, uint32_t nlev, double **pyr, uint32_t *p
     assert(r == pyr_r[0]);
     assert(c == pyr_c[0] * 2);
 
-#ifndef NDEBUG
+#ifdef DEBUG
     //check if the image is high enough to show the whole pyramid in full
     int pyr_c_cumulative_sum = 0;
     for(int v = 0; v < nlev; v++){
@@ -1437,50 +1344,4 @@ void conv5x5separable_replicate(double* im, uint32_t r, uint32_t c, uint32_t cha
             COST_INC_MUL(5);
         }
     }
-}
-
-//TODO: move to separate (debug) c file.
-void store_image(char* path, double *R, uint32_t height, uint32_t width, uint32_t channels){
-    assert(channels == 1 || channels == 3);
-    uint32_t npixels = width*height;
-
-    TIFF *out = TIFFOpen(path, "w");
-    uint32_t* raster = (uint32_t*) _TIFFmalloc(npixels * sizeof(uint32_t));
-
-    assert(raster != NULL);
-    switch(channels){
-        case 1:
-            for(int i = 0; i < npixels; i++){
-                uint32_t packed = 0;
-                packed |= (uint32_t)(fmin(fmax(0.0, round(R[i]*255.0)), 255.0));
-                packed |= ((uint32_t)(fmin(fmax(0.0, round(R[i]*255.0)), 255.0))) << 8;
-                packed |= ((uint32_t)(fmin(fmax(0.0, round(R[i]*255.0)), 255.0))) << 16;
-                packed |= ((uint32_t)255) << 24;
-                raster[i] = packed;
-            }
-            break;
-        case 3:
-            for(int i = 0; i < npixels; i++){
-                uint32_t packed = 0;
-                packed |= (uint32_t)(fmin(fmax(0.0, round(R[i*3]*255.0)), 255.0));
-                packed |= ((uint32_t)(fmin(fmax(0.0, round(R[i*3+1]*255.0)), 255.0))) << 8;
-                packed |= ((uint32_t)(fmin(fmax(0.0, round(R[i*3+2]*255.0)), 255.0))) << 16;
-                packed |= ((uint32_t)255) << 24;
-                raster[i] = packed;
-            }
-            break;
-    }
-
-    TIFFSetField(out, TIFFTAG_IMAGEWIDTH, width);
-    TIFFSetField(out, TIFFTAG_IMAGELENGTH, height);
-    TIFFSetField(out, TIFFTAG_SAMPLESPERPIXEL, 4);
-    TIFFSetField(out, TIFFTAG_BITSPERSAMPLE, 8);
-    TIFFSetField(out, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
-    TIFFSetField(out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-    TIFFSetField(out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
-
-    TIFFSetField(out, TIFFTAG_ROWSPERSTRIP, height);
-    TIFFWriteEncodedStrip(out, 0, raster, width*height*sizeof(uint32_t));
-    _TIFFfree(raster);
-    TIFFClose(out);
 }
