@@ -659,6 +659,8 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *fil
     assert(V_len == U_len);
 
     zeros(U,U_len);
+    zeros(Q,Q_len);
+    zeros(dst,up_r*up_c*channels);
 
     // 0 -> 0 0 0
     // 1 -> 3
@@ -1087,15 +1089,31 @@ void conv5x5separable_replicate_even_x(double* im, uint32_t r, uint32_t c, uint3
     //r is height (vertical), c is width (horizontal)
 
     //horizontal filter
-    for(int i = 0; i < r; i++){ //all lines
+    for(int i = 0; i < r; i+=2){ //every 2nd line
         for(int j = 2; j < c-2; j++){
+
+            //odd length, e.g. 12
+            // 0 1|2 3|4 5|6 7|8 9|10 11
+
             for(int k = 0; k < channels; k++){
                 scratch[(i*c+j)*channels+k] =
                         im[((i  )*c+(j-2))*channels+k]*fx[0] +
-                        im[((i  )*c+(j-1))*channels+k]*fx[1] +
+//                        im[((i  )*c+(j-1))*channels+k]*fx[1] +
                         im[((i  )*c+(j  ))*channels+k]*fx[2] +
-                        im[((i  )*c+(j+1))*channels+k]*fx[3] +
+//                        im[((i  )*c+(j+1))*channels+k]*fx[3] +
                         im[((i  )*c+(j+2))*channels+k]*fx[4];
+                COST_INC_ADD(4);
+                COST_INC_MUL(5);
+            }
+            j++;
+            for(int k = 0; k < channels; k++){
+                scratch[(i*c+j)*channels+k] =
+//                        im[((i  )*c+(j-2))*channels+k]*fx[0] +
+                        im[((i  )*c+(j-1))*channels+k]*fx[1] +
+//                        im[((i  )*c+(j  ))*channels+k]*fx[2] +
+                        im[((i  )*c+(j+1))*channels+k]*fx[3];
+//                        im[((i  )*c+(j+2))*channels+k]*fx[4];
+
                 COST_INC_ADD(4);
                 COST_INC_MUL(5);
             }
@@ -1107,7 +1125,7 @@ void conv5x5separable_replicate_even_x(double* im, uint32_t r, uint32_t c, uint3
                     im[((i  )*c+(j  ))*channels+k]*fx[0] +
 //                    im[((i  )*c+(j  ))*channels+k]*fx[1] +
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
-                    im[((i  )*c+(j+1))*channels+k]*fx[3] +
+//                    im[((i  )*c+(j+1))*channels+k]*fx[3] +
                     im[((i  )*c+(j+2))*channels+k]*fx[4];
             COST_INC_ADD(4);
             COST_INC_MUL(5);
@@ -1117,20 +1135,20 @@ void conv5x5separable_replicate_even_x(double* im, uint32_t r, uint32_t c, uint3
             scratch[(i*c+j)*channels+k] =
 //                    im[((i  )*c+(j-1))*channels+k]*fx[0] +
                     im[((i  )*c+(j-1))*channels+k]*fx[1] +
-                    im[((i  )*c+(j  ))*channels+k]*fx[2] +
-                    im[((i  )*c+(j+1))*channels+k]*fx[3] +
-                    im[((i  )*c+(j+2))*channels+k]*fx[4];
-            COST_INC_ADD(4);
-            COST_INC_MUL(5);
+//                    im[((i  )*c+(j  ))*channels+k]*fx[2] +
+                    im[((i  )*c+(j+1))*channels+k]*fx[3];
+//                    im[((i  )*c+(j+2))*channels+k]*fx[4];
+            COST_INC_ADD(1);
+            COST_INC_MUL(2);
         }
         //right edge
         j = c-2; // [ ... -2 -1 0 1] 0
         for(int k = 0; k < channels; k++){
             scratch[(i*c+j)*channels+k] =
                     im[((i  )*c+(j-2))*channels+k]*fx[0] +
-                    im[((i  )*c+(j-1))*channels+k]*fx[1] +
+//                    im[((i  )*c+(j-1))*channels+k]*fx[1] +
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
-                    im[((i  )*c+(j+1))*channels+k]*fx[3] +
+//                    im[((i  )*c+(j+1))*channels+k]*fx[3] +
                     im[((i  )*c+(j  ))*channels+k]*fx[4];
             COST_INC_ADD(4);
             COST_INC_MUL(5);
@@ -1138,9 +1156,9 @@ void conv5x5separable_replicate_even_x(double* im, uint32_t r, uint32_t c, uint3
         j = c-1; // [ ... -2 -1 0] 0 0
         for(int k = 0; k < channels; k++){
             scratch[(i*c+j)*channels+k] =
-                    im[((i  )*c+(j-2))*channels+k]*fx[0] +
+//                    im[((i  )*c+(j-2))*channels+k]*fx[0] +
                     im[((i  )*c+(j-1))*channels+k]*fx[1] +
-                    im[((i  )*c+(j  ))*channels+k]*fx[2] +
+//                    im[((i  )*c+(j  ))*channels+k]*fx[2] +
                     im[((i  )*c+(j-1))*channels+k]*fx[3];
 //                    im[((i  )*c+(j  ))*channels+k]*fx[4];
             COST_INC_ADD(4);
@@ -1215,15 +1233,30 @@ void conv5x5separable_replicate_even_y(uint32_t r, uint32_t c, uint32_t channels
 
 void conv5x5separable_replicate_odd_x(double* im, uint32_t r, uint32_t c, uint32_t channels, double* fx, double* scratch){
     //horizontal filter
-    for(int i = 0; i < r; i++){ //all lines
+    for(int i = 0; i < r; i+=2){ //every 2nd line
         for(int j = 2; j < c-2; j++){
+
+            //odd length, e.g. 11
+            // 0 1|2 3|4 5|6 7|8 9|10
+
             for(int k = 0; k < channels; k++){
                 scratch[(i*c+j)*channels+k] =
                         im[((i  )*c+(j-2))*channels+k]*fx[0] +
-                        im[((i  )*c+(j-1))*channels+k]*fx[1] +
+//                        im[((i  )*c+(j-1))*channels+k]*fx[1] +
                         im[((i  )*c+(j  ))*channels+k]*fx[2] +
-                        im[((i  )*c+(j+1))*channels+k]*fx[3] +
+//                        im[((i  )*c+(j+1))*channels+k]*fx[3] +
                         im[((i  )*c+(j+2))*channels+k]*fx[4];
+                COST_INC_ADD(4);
+                COST_INC_MUL(5);
+            }
+            j++;
+            for(int k = 0; k < channels; k++){
+                scratch[(i*c+j)*channels+k] =
+//                        im[((i  )*c+(j-2))*channels+k]*fx[0] +
+                        im[((i  )*c+(j-1))*channels+k]*fx[1] +
+//                        im[((i  )*c+(j  ))*channels+k]*fx[2] +
+                        im[((i  )*c+(j+1))*channels+k]*fx[3];
+//                        im[((i  )*c+(j+2))*channels+k]*fx[4];
                 COST_INC_ADD(4);
                 COST_INC_MUL(5);
             }
@@ -1235,39 +1268,39 @@ void conv5x5separable_replicate_odd_x(double* im, uint32_t r, uint32_t c, uint32
                     im[((i  )*c+(j  ))*channels+k]*fx[0] +
 //                    im[((i  )*c+(j  ))*channels+k]*fx[1] +
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
-                    im[((i  )*c+(j+1))*channels+k]*fx[3] +
+//                    im[((i  )*c+(j+1))*channels+k]*fx[3] +
                     im[((i  )*c+(j+2))*channels+k]*fx[4];
-            COST_INC_ADD(4);
-            COST_INC_MUL(5);
+            COST_INC_ADD(2);
+            COST_INC_MUL(3);
         }
         j = 1; // -1 [-1 0 1 2 ... ]
         for(int k = 0; k < channels; k++){
             scratch[(i*c+j)*channels+k] =
 //                    im[((i  )*c+(j-1))*channels+k]*fx[0] +
                     im[((i  )*c+(j-1))*channels+k]*fx[1] +
-                    im[((i  )*c+(j  ))*channels+k]*fx[2] +
-                    im[((i  )*c+(j+1))*channels+k]*fx[3] +
-                    im[((i  )*c+(j+2))*channels+k]*fx[4];
-            COST_INC_ADD(4);
-            COST_INC_MUL(5);
+//                    im[((i  )*c+(j  ))*channels+k]*fx[2] +
+                    im[((i  )*c+(j+1))*channels+k]*fx[3];
+//                    im[((i  )*c+(j+2))*channels+k]*fx[4];
+            COST_INC_ADD(2);
+            COST_INC_MUL(3);
         }
         //right edge
-        j = c-2; // [ ... -2 -1 0 1] 1
-        for(int k = 0; k < channels; k++){
-            scratch[(i*c+j)*channels+k] =
-                    im[((i  )*c+(j-2))*channels+k]*fx[0] +
-                    im[((i  )*c+(j-1))*channels+k]*fx[1] +
-                    im[((i  )*c+(j  ))*channels+k]*fx[2] +
-                    im[((i  )*c+(j+1))*channels+k]*fx[3];
-//                    im[((i  )*c+(j+1))*channels+k]*fx[4];
-            COST_INC_ADD(4);
-            COST_INC_MUL(5);
-        }
+//        j = c-2; // [ ... -2 -1 0 1] 1
+//        for(int k = 0; k < channels; k++){
+//            scratch[(i*c+j)*channels+k] =
+////                    im[((i  )*c+(j-2))*channels+k]*fx[0] +
+//                    im[((i  )*c+(j-1))*channels+k]*fx[1] +
+////                    im[((i  )*c+(j  ))*channels+k]*fx[2] +
+//                    im[((i  )*c+(j+1))*channels+k]*fx[3];
+////                    im[((i  )*c+(j+1))*channels+k]*fx[4];
+//            COST_INC_ADD(4);
+//            COST_INC_MUL(5);
+//        }
         j = c-1; // [ ... -2 -1 0] 0 0
         for(int k = 0; k < channels; k++){
             scratch[(i*c+j)*channels+k] =
                     im[((i  )*c+(j-2))*channels+k]*fx[0] +
-                    im[((i  )*c+(j-1))*channels+k]*fx[1] +
+//                    im[((i  )*c+(j-1))*channels+k]*fx[1] +
                     im[((i  )*c+(j  ))*channels+k]*fx[2] +
 //                    im[((i  )*c+(j  ))*channels+k]*fx[3] +
                     im[((i  )*c+(j  ))*channels+k]*fx[4];
@@ -1335,8 +1368,8 @@ void conv5x5separable_replicate_odd_y(uint32_t r, uint32_t c, uint32_t channels,
                     scratch[((i  )*c+(j  ))*channels+k]*fy[2] +
 //                    scratch[((i  )*c+(j  ))*channels+k]*fy[3] +
                     scratch[((i  )*c+(j  ))*channels+k]*fy[4];
-            COST_INC_ADD(4);
-            COST_INC_MUL(5);
+            COST_INC_ADD(3);
+            COST_INC_MUL(4);
         }
     }
 }
