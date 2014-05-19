@@ -560,9 +560,11 @@ void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t channels, ui
         T_r = S_r;
         T_c = S_c;
         //continue with downsampled image remainder
-        elementwise_copy(S,S_r*S_c*channels,T); //TODO: optimize this copy away, can use pointer swaps (handle first and last cases!)
+        double *tmp = T;
+        T = S;
+        S = tmp;
     }
-    //coarsest level, residual low pass imaggi
+    //coarsest level, residual low pass image
     assert(T_r*T_c*channels <= T_len);
     assert(T_r*T_c*channels == pyr_r[nlev-1]*pyr_c[nlev-1]*channels);
     elementwise_copy(T,T_r*T_c*channels,pyr[nlev-1]);

@@ -6,22 +6,38 @@ import sys
 example_config = {
 #    'versions'             : [ "01ref_matlab" ],
     'versions'             : [ "02baseline" ],
+    'do_benchmark'         : False,
     'logtofile'            : False,
     'cost_measure'         : True,
     'optimization_flags'   : "-O3 -m64 -march=native -mno-abm -fno-tree-vectorize",
-    'debug'                : True,
-    'gprof'                : False,
+    'debug'                : False,
+    'gprof'                : True,
     'warmup_count'         : 1,
+    'warmup_benchmark'     : 5,
     'openmode'             : 'a',
 #	'driver_args'          : "--store zzz --val ../testdata/house_out/A-3-1-1-1.tif --threshold 0.1 752:1:752 500:1:500 1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif ../testdata/srcImages/A.2.tif ../testdata/srcImages/A.3.tif"
     'driver_args'          : "--s zzz --v ../testdata/house_out/A-3-1-1-1.tif --w 752 --h 500 --t 0.1 "
-                             "752:1:752 500:1:500 "
+                             "752:25:752 500:25:500 "
                              "1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif ../testdata/srcImages/A.2.tif ../testdata/srcImages/A.3.tif"
 
 }
 
 def add_config(key, val, f):
 	print >> f, "%-10s = %s" % (key, val)
+
+def update_for_benchmark_cost(config):
+	config['cost_measure'] = True
+	config['debug'] = False
+	config['gprof'] = False
+	config['warmup_count'] = 0
+	config['read_flops'] = False
+
+def update_for_benchmark_performance(config):
+	config['cost_measure'] = False
+	config['debug'] = False
+	config['gprof'] = False
+	config['warmup_count'] = config['warmup_benchmark']
+	config['read_flops'] = True
 
 def write_config(version, config):
 	with open("Make.sysconfig", "w") as f:
@@ -45,6 +61,8 @@ def write_config(version, config):
 			debug += " -DNDEBUG"
 		if config['gprof']:
 			debug += " -pg"
+		if 'read_flops' in config and config['read_flops']:
+			debug += " -DREADFLOPS"
 		add_config("CF_DEBUG", debug, f)
 
 		add_config("CF_CONFIG", "$(CF_OPT) $(CF_COST) $(CF_WARMUP) $(CF_DEBUG)", f)
@@ -54,14 +72,7 @@ def title(t):
 	print t
 	print 70*'-'
 
-if __name__ == "__main__":
-	config = example_config
-	title("Configuration")
-	print "Building and Running: %s" % config['versions']
-	print "Build Config:"
-	for key in config:
-		print "  %-20s : %s" % (key, config[key])
-	
+def build_and_run(config):
 	title("Doing Builds")
 	for version in config['versions']:
 		print "%s: writing build configuration" % version
@@ -141,3 +152,24 @@ if __name__ == "__main__":
 				print "%s: ERROR running. see %s for details" % (version, runfile)
 
 	title("Done")
+
+if __name__ == "__main__":
+	config = example_config
+	title("Configuration")
+	print "Building and Running: %s" % config['versions']
+	print "Build Config:"
+	for key in config:
+		print "  %-20s : %s" % (key, config[key])
+
+	if config['do_benchmark']:
+		title("BENCHMARK: MEASURING COSTS")
+		update_for_benchmark_cost(config)
+		build_and_run(config)
+		title("BENCHMARK: MEASURING PERFORMANCE")
+		update_for_benchmark_performance(config)
+		build_and_run(config);
+		title("BENCHMARK: DONE")
+
+	else:
+		build_and_run(config)
+

@@ -2,5 +2,5 @@ VERSION    = 02baseline
 CF_COST    = -DCOST_MEASURE
 CF_WARMUP  = -DWARMUP_COUNT=1
 CF_OPT     = -O3 -m64 -march=native -mno-abm -fno-tree-vectorize
-CF_DEBUG   =  -DDEBUG -g
+CF_DEBUG   =  -DNDEBUG -pg
 CF_CONFIG  = $(CF_OPT) $(CF_COST) $(CF_WARMUP) $(CF_DEBUG)

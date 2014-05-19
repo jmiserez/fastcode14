@@ -241,6 +241,33 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
                 }
 
                 printf("Cost Model:\n");
+
+                char *file_name = "flops.out";
+                FILE *fp = NULL;
+
+#ifdef READFLOPS
+                //read flops from file
+                fp = fopen(file_name,"r"); // read mode
+
+                long unsigned latest_flops = 0;
+
+                if( fp != NULL ){
+                    int line_w = 0;
+                    int line_h = 0;
+                    long unsigned line_flops = 0;
+                    while (!feof (fp) && fscanf (fp, "%d %d %lu\n", &line_w, &line_h, &line_flops)){
+                        //read oldest value
+                        if(line_w == w && line_h == h){
+                            latest_flops = line_flops;
+                        }
+                    }
+                    fclose (fp);
+                }
+
+                double flops = (double)latest_flops;
+#else
+                //write flops to file
+
                 printf("  Add: %"PRI_COST"\n", COST_ADD);
                 printf("  Mul: %"PRI_COST"\n", COST_MUL);
                 printf("  Div: %"PRI_COST"\n", COST_DIV);
@@ -250,8 +277,17 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
                 printf("  Other: %"PRI_COST"\n", COST_OTHER);
                 printf("  Cmp: %"PRI_COST"\n", COST_CMP);
 
-                printf("Approximate Derived Results\n");
                 double flops      = COST_ADD + COST_MUL + COST_DIV + COST_POW + COST_ABS + COST_SQRT + COST_OTHER + COST_CMP;
+
+                fp = fopen(file_name,"a"); // read mode
+
+                if( fp != NULL ){
+                    fprintf(fp, "%d %d %lu\n", w, h, (unsigned long)round(flops));
+                    fclose (fp);
+                }
+
+                printf("Approximate Derived Results\n");
+#endif
                 double cycles     = perf_data[0].value; // index as in 'events'
                 double cache_load = perf_data[1].value;
                 double cache_miss = perf_data[2].value;
