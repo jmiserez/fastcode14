@@ -11,7 +11,9 @@ example_config = {
 	'ndebug'               : False,
 	'gprof'                : True,
 	'openmode'             : 'w',
-	'driver_args'          : "--store zzz --val ../testdata/house_out/A-3-1-1-1.tif --threshold 1.0 752:1:752 500:1:500 1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif ../testdata/srcImages/A.2.tif ../testdata/srcImages/A.3.tif"
+#	'driver_args'          : "--store zzz --val ../testdata/house_out/A-3-1-1-1.tif --threshold 0.1 752:1:752 500:1:500 1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif ../testdata/srcImages/A.2.tif ../testdata/srcImages/A.3.tif"
+	'driver_args'          : "--val ../testdata/house_out/A-3-1-1-1.tif --threshold 0.1 752:1:752 500:1:500 1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif ../testdata/srcImages/A.2.tif ../testdata/srcImages/A.3.tif"
+
 }
 
 def add_config(key, val, f):

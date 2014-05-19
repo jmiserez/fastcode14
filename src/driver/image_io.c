@@ -211,28 +211,43 @@ int debug_tiff_test( const char *in_img, char *out_img ){
     return 0;
 }
 
-double compare_rmse(double *image, double *reference, uint32_t w, uint32_t h){
+/**
+ * Use pixel color values from 0 to 255 for more intuitive numbers.
+ * Also round values as we would when actually writing them out.
+ */
+double compare_rmse(double *image, double *reference, uint32_t w, uint32_t h, int *ret_num_differing_pixels){
     double res = 0.0;
 #ifdef DEBUG
     printf("w: %d,h: %d\n", w, h);
 #endif
-    for(int i = 0; i < h; i++){
-        for(int k = 0; k < w; k++){
+    uint32_t npixels = w*h;
+    int differing_pixels = 0;
+    for(int i = 0; i < npixels; i++){
+        double r = (fmin(fmax(0.0, round(image[i*3]*255.0)), 255.0))
+                - (fmin(fmax(0.0, round(reference[i*3]*255.0)), 255.0));
+        double g = (fmin(fmax(0.0, round(image[i*3+1]*255.0)), 255.0))
+                - (fmin(fmax(0.0, round(reference[i*3+1]*255.0)), 255.0));
+        double b = (fmin(fmax(0.0, round(image[i*3+2]*255.0)), 255.0))
+                - (fmin(fmax(0.0, round(reference[i*3+2]*255.0)), 255.0));
 
-            //all channels weighted equally
-            double r = fabs(reference[i*w+k] - image[i*w+k]);
-            double g = fabs(reference[i*w+k+1] - image[i*w+k+1]);
-            double b = fabs(reference[i*w+k+2] - image[i*w+k+2]);
+        r = fabs(r);
+        g = fabs(g);
+        b = fabs(b);
 
-            res = res + r*r+g*g+b*b;
+        double diff = r*r+g*g+b*b;
+        if(diff > 0){ //warning: double comparison, although we've rounded
+            differing_pixels++;
         }
+        res = res + diff;
     }
-    double npixels = w*h;
 #ifdef DEBUG
-    printf("Total Squared Error: %lf, Pixels: %.0lf, MSE: %lf, RMSE: %lf\n", res, npixels, res / npixels, sqrt(res / npixels));
+    printf("Differing pixels: %d, Total Squared Error: %lf, Pixels: %d, MSE: %lf, RMSE: %lf\n",differing_pixels, res, npixels, res / ((double)npixels), sqrt(res / ((double)npixels)));
 #endif
-    res = sqrt(res / npixels);
+    res = sqrt(res / ((double)npixels));
 
+    if(ret_num_differing_pixels != NULL){
+        *ret_num_differing_pixels = differing_pixels;
+    }
     return res;
 }
 

@@ -143,7 +143,7 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
                 err = -1;
             } else { // fusion alloc succeeded
 
-                //TODO: warmup caches
+                //Run once to validate and store images
 
                 // Reset Counters
                 COST_MODEL_RESET;
@@ -176,7 +176,10 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
 
                     printf("Performance Counters:\n");
 
-                    double rmse = compare_rmse(result, val_crop, w, h);
+                    int differing_pixels = 0;
+
+                    double rmse = compare_rmse(result, val_crop, w, h, &differing_pixels);
+                    printf("  Pixels wrong  : %d (of %zu, %f%%)\n", differing_pixels,w*h,(100.0 * (double)differing_pixels/((double)w*h)));
                     printf("  RMSE          : %0.5lf\n", rmse);
                     if(rmse > cli_opts->val_threshold){
                         FUSION_ERR("Error in validation(*,w=%zu,h=%zu,rmse=%lf)\n",
@@ -197,9 +200,12 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
                 printf("  Div: %"PRI_COST"\n", COST_DIV);
                 printf("  Pow: %"PRI_COST"\n", COST_POW);
                 printf("  Abs: %"PRI_COST"\n", COST_ABS);
+                printf("  Sqrt: %"PRI_COST"\n", COST_SQRT);
+                printf("  Other: %"PRI_COST"\n", COST_OTHER);
+                printf("  Cmp: %"PRI_COST"\n", COST_CMP);
 
-                printf("Derived Results\n");
-                double flops      = COST_ADD + COST_MUL + COST_DIV;
+                printf("Approximate Derived Results\n");
+                double flops      = COST_ADD + COST_MUL + COST_DIV + COST_POW + COST_ABS + COST_SQRT + COST_OTHER + COST_CMP;
                 double cycles     = perf_data[0].value; // index as in 'events'
                 double cache_load = perf_data[1].value;
                 double cache_miss = perf_data[2].value;

@@ -10,7 +10,7 @@ double* load_tiff_rgb( uint32_t* r_width, uint32_t* r_height, char* path );
 
 void store_tiff_rgb( double* rgb_image, uint32_t width,
                      uint32_t height, char* path );
-double compare_rmse(double *image, double *reference, uint32_t w, uint32_t h);
+double compare_rmse(double *image, double *reference, uint32_t w, uint32_t h, int *ret_num_differing_pixels);
 void free_tiff( uint32_t* raster );
 
 int debug_tiff_test( const char *in_img, char *out_img );
