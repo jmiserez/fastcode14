@@ -23,6 +23,9 @@
 #define TIFF_DEBUG_IN "gradient.tif"
 #define TIFF_DEBUG_OUT "out.tif"
 #define TIFF_DEBUG_OUT2 "gradient.o.tif"
+#ifndef WARMUP_COUNT
+#define WARMUP_COUNT 0
+#endif
 
 COST_VARIABLES_HERE
 
@@ -32,6 +35,8 @@ typedef struct {
     char* out_file; ///< output image written, if desired
     char* val_file; ///< comparision image, if desired
     double val_threshold;
+    int val_w;
+    int val_h;
 } cli_options_t;
 
 /*
@@ -54,8 +59,14 @@ const char* usage_str = "./driver [options] <heights> <widths> "
         " --threshold <double>\n"
         "  threshold for validation.\n"
         "\n"
-        " --store <prefix>\n"
-        "  store result into <prefix>-<w>x<h>.tif\n"
+        " --validation_width <double>\n"
+        "  width for validation.\n"
+        "\n"
+        " --validation_height <double>\n"
+        "  height for validation.\n"
+        "\n"
+        " --store <name>\n"
+        "  store validated image into <name>.tif\n"
         "\n\n"
         "Example:\n"
         " $ ./driver --val val.tif --store out.tif "
@@ -105,22 +116,74 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
     printf("img_count: %ld, w_orig: %ld, h_orig: %ld\n", img_count, w_orig,
            h_orig);
 #endif
+    int err = 0;
 
     size_t val_read_w = 0;
     size_t val_read_h = 0;
     double *val = NULL;
     if(cli_opts->val_file != NULL){
+        w = cli_opts->val_w;
+        h = cli_opts->val_h;
+
         //load validation image
         val = load_tiff_rgb( (uint32_t*)&val_read_w,
                                    (uint32_t*)&val_read_h,
                                    cli_opts->val_file );
-        assert(val != NULL);
-        assert(val_read_w == w_orig);
-        assert(val_read_h == h_orig);
+        printf("Validation:\n");
+        if(val == NULL){
+            FUSION_ERR("Read error in validation(*,w=%zu,h=%zu)\n",
+                    w, h);
+            err = -2;
+        }
+        if(val_read_w != w || val_read_h != h || val_read_w != w_orig || val_read_h != h_orig){
+            FUSION_ERR("Dimension error in validation(*,w=%zu,h=%zu)\n",
+                    w, h);
+            err = -2;
+        }
+
+        double** target_images = crop_topleft_rgbs( input_images, w_orig,
+                                                    h_orig, img_count,
+                                                    w, h, true );
+
+        void *fusion_data; ///< memory segments used by the current
+        // implementation
+        ret = fusion_alloc(&fusion_data, w, h, img_count);
+        if (ret < 0) {
+            FUSION_ERR("Error in fusion_alloc(*,w=%zu,h=%zu,N=%zu)\n",
+                    w, h, img_count);
+            fusion_free(fusion_data);
+            err = -1;
+        } else { // fusion alloc succeeded
+            double *result = fusion_compute(target_images, w, h, img_count, tc->contrast,
+                    tc->saturation, tc->well_exposed, fusion_data);
+            //store image
+            if(cli_opts->out_file != NULL){
+                char sbuf[255];
+                snprintf(sbuf,255,"%s.tif",cli_opts->out_file);
+                store_tiff_rgb(result,w,h,sbuf);
+            }
+            int differing_pixels = 0;
+            double rmse = compare_rmse(result, val, w, h, &differing_pixels);
+            printf("  Pixels wrong  : %d (of %zu, %f%%)\n", differing_pixels,w*h,(100.0 * (double)differing_pixels/((double)w*h)));
+            printf("  RMSE          : %0.5lf\n", rmse);
+            if(rmse > cli_opts->val_threshold){
+                FUSION_ERR("Error in validation(*,w=%zu,h=%zu,rmse=%lf)\n",
+                        w, h, rmse);
+                err = -2;
+            }
+            fusion_free(fusion_data);
+        }
+        if(val != NULL){
+            free(val);
+        }
+        free_rgbs( target_images, img_count );
+        if (err != 0){
+            return err;
+        }
+
     }
 
     // Perform Computations
-    int err = 0;
     for( w = tc->width_range.start; w <= tc->width_range.stop && !err;
          w += tc->width_range.step ) {
         for( h = tc->height_range.start; h <= tc->height_range.stop && !err;
@@ -143,51 +206,28 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
                 err = -1;
             } else { // fusion alloc succeeded
 
-                //Run once to validate and store images
-
+                //Let's warmup
+#ifndef NDEBUG
+                printf("Warming up %d times\n",WARMUP_COUNT);
+#endif
+                for(int i = 0; i < WARMUP_COUNT; i++){
+                    fusion_compute(target_images, w, h, img_count, tc->contrast,
+                            tc->saturation, tc->well_exposed, fusion_data);
+                }
                 // Reset Counters
                 COST_MODEL_RESET;
                 perf_reset(perf_data);
 
                 // Run exposure fusion
                 perf_start(perf_data);
-                double *result = fusion_compute(target_images, w, h, img_count, tc->contrast,
+                fusion_compute(target_images, w, h, img_count, tc->contrast,
                         tc->saturation, tc->well_exposed, fusion_data);
                 perf_stop(perf_data);
 
                 // Print results
                 perf_update_values(perf_data);
-
-                //store image
-                if(cli_opts->out_file != NULL){
-                    char sbuf[255];
-                    snprintf(sbuf,255,"%s-%zux%zu.tif",cli_opts->out_file,w,h);
-                    store_tiff_rgb(result,w,h,sbuf);
-                }
                 printf("--- Showing results for: w=%zu, h=%zu, N=%zu\n",
                         w, h, img_count);
-                //validate image
-                if(cli_opts->val_file != NULL){
-                    //crop validation image
-                    assert(val_read_w >= w);
-                    assert(val_read_h >= h);
-                    double *val_crop = crop_topleft_rgb(val,val_read_w,val_read_h,w,h,true);
-                    assert(val_crop != NULL);
-
-                    printf("Performance Counters:\n");
-
-                    int differing_pixels = 0;
-
-                    double rmse = compare_rmse(result, val_crop, w, h, &differing_pixels);
-                    printf("  Pixels wrong  : %d (of %zu, %f%%)\n", differing_pixels,w*h,(100.0 * (double)differing_pixels/((double)w*h)));
-                    printf("  RMSE          : %0.5lf\n", rmse);
-                    if(rmse > cli_opts->val_threshold){
-                        FUSION_ERR("Error in validation(*,w=%zu,h=%zu,rmse=%lf)\n",
-                                w, h, rmse);
-                        err = -2;
-                    }
-                    free(val_crop);
-                }
 
                 printf("Performance Counters:\n");
                 for (struct perf_data *iter = perf_data; iter->name; ++iter) {
@@ -222,9 +262,6 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
         } // heights loop
     } // widths loop
 
-    if(val != NULL){
-        free(val);
-    }
     // Cleanup
     tc_free_input_images( input_images, img_count );
     perf_cleanup(perf_data);
@@ -239,10 +276,12 @@ int parse_cli(cli_options_t* cli_opts, testconfig_t* testconfig,
     int c;
     while (true) {
         static struct option long_options[] = {
-            {"testlibtiff", no_argument,       0, 'd'},
+            {"dbglibtiff", no_argument,       0, 'd'},
             {"store",       required_argument, 0, 's'},
             {"validate",    required_argument, 0, 'v'},
             {"threshold",   required_argument, 0, 't'},
+            {"width_validate",   required_argument, 0, 'w'},
+            {"height_validate",   required_argument, 0, 'h'},
             {0,0,0,0}
         };
 
@@ -260,7 +299,7 @@ int parse_cli(cli_options_t* cli_opts, testconfig_t* testconfig,
             break;
 
         case 'd':
-            printf("getopt: testlibtiff\n");
+            printf("getopt: dbglibtiff");
 //            debug_tiff_test( TIFF_DEBUG_IN, TIFF_DEBUG_OUT );
 
 //            uint32_t dbg_w, dbg_h;
@@ -283,6 +322,12 @@ int parse_cli(cli_options_t* cli_opts, testconfig_t* testconfig,
             break;
         case 't':
             cli_opts->val_threshold = atof(optarg);
+            break;
+        case 'w':
+            cli_opts->val_w = atoi(optarg);
+            break;
+        case 'h':
+            cli_opts->val_h = atoi(optarg);
             break;
         case '?':
             printf("getopt: error on character %c\n", optopt);

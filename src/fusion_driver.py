@@ -6,13 +6,14 @@ example_config = {
     'versions'             : [ "01ref_matlab" ],
     'logtofile'            : True,
     'cost_measure'         : True,
-	'optimization_flags'   : "-O3 -m64 -march=native -mno-abm -fno-tree-vectorize -g",
-	'debug'                : True,
-	'ndebug'               : False,
-	'gprof'                : True,
-	'openmode'             : 'w',
+    'optimization_flags'   : "-O3 -m64 -march=native -mno-abm -fno-tree-vectorize",
+    'debug'                : False,
+#	'ndebug'               : False,
+	'gprof'                : False,
+	'warmup_count'         : 5,
+	'openmode'             : 'a',
 #	'driver_args'          : "--store zzz --val ../testdata/house_out/A-3-1-1-1.tif --threshold 0.1 752:1:752 500:1:500 1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif ../testdata/srcImages/A.2.tif ../testdata/srcImages/A.3.tif"
-	'driver_args'          : "--val ../testdata/house_out/A-3-1-1-1.tif --threshold 0.1 752:1:752 500:1:500 1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif ../testdata/srcImages/A.2.tif ../testdata/srcImages/A.3.tif"
+	'driver_args'          : "--v ../testdata/house_out/A-3-1-1-1.tif --w 752 --h 500 --t 0.1 50:50:750 500:1:500 1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif ../testdata/srcImages/A.2.tif ../testdata/srcImages/A.3.tif"
 
 }
 
@@ -29,18 +30,21 @@ def write_config(version, config):
 			cost = ""
 		add_config("CF_COST", cost, f)
 
+		add_config("CF_WARMUP", "-DWARMUP_COUNT="+str(config['warmup_count']), f)
 		add_config("CF_OPT", config['optimization_flags'], f)		
 
 		debug = ""
 		if config['debug']:
-			debug += " -DDEBUG"
-		if config['ndebug']:
+			# enable debugging output
+			debug += " -DDEBUG -g"
+		else:
+			#disable all debugging output
 			debug += " -DNDEBUG"
 		if config['gprof']:
 			debug += " -pg"
 		add_config("CF_DEBUG", debug, f)
 
-		add_config("CF_CONFIG", "$(CF_OPT) $(CF_COST) $(CF_DEBUG)", f)
+		add_config("CF_CONFIG", "$(CF_OPT) $(CF_COST) $(CF_WARMUP) $(CF_DEBUG)", f)
 
 def title(t):
 	print 70*'-'
