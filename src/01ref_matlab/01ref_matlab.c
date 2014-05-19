@@ -282,7 +282,7 @@ double* fusion_compute(double** I, int w, int h, int N,
     size_t W_len2 = mem->W_len2;
     double** W = mem->W;
     assert(W != NULL);
-    assert(W_len == I_len);
+    assert(mem->W_len == N);
 
 #ifndef NDEBUG
     for (int n = 0; n < N; n++){

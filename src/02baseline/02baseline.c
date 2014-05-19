@@ -264,16 +264,15 @@ double* fusion_compute(double** I, int w, int h, int N,
     int r = h;
     int c = w;
 
-    size_t I_len = N;
+    size_t  = N;
     size_t npixels = r*c;
 
     //W[n] is a weight map (1 value/pixel)
     //There is one for each of the N images
-    size_t W_len = mem->W_len;
     size_t W_len2 = mem->W_len2;
     double** W = mem->W;
     assert(W != NULL);
-    assert(W_len == I_len);
+    assert(mem->W_len == N);
 
 #ifndef NDEBUG
     for (int n = 0; n < N; n++){
@@ -635,10 +634,8 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, double *fil
     //sizes with added 1 px border and size increase of 2x
     uint32_t r_upsampled = (r+2*padding)*2;
     uint32_t c_upsampled = (c+2*padding)*2;
-    uint32_t r_odd = up_r % 2;
-    uint32_t c_odd = up_c % 2;
-    assert(up_r == r_upsampled - 4*padding - r_odd);
-    assert(up_c == c_upsampled - 4*padding - c_odd);
+    assert(up_r == r_upsampled - 4*padding - (up_r % 2));
+    assert(up_c == c_upsampled - 4*padding - (up_c % 2));
 
     assert(U_len >= r_upsampled*c_upsampled*channels);
     assert(V_len == U_len);
