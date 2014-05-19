@@ -618,16 +618,7 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t up
         }
     }
 
-    for(int i = 0; i < r; i++){
-        for(int j = 0; j < c; j++){
-            for(int k = 0; k < channels; k++){
-                dst[(2*i*up_c+2*j)*channels+k] = 4*im[(i*c+j)*channels+k];
-                COST_INC_MUL(1);
-            }
-        }
-    }
     //blur
-    //TODO: replace with _directload
     if(up_c % 2 == 0){
         conv5x5separable_replicate_even_x_directload(im, up_r, up_c, channels, tmp_dst);
     } else {
