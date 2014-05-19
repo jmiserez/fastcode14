@@ -123,8 +123,10 @@ void scalar_abs(double *src, size_t src_len, double *dst);
 void conv3x3_monochrome_replicate(double* im, uint32_t r, uint32_t c, double* dst);
 void conv5x5separable_symmetric(double* im, uint32_t r, uint32_t c, uint32_t channels, double *scratch, double* dst);
 void conv5x5separable_replicate_even_x(double* im, uint32_t r, uint32_t c, uint32_t channels, double* scratch);
+void conv5x5separable_replicate_even_x_directload(double* im, uint32_t r, uint32_t c, uint32_t channels, double* scratch);
 void conv5x5separable_replicate_even_y(uint32_t r, uint32_t c, uint32_t channels, double* scratch, double* dst);
 void conv5x5separable_replicate_odd_x(double* im, uint32_t r, uint32_t c, uint32_t channels, double* scratch);
+void conv5x5separable_replicate_odd_x_directload(double* im, uint32_t r, uint32_t c, uint32_t channels, double* scratch);
 void conv5x5separable_replicate_odd_y(uint32_t r, uint32_t c, uint32_t channels, double* scratch, double* dst);
 
 
@@ -625,10 +627,11 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t channels, uint32_t up
         }
     }
     //blur
+    //TODO: replace with _directload
     if(up_c % 2 == 0){
-        conv5x5separable_replicate_even_x(dst, up_r, up_c, channels, tmp_dst);
+        conv5x5separable_replicate_even_x_directload(im, up_r, up_c, channels, tmp_dst);
     } else {
-        conv5x5separable_replicate_odd_x(dst, up_r, up_c, channels, tmp_dst);
+        conv5x5separable_replicate_odd_x_directload(im, up_r, up_c, channels, tmp_dst);
     }
     if(up_r % 2 == 0){
         conv5x5separable_replicate_even_y(up_r, up_c, channels, tmp_dst, dst);
@@ -1094,27 +1097,30 @@ void conv5x5separable_replicate_even_x(double* im, uint32_t r, uint32_t c, uint3
     }
 }
 
-void conv5x5separable_replicate_even_x_direct(double* im, uint32_t r, uint32_t c, uint32_t channels, double* scratch){
-    //load directly from smaller image
+void conv5x5separable_replicate_even_x_directload(double* im, uint32_t r, uint32_t c, uint32_t channels, double* scratch){
 
-    uint32_t im_c = c/2; //even
+    //load directly from smaller image
+    uint32_t im_c = c/2; //size of smaller image
+
+    // 0 1 2 3 4 5 6 7 8 9
+    // 0   1   2   3   4
 
     //horizontal filter
     for(int i = 0; i < r; i+=2){ //every 2nd line
         for(int j = 2; j < c-2; j++){
             for(int k = 0; k < channels; k++){
                 scratch[(i*c+j)*channels+k] =
-                        im[((i/2  )*im_c+(j/2-2))*channels+k]*.0625 +
-                        im[((i/2  )*im_c+(j/2  ))*channels+k]*.375 +
-                        im[((i/2  )*im_c+(j/2+2))*channels+k]*.0625;
+                        4.0*im[((i/2  )*im_c+(j/2-1))*channels+k]*.0625 +
+                        4.0*im[((i/2  )*im_c+(j/2  ))*channels+k]*.375 +
+                        4.0*im[((i/2  )*im_c+(j/2+1))*channels+k]*.0625;
                 COST_INC_ADD(2);
                 COST_INC_MUL(3);
             }
             j++;
             for(int k = 0; k < channels; k++){
                 scratch[(i*c+j)*channels+k] =
-                        im[((i  )*c+(j-1))*channels+k]*.25 +
-                        im[((i  )*c+(j+1))*channels+k]*.25;
+                        4.0*im[((i/2  )*im_c+(j/2))*channels+k]*.25 +
+                        4.0*im[((i/2  )*im_c+(j/2+1))*channels+k]*.25;
                 COST_INC_ADD(1);
                 COST_INC_MUL(2);
             }
@@ -1123,17 +1129,17 @@ void conv5x5separable_replicate_even_x_direct(double* im, uint32_t r, uint32_t c
         int j = 0; // 0 0 [0 1 2 ... ]
         for(int k = 0; k < channels; k++){
             scratch[(i*c+j)*channels+k] =
-                    im[((i  )*c+(j  ))*channels+k]*.0625 +
-                    im[((i  )*c+(j  ))*channels+k]*.375 +
-                    im[((i  )*c+(j+2))*channels+k]*.0625;
+                    4.0*im[((i/2  )*im_c+(j/2  ))*channels+k]*.0625 +
+                    4.0*im[((i/2  )*im_c+(j/2  ))*channels+k]*.375 +
+                    4.0*im[((i/2  )*im_c+(j/2+1))*channels+k]*.0625;
             COST_INC_ADD(2);
             COST_INC_MUL(3);
         }
         j = 1; // -1 [-1 0 1 2 ... ]
         for(int k = 0; k < channels; k++){
             scratch[(i*c+j)*channels+k] =
-                    im[((i  )*c+(j-1))*channels+k]*.25 +
-                    im[((i  )*c+(j+1))*channels+k]*.25;
+                    4.0*im[((i/2  )*im_c+(j/2))*channels+k]*.25 +
+                    4.0*im[((i/2  )*im_c+(j/2+1))*channels+k]*.25;
             COST_INC_ADD(1);
             COST_INC_MUL(2);
         }
@@ -1141,17 +1147,17 @@ void conv5x5separable_replicate_even_x_direct(double* im, uint32_t r, uint32_t c
         j = c-2; // [ ... -2 -1 0 1] 0
         for(int k = 0; k < channels; k++){
             scratch[(i*c+j)*channels+k] =
-                    im[((i  )*c+(j-2))*channels+k]*.0625 +
-                    im[((i  )*c+(j  ))*channels+k]*.375 +
-                    im[((i  )*c+(j  ))*channels+k]*.0625;
+                    4.0*im[((i/2  )*im_c+(j/2-1))*channels+k]*.0625 +
+                    4.0*im[((i/2  )*im_c+(j/2  ))*channels+k]*.375 +
+                    4.0*im[((i/2  )*im_c+(j/2  ))*channels+k]*.0625;
             COST_INC_ADD(2);
             COST_INC_MUL(3);
         }
         j = c-1; // [ ... -2 -1 0] 0 0
         for(int k = 0; k < channels; k++){
             scratch[(i*c+j)*channels+k] =
-                    im[((i  )*c+(j-1))*channels+k]*.25 +
-                    im[((i  )*c+(j-1))*channels+k]*.25;
+                    4.0*im[((i/2  )*im_c+(j/2))*channels+k]*.25 +
+                    4.0*im[((i/2  )*im_c+(j/2))*channels+k]*.25;
             COST_INC_ADD(1);
             COST_INC_MUL(2);
         }
@@ -1265,6 +1271,65 @@ void conv5x5separable_replicate_odd_x(double* im, uint32_t r, uint32_t c, uint32
                     im[((i  )*c+(j-2))*channels+k]*.0625 +
                     im[((i  )*c+(j  ))*channels+k]*.375 +
                     im[((i  )*c+(j  ))*channels+k]*.0625;
+            COST_INC_ADD(2);
+            COST_INC_MUL(3);
+        }
+    }
+}
+
+void conv5x5separable_replicate_odd_x_directload(double* im, uint32_t r, uint32_t c, uint32_t channels, double* scratch){
+
+    //load directly from smaller image
+    uint32_t im_c = c/2+1; //size of smaller image
+
+    // 0 1 2 3 4 5 6 7 8
+    // 0   1   2   3   4
+
+    //horizontal filter
+    for(int i = 0; i < r; i+=2){ //every 2nd line
+        for(int j = 2; j < c-2; j++){
+            for(int k = 0; k < channels; k++){
+                scratch[(i*c+j)*channels+k] =
+                        4.0*im[((i/2  )*im_c+(j/2-1))*channels+k]*.0625 +
+                        4.0*im[((i/2  )*im_c+(j/2  ))*channels+k]*.375 +
+                        4.0*im[((i/2  )*im_c+(j/2+1))*channels+k]*.0625;
+                COST_INC_ADD(2);
+                COST_INC_MUL(3);
+            }
+            j++;
+            for(int k = 0; k < channels; k++){
+                scratch[(i*c+j)*channels+k] =
+                        4.0*im[((i/2  )*im_c+(j/2))*channels+k]*.25 +
+                        4.0*im[((i/2  )*im_c+(j/2+1))*channels+k]*.25;
+                COST_INC_ADD(1);
+                COST_INC_MUL(2);
+            }
+        }
+        //left edge
+        int j = 0; // 0 0 [0 1 2 ... ]
+        for(int k = 0; k < channels; k++){
+            scratch[(i*c+j)*channels+k] =
+                    4.0*im[((i/2  )*im_c+(j/2  ))*channels+k]*.0625 +
+                    4.0*im[((i/2  )*im_c+(j/2  ))*channels+k]*.375 +
+                    4.0*im[((i/2  )*im_c+(j/2+1))*channels+k]*.0625;
+            COST_INC_ADD(2);
+            COST_INC_MUL(3);
+        }
+        j = 1; // -1 [-1 0 1 2 ... ]
+        for(int k = 0; k < channels; k++){
+            scratch[(i*c+j)*channels+k] =
+                    4.0*im[((i/2  )*im_c+(j/2))*channels+k]*.25 +
+                    4.0*im[((i/2  )*im_c+(j/2+1))*channels+k]*.25;
+            COST_INC_ADD(1);
+            COST_INC_MUL(2);
+        }
+        //right edge (remaining)
+        j = c-1; // [ ... -2 -1 0] 0 0
+        for(int k = 0; k < channels; k++){
+            scratch[(i*c+j)*channels+k] =
+                    4.0*im[((i/2  )*im_c+(j/2-1))*channels+k]*.0625 +
+                    4.0*im[((i/2  )*im_c+(j/2  ))*channels+k]*.375 +
+                    4.0*im[((i/2  )*im_c+(j/2  ))*channels+k]*.0625;
             COST_INC_ADD(2);
             COST_INC_MUL(3);
         }
