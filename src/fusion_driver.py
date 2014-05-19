@@ -1,16 +1,17 @@
 #!/usr/bin/python
 
 import subprocess
+import sys
 
 example_config = {
-    'versions'             : [ "01ref_matlab" ],
-#     'versions'             : [ "02baseline" ],
-    'logtofile'            : True,
+#    'versions'             : [ "01ref_matlab" ],
+    'versions'             : [ "02baseline" ],
+    'logtofile'            : False,
     'cost_measure'         : True,
     'optimization_flags'   : "-O3 -m64 -march=native -mno-abm -fno-tree-vectorize",
     'debug'                : False,
     'gprof'                : False,
-    'warmup_count'         : 3,
+    'warmup_count'         : 1,
     'openmode'             : 'a',
 #	'driver_args'          : "--store zzz --val ../testdata/house_out/A-3-1-1-1.tif --threshold 0.1 752:1:752 500:1:500 1.0 1.0 1.0 ../testdata/srcImages/A.0.tif ../testdata/srcImages/A.1.tif ../testdata/srcImages/A.2.tif ../testdata/srcImages/A.3.tif"
     'driver_args'          : "--v ../testdata/house_out/A-3-1-1-1.tif --w 752 --h 500 --t 0.1 "
@@ -72,6 +73,8 @@ if __name__ == "__main__":
 				ret = subprocess.call(["make", "-fMake.system", "clean"], stdout=log)
 			else:
 				ret = subprocess.call(["make", "-fMake.system", "clean"])
+			sys.stdout.flush()
+			log.flush()
 			if ret == 0:
 				print "%s: clean successful. output in %s" % (version, logfile)
 			else:
@@ -87,6 +90,8 @@ if __name__ == "__main__":
 				ret = subprocess.call(["make", "-fMake.system"], stdout=log)
 			else:
 				ret = subprocess.call(["make", "-fMake.system"])
+			sys.stdout.flush()
+			log.flush()
 			if ret == 0:
 				print "%s: build successful. output in %s" % (version, logfile)
 			else:
@@ -107,6 +112,8 @@ if __name__ == "__main__":
 			else:
 				print arg
 				ret = subprocess.call(arg, shell=True)
+			sys.stdout.flush()
+			rf.flush()
 			if ret == 0:
 				print "%s: run successful. output in %s" % (version, runfile)
 				if config['gprof']:
@@ -123,6 +130,8 @@ if __name__ == "__main__":
 							else:
 								print arg
 								ret = subprocess.call(arg, shell=True)
+							sys.stdout.flush()
+							pf.flush()
 							if ret == 0:
 								print "%s: profiling successful. output in %s" % (version, profilefile)
 							else:
