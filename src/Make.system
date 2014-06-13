@@ -3,7 +3,7 @@
 include Make.sysconfig         # provides VERSION and CF_CONFIG
 include $(VERSION)/Make.config$(VERSION_SUFFIX) # provides FUSION_SRC
 
-TARGET       = bin/driver_$(VERSION)
+TARGET       = bin/driver_$(VERSION)$(VERSION_SUFFIX)
 
 SHELL        = /bin/bash
 CC           = gcc

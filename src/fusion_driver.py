@@ -6,25 +6,31 @@ import os
 
 my_config = {
     'versions'             : [
-#                               "consolidated.naive_options",
-#                               "consolidated.naive",
-#                               "consolidated.blocking"
-#                               "consolidated.onestep"
-                               "consolidated.blocking"
+                               "01ref_matlab",
+                               "consolidated.naive_options",
+                               "consolidated.naive",
+                               "consolidated.store_grey",
+                               "consolidated.onestep",
+                               "consolidated.blocking",
+                               "consolidated.inline2",
+                               "consolidated.inline2x2",
+                               "consolidated.inline2x4",
+                               "consolidated.avx"
                              ],
     'do_benchmark'         : True,
-    'do_develop'           : True,
+    'do_develop'           : False,
     'do_gprof'             : False,
-    'logtofile'            : False,
+    'logtofile'            : True,
     'perfunc'              : False,
     'weights_only'         : False,
     'openmode'             : 'a',
     'optimization_flags'   : "-O3 -Ofast -m64 -march=corei7-avx -ffast-math",
+#    'optimization_flags'   : "-O3 -Ofast -m64 -march=corei7-avx -ffast-math",
 #    'optimization_flags'  : "-O3 -m64 -march=native -mno-abm -fno-tree-vectorize",
 #    'optimization_flags'  : "-O0 -m64 -march=native",
     'warmup_count'         : 1,
-    'warmup_dev'           : 1,
-    'warmup_benchmark'     : 4,
+    'warmup_dev'           : 0,
+    'warmup_benchmark'     : 3,
      'dev_driver_args'     : "--q --s out --v ../testdata/house_out/dbg_benchmark-3-1.0-1.0-1.0.tif --w 1024 --h 1024 --t 0.1 "
                               "1024:1:1024 1024:1:1024 "
                               "1.0 1.0 1.0 ../testdata/srcImages/dbg_benchmark.0.tif ../testdata/srcImages/dbg_benchmark.1.tif ../testdata/srcImages/dbg_benchmark.2.tif ../testdata/srcImages/dbg_benchmark.3.tif",
@@ -179,7 +185,7 @@ def build_and_run(config):
 		title("Running Builds")
 		for version in config['versions']:
 			print "%s: running" % version
-			binary = "./bin/driver_" + version.split('.')[0]
+			binary = "./bin/driver_" + version
 			runfile = version + ".run.log"
 			with open(runfile, config['openmode']) as rf:
 				arg = binary + " " + config['driver_args']
@@ -199,7 +205,7 @@ def build_and_run(config):
 						title("Profiling Builds")
 						for version in config['versions']:
 							print "%s: profiling" % version
-							binary = "./bin/driver_" + version.split('.')[0]
+							binary = "./bin/driver_" + version
 							profilefile = version + ".profile.log"
 							with open(profilefile, config['openmode']) as pf:
 								arg = "gprof " + binary + " gmon.out"
