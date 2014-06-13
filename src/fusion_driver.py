@@ -10,10 +10,10 @@ my_config = {
 #                               "consolidated.naive",
 #                               "consolidated.blocking"
 #                               "consolidated.onestep"
-                               "consolidated.avx"
+                               "consolidated.blocking"
                              ],
     'do_benchmark'         : True,
-    'do_develop'           : False,
+    'do_develop'           : True,
     'do_gprof'             : False,
     'logtofile'            : False,
     'perfunc'              : False,

@@ -121,7 +121,7 @@ void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t nlev, double
         tmp_quartsize = tmp2_quartsize;
         tmp2_quartsize = tmp;
     }
-    //memcpy(dst,src,src_len*sizeof(double));
+//    memcpy(&(pyr[nlev-1][0]),&(tmp_quartsize[0]),T_r*T_c*3*sizeof(double));
     for(int i = 0; i < T_r*T_c*3; i++){
         pyr[nlev-1][i] = tmp_quartsize[i];
     }
@@ -408,10 +408,10 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t up_r, uint32_t up_c, 
             tmp_halfsize[t2idx3] =
                     im[i4_idx3] +
                     im[i5_idx3];
-            tmp_halfsize[tidx3+1] =
+            tmp_halfsize[t2idx3+1] =
                     im[i4_idx3+1] +
                     im[i5_idx3+1];
-            tmp_halfsize[tidx3+2] =
+            tmp_halfsize[t2idx3+2] =
                     im[i4_idx3+2] +
                     im[i5_idx3+2];
             COST_INC_ADD(9);
