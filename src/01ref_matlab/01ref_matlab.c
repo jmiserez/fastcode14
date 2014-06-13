@@ -1,5 +1,4 @@
 // matlab-based implementation as shown in meeting
-#include <cost_model.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -14,8 +13,7 @@
 #include <float.h>
 #include <tiffio.h>
 #include "fusion.h"
-
-#include "cost_model.h"
+#include "fusion_perfcost.h"
 
 //#define PRINTPYRAMIDS
 
@@ -28,6 +26,7 @@
 typedef struct {
     //W[n] is a weight map (1 value/pixel), there is one for each of the N images
 
+    int w,h,N;
     size_t R_len; //TODO remove
     size_t W_len; //TODO remove
     size_t W_len2; //TODO remove
@@ -139,6 +138,10 @@ int fusion_alloc(void** _segments, int w, int h, int N){
     if(mem == NULL){
         return FUSION_ALLOC_FAILURE;
     }
+
+    mem->w = w;
+    mem->h = h;
+    mem->N = N;
 
     mem->R_len = w*h*3;
     mem->R = calloc(mem->R_len,sizeof(double));
@@ -266,11 +269,15 @@ int fusion_alloc(void** _segments, int w, int h, int N){
     return FUSION_ALLOC_SUCCESS;
 }
 
-double* fusion_compute(double** I, int w, int h, int N,
+double* fusion_compute(double** I,
                         double contrast_parm, double sat_parm, double wexp_parm,
                         void* _segments){
     segments_t *mem = _segments;
     double* R = mem->R;
+
+    int w = mem->w;
+    int h = mem->h;
+    int N = mem->N;
 
     int r = h;
     int c = w;
@@ -596,7 +603,7 @@ void well_exposedness(double *im, uint32_t npixels, double *C){
         COST_INC_MUL(3);
         COST_INC_DIV(3);
         COST_INC_POW(6);
-        COST_INC_OTHER(3);
+        COST_INC_EXP(3);
         C[i] = r*g*b;
         COST_INC_MUL(2);
     }
@@ -884,11 +891,11 @@ void normalize_image(double *src, uint32_t channels, uint32_t r, uint32_t c, dou
         for (int j = 0; j < c; j++){
             for (int k = 0; k < channels; k++){
                 double value = src[(i*c+j)*channels+k];
-                COST_INC_CMP(1);
+
                 if(value < min_value){
                     min_value = value;
                 }
-                COST_INC_CMP(1);
+
                 if(value > max_value){
                     max_value = value;
                 }
@@ -897,7 +904,7 @@ void normalize_image(double *src, uint32_t channels, uint32_t r, uint32_t c, dou
     }
     assert(min_value < DBL_MAX);
     assert(max_value > -DBL_MAX);
-    COST_INC_CMP(1);
+
     if(min_value < 1.0E-5){
         for(int i = 0; i < r; i++){
             for (int j = 0; j < c; j++){
@@ -928,7 +935,7 @@ void normalize_image(double *src, uint32_t channels, uint32_t r, uint32_t c, dou
  * Compute the highest possible pyramid
  */
 uint32_t compute_nlev(uint32_t r, uint32_t c){
-    COST_INC_OTHER(2);
+    COST_INC_EXP(2);
     return (uint32_t)(floor((log2(MIN(r,c)))));
 }
 

@@ -1,0 +1,4 @@
+FUSION_SRC += consolidated/consolidated_naive_options.c
+FUSION_SRC += consolidated/weights_naive_options.c
+FUSION_SRC += consolidated/basics_naive.c
+FUSION_SRC += consolidated/pyramids.c

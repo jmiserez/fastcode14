@@ -4,6 +4,8 @@
  *
  * 2014, Jeremia Baer <baerj@student.ethz.ch>
  */
+#ifndef PERFMON_WRAPPER_H
+#define PERFMON_WRAPPER_H
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -13,6 +15,14 @@
 
 #include <perfmon/pfmlib.h>
 #include <perfmon/pfmlib_perf_event.h>
+
+
+#ifdef __GNUC__
+#define SUPPRESS_NOT_USED_WARN __attribute__ ((unused))
+#else
+#define SUPPRESS_NOT_USED_WARN
+#endif
+
 
 /**
  * Performance Measurment Configuration Data
@@ -34,6 +44,7 @@ struct perf_data {
  * @param data:   address of pointer to store data. allocated by perf_init
  * @returns:      0 on success, -1 on failure
  */
+SUPPRESS_NOT_USED_WARN
 static int perf_init(char **events, struct perf_data **data);
 
 /**
@@ -54,11 +65,13 @@ static inline void perf_stop(struct perf_data *data);
 /**
  * Updates the counter values of the given configuration.
  */
+SUPPRESS_NOT_USED_WARN
 static int perf_update_values(struct perf_data *data);
 
 /**
  * Frees data in struct perf_data.
  */
+SUPPRESS_NOT_USED_WARN
 static void perf_cleanup(struct perf_data *data);
 
 // ------------------------------------------------------------------------
@@ -249,3 +262,5 @@ static void perf_cleanup(struct perf_data *data)
 
     pfm_terminate();
 }
+
+#endif // PERFMON_WRAPPER_H

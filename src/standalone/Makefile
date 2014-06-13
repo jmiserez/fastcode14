@@ -1,7 +1,7 @@
 #Makefile
 TARGET = fusion
 CC = gcc
-CFLAGS = -std=c99 -g -Wall
+CFLAGS = -std=c99 -Wall -O3
 INC_DIR = tiff-4.0.2/libtiff
 LIB_DIR = tiff-4.0.2/libtiff/.libs
 LIBS_STATIC = -ltiff
