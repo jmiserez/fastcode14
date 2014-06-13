@@ -57,7 +57,7 @@ PERF_FUNC_EXIT
                pyrI, pyrI_r, pyrI_c);
 
     //reconstruct laplacian pyramid
-    reconstruct_laplacian_pyramid(CHANNELS,nlev,tmp_fullsize,tmp2_fullsize,tmp_halfsize,pyr,pyr_r,pyr_c,r,c,R);
+    reconstruct_laplacian_pyramid(nlev,tmp_fullsize,tmp2_fullsize,tmp_halfsize,pyr,pyr_r,pyr_c,r,c,R);
     return R;
 }
 

@@ -206,7 +206,7 @@ void downsample(double *im, uint32_t r, uint32_t c, double *tmp_halfsize, uint32
 
             int tidx3 = 3*(i2*c+j);
             int i1_idx3 = 3*((i-2)*c+(j));
-            int i2_idx3 = 3*((i-2)*c+(j));
+            int i2_idx3 = 3*((i-1)*c+(j));
             int i3_idx3 = 3*((i  )*c+(j));
             int i4_idx3 = 3*((i+1)*c+(j));
             int i5_idx3 = 3*((i+2)*c+(j));
@@ -217,7 +217,7 @@ void downsample(double *im, uint32_t r, uint32_t c, double *tmp_halfsize, uint32
                     tmp_halfsize[i3_idx3]*.375 +
                     tmp_halfsize[i4_idx3]*.25 +
                     tmp_halfsize[i5_idx3]*.0625;
-            dst[tidx3+2] =
+            dst[tidx3+1] =
                     tmp_halfsize[i1_idx3+1]*.0625 +
                     tmp_halfsize[i2_idx3+1]*.25 +
                     tmp_halfsize[i3_idx3+1]*.375 +
@@ -280,21 +280,14 @@ void downsample_1channel(double *im, uint32_t r, uint32_t c, double *tmp_halfsiz
     int c2 = c/2+((c-2) % 2); //tmp_halfsize is only half the size
     for(int i = 0; i < r; i++){
         for(int j = 2; j < c-2; j+=2){ //every 2nd column
-                int tidx = (i*c2+(j/2));
-                int i1_idx = ((i  )*c+(j-2));
-                int i2_idx = ((i  )*c+(j-1));
-                int i3_idx = ((i  )*c+(j ));
-                int i4_idx = ((i  )*c+(j+1));
-                int i5_idx = ((i  )*c+(j+2));
-
-                tmp_halfsize[tidx] =
-                        im[i1_idx]*.0625 +
-                        im[i2_idx]*.25 +
-                        im[i3_idx]*.375 +
-                        im[i4_idx]*.25 +
-                        im[i5_idx]*.0625;
-                COST_INC_ADD(4);
-                COST_INC_MUL(5);
+            tmp_halfsize[(i*c2+(j/2))] =
+                    im[((i  )*c+(j-2))]*.0625 +
+                    im[((i  )*c+(j-1))]*.25 +
+                    im[((i  )*c+(j  ))]*.375 +
+                    im[((i  )*c+(j+1))]*.25 +
+                    im[((i  )*c+(j+2))]*.0625;
+            COST_INC_ADD(4);
+            COST_INC_MUL(5);
         }
         //left edge
         int j = 0; // 1 0 [0 1 2 ... ]
@@ -329,20 +322,12 @@ void downsample_1channel(double *im, uint32_t r, uint32_t c, double *tmp_halfsiz
     for(int j = 0; j < c; j++){ //every column in tmp_halfsize = every 2nd column in im
         for(int i = 2; i < r-2; i+=2){ //every 2nd row in tmp_halfsize
             int i2 = i/2+((i-2) % 2);
-
-            int tidx = (i2*c+j);
-            int i1_idx = ((i-2)*c+(j));
-            int i2_idx = ((i-2)*c+(j));
-            int i3_idx = ((i  )*c+(j));
-            int i4_idx = ((i+1)*c+(j));
-            int i5_idx = ((i+2)*c+(j));
-
-            dst[tidx] =
-                    tmp_halfsize[i1_idx]*.0625 +
-                    tmp_halfsize[i2_idx]*.25 +
-                    tmp_halfsize[i3_idx]*.375 +
-                    tmp_halfsize[i4_idx]*.25 +
-                    tmp_halfsize[i5_idx]*.0625;
+            dst[(i2*c+j)] =
+                    tmp_halfsize[((i-2)*c+(j  ))]*.0625 +
+                    tmp_halfsize[((i-1)*c+(j  ))]*.25 +
+                    tmp_halfsize[((i  )*c+(j  ))]*.375 +
+                    tmp_halfsize[((i+1)*c+(j  ))]*.25 +
+                    tmp_halfsize[((i+2)*c+(j  ))]*.0625;
             COST_INC_ADD(4);
             COST_INC_MUL(5);
         }
@@ -357,8 +342,8 @@ void downsample_1channel(double *im, uint32_t r, uint32_t c, double *tmp_halfsiz
         COST_INC_MUL(3);
         //bottom edge
         if((r-2) % 2 == 0){
-        i = r-2; // [ ... -2 -1 0 1] 1
-        i2 = i/2+((i-2) % 2);
+            i = r-2; // [ ... -2 -1 0 1] 1
+            i2 = i/2+((i-2) % 2);
             dst[(i2*c+j)] =
                     tmp_halfsize[((i-2)*c+(j  ))]*.0625 +
                     tmp_halfsize[((i-1)*c+(j  ))]*.25 +
@@ -367,8 +352,8 @@ void downsample_1channel(double *im, uint32_t r, uint32_t c, double *tmp_halfsiz
             COST_INC_ADD(3);
             COST_INC_MUL(4);
         }else{
-        i = r-1; // [ ... -2 -1 0] 0 -1
-        i2 = i/2+((i-2) % 2);
+            i = r-1; // [ ... -2 -1 0] 0 -1
+            i2 = i/2+((i-2) % 2);
             dst[(i2*c+j)] =
                     tmp_halfsize[((i-2)*c+(j  ))]*.0625 +
                     tmp_halfsize[((i-1)*c+(j  ))]*.3125 +
