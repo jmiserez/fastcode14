@@ -20,15 +20,11 @@ int fusion_alloc(void** _segments, int w, int h, int N);
 /**
  * @brief exposure_fusion
  * @param I
- * @param r
- * @param c
- * @param N
  * @param m
  * @param R
  * @param segments
  */
-double* fusion_compute(double** I, int w, int h, int N,
-                        double contrast_parm, double sat_parm, double wexp_parm,
+double* fusion_compute(double** I, double contrast_parm, double sat_parm, double wexp_parm,
                         void* _segments);
 
 void fusion_free( void* _segments );

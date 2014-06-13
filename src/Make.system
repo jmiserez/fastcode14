@@ -1,14 +1,15 @@
 # Fastcode Project: Exposure Fusion
 
 include Make.sysconfig         # provides VERSION and CF_CONFIG
-include $(VERSION)/Make.config # provides FUSION_SRC
+include $(VERSION)/Make.config$(VERSION_SUFFIX) # provides FUSION_SRC
 
 TARGET       = bin/driver_$(VERSION)
 
 SHELL        = /bin/bash
 CC           = gcc
-CF_GENERAL   = -std=c99 -Wall -D_GNU_SOURCE
-CF           = $(CF_GENERAL) $(CF_CONFIG)
+CF_GENERAL   = -std=c99 -Wall -Winline -D_GNU_SOURCE
+CF_CACHESIZE = -DL1_CACHE_KB=32 -DL2_CACHE_KB=256 -DLLC_CACHE_KB=6144 -DCACHE_LINE_BYTES=64
+CF           = $(CF_GENERAL) $(CF_CACHESIZE) $(CF_CONFIG)
 
 INC_DIR      += -Itiff-4.0.2/libtiff
 INC_DIR      += -Ilibpfm-4.5.0/include

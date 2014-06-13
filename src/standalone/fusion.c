@@ -513,7 +513,7 @@ void saturation(double *im, uint32_t npixels, double *C){
         double g = im[i*3+1];
         double b = im[i*3+2];
         double mu = (r + g + b) / 3.0;
-        C[i] = sqrt(pow(r-mu,2) + pow(g-mu,2) + pow(b-mu,2)/3.0);
+        C[i] = sqrt(pow(r-mu,2) + pow(g-mu,2) + pow(b-mu,2))/3.0;
     }
 }
 

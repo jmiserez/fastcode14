@@ -6,6 +6,7 @@
 #include<ctype.h>
 #include<stdio.h>
 #include <assert.h>
+#include <time.h>
 
 
 int read_testconfiguration(testconfig_t* testconfig, int argc, char* argv[]) {
@@ -74,6 +75,24 @@ double** tc_read_input_images( size_t* read_imgs, size_t *ret_w,
 
     return images;
 }
+
+double** tc_read_random_data( size_t nimages, size_t w, size_t h) {
+    double** images = (double**) calloc( nimages, sizeof(double*));
+
+    srand((unsigned)time(NULL)); //seed random number generator
+
+    double nvalues = w*h*3;
+    for(int i = 0; i < nimages; i++ ) {
+        images[i] = (double*) calloc( nvalues, sizeof(double));
+        assert(images[i] != NULL);
+        for (int j = 0; j < nvalues; j++){
+            images[i][j] = ((double)rand()/(double)RAND_MAX);
+        }
+    }
+
+    return images;
+}
+
 
 void tc_free_input_images( double** images, size_t n_images ) {
     int i;

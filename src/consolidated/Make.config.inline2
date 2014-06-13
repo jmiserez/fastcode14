@@ -1,0 +1,4 @@
+FUSION_SRC += consolidated/consolidated.c
+FUSION_SRC += consolidated/weights_inline2.c
+FUSION_SRC += consolidated/basics.c
+FUSION_SRC += consolidated/pyramids.c

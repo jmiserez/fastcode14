@@ -19,6 +19,7 @@
 
 #include "perfmon_wrapper.h"
 #include "cost_model.h"
+#include "fusion_perfcost.h"
 
 #define TIFF_DEBUG_IN "gradient.tif"
 #define TIFF_DEBUG_OUT "out.tif"
@@ -28,7 +29,7 @@
 #endif
 
 COST_VARIABLES_HERE
-
+struct perf_data *global_perf_data;
 
 typedef struct {
     char* log_file;
@@ -37,6 +38,8 @@ typedef struct {
     double val_threshold;
     int val_w;
     int val_h;
+    bool quadratic;
+    bool benchmark;
 } cli_options_t;
 
 /*
@@ -67,6 +70,9 @@ const char* usage_str = "./driver [options] <heights> <widths> "
         "\n"
         " --store <name>\n"
         "  store validated image into <name>.tif\n"
+        "\n"
+        " --quadratic"
+        "  Use quadratic image sizes and 200%% scaling instead of all combinations\n"
         "\n\n"
         "Example:\n"
         " $ ./driver --val val.tif --store out.tif "
@@ -99,29 +105,33 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
         NULL
     };
 
-    struct perf_data *perf_data;
-    
-    ret = perf_init(events, &perf_data);
+    ret = perf_init(events, &global_perf_data);
     if (ret < 0) {
         FUSION_ERR("Could not initialize perfmon.\n");
-        perf_cleanup(perf_data);
+        perf_cleanup(global_perf_data);
         return -1;
     }
 
     // Initialize image data
     size_t w_orig, h_orig, w, h, img_count;
-    double** input_images = tc_read_input_images( &img_count, &w_orig, &h_orig,
-                                                  tc );
+    double** input_images = NULL;
+
+    if(cli_opts->val_file != NULL || (cli_opts->benchmark == false)){
+        //need to actually load the input images
+        input_images = tc_read_input_images( &img_count, &w_orig, &h_orig, tc );
 #ifdef DEBUG
-    printf("img_count: %ld, w_orig: %ld, h_orig: %ld\n", img_count, w_orig,
-           h_orig);
+        printf("img_count: %ld, w_orig: %ld, h_orig: %ld\n", img_count, w_orig,
+               h_orig);
 #endif
+    }
+
     int err = 0;
 
     size_t val_read_w = 0;
     size_t val_read_h = 0;
     double *val = NULL;
     if(cli_opts->val_file != NULL){
+        assert(input_images != NULL);
         w = cli_opts->val_w;
         h = cli_opts->val_h;
 
@@ -154,7 +164,7 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
             fusion_free(fusion_data);
             err = -1;
         } else { // fusion alloc succeeded
-            double *result = fusion_compute(target_images, w, h, img_count, tc->contrast,
+            double *result = fusion_compute(target_images, tc->contrast,
                     tc->saturation, tc->well_exposed, fusion_data);
             //store image
             if(cli_opts->out_file != NULL){
@@ -184,129 +194,160 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
     }
 
     // Perform Computations
-    for( w = tc->width_range.start; w <= tc->width_range.stop && !err;
-         w += tc->width_range.step ) {
-        for( h = tc->height_range.start; h <= tc->height_range.stop && !err;
-             h += tc->height_range.step ) {
+    bool done = false;
+    w = tc->width_range.start;
+    h = tc->height_range.start;
 
-//    h = tc->height_range.start;
-//    for( w = tc->width_range.start;
-//         w <= tc->width_range.stop &&  h <= tc->height_range.stop && !err;
-//         w += tc->width_range.step, h += tc->height_range.step ) {
+    while(true){
+        //loop logic
+        if(cli_opts->quadratic){
+            //increment both dimensions at once (scale up 200%)
+            done = w > tc->width_range.stop || h > tc->height_range.stop || err;
+            tc->width_range.step = w;
+            tc->height_range.step = h;
+        }else{
+            //increment all possible combinations
+            done = w > tc->width_range.stop || err;
+        }
+        if(done){
+            break; //end of loop
+        }
 
 #ifndef NDEBUG
-            printf( "fusion for w: %ld, h: %ld\n", w, h );
+        printf( "fusion for w: %ld, h: %ld\n", w, h );
 #endif
-            // crop the images
-            double** target_images = crop_topleft_rgbs( input_images, w_orig,
-                                                        h_orig, img_count,
-                                                        w, h, true );
+        // crop the images
+        double** target_images = crop_topleft_rgbs( input_images, w_orig,
+                                                    h_orig, img_count,
+                                                    w, h, false );
 
-            void *fusion_data; ///< memory segments used by the current
-            // implementation
-            ret = fusion_alloc(&fusion_data, w, h, img_count);
-            if (ret < 0) {
-                FUSION_ERR("Error in fusion_alloc(*,w=%zu,h=%zu,N=%zu)\n",
-                        w, h, img_count);
-                fusion_free(fusion_data);
-                err = -1;
-            } else { // fusion alloc succeeded
+        void *fusion_data; ///< memory segments used by the current
+        // implementation
+        ret = fusion_alloc(&fusion_data, w, h, img_count);
+        if (ret < 0) {
+            FUSION_ERR("Error in fusion_alloc(*,w=%zu,h=%zu,N=%zu)\n",
+                    w, h, img_count);
+            fusion_free(fusion_data);
+            err = -1;
+        } else { // fusion alloc succeeded
 
-                //Let's warmup
+            //Let's warmup
 #ifndef NDEBUG
-                printf("Warming up %d times\n",WARMUP_COUNT);
+            printf("Warming up %d times\n",WARMUP_COUNT);
 #endif
-                for(int i = 0; i < WARMUP_COUNT; i++){
-                    fusion_compute(target_images, w, h, img_count, tc->contrast,
-                            tc->saturation, tc->well_exposed, fusion_data);
-                }
-                // Reset Counters
-                COST_MODEL_RESET;
-                perf_reset(perf_data);
-
-                // Run exposure fusion
-                perf_start(perf_data);
-                fusion_compute(target_images, w, h, img_count, tc->contrast,
+            for(int i = 0; i < WARMUP_COUNT; i++){
+                fusion_compute(target_images, tc->contrast,
                         tc->saturation, tc->well_exposed, fusion_data);
-                perf_stop(perf_data);
+            }
+            // Reset Counters
+            COST_MODEL_RESET;
+            perf_reset(global_perf_data);
 
-                // Print results
-                perf_update_values(perf_data);
-                printf("--- Showing results for: w=%zu, h=%zu, N=%zu\n",
-                        w, h, img_count);
+            // Run exposure fusion
+#ifndef COST_MODEL_PERFUNC
+            perf_start(global_perf_data);
+#endif
+            fusion_compute(target_images, tc->contrast,
+                    tc->saturation, tc->well_exposed, fusion_data);
+#ifndef COST_MODEL_PERFUNC
+            perf_stop(global_perf_data);
+#endif
+            // Print results
+            perf_update_values(global_perf_data);
+            printf("--- Showing results for: w=%zu, h=%zu, N=%zu\n",
+                    w, h, img_count);
 
-                printf("Performance Counters:\n");
-                for (struct perf_data *iter = perf_data; iter->name; ++iter) {
-                    printf("  %-50s : %"PRId64"\n", iter->name, iter->value);
-                }
+            printf("Performance Counters:\n");
+            for (struct perf_data *iter = global_perf_data; iter->name; ++iter) {
+                printf("  %-50s : %"PRId64"\n", iter->name, iter->value);
+            }
 
-                printf("Cost Model:\n");
+            printf("Cost Model:\n");
 
-                char *file_name = "flops.out";
-                FILE *fp = NULL;
+            char *file_name = "flops.out";
+            FILE *fp = NULL;
 
 #ifdef READFLOPS
-                //read flops from file
-                fp = fopen(file_name,"r"); // read mode
+            //read flops from file
+            fp = fopen(file_name,"r"); // read mode
 
-                long unsigned latest_flops = 0;
+            long unsigned latest_flops = 0;
 
-                if( fp != NULL ){
-                    int line_w = 0;
-                    int line_h = 0;
-                    long unsigned line_flops = 0;
-                    while (!feof (fp) && fscanf (fp, "%d %d %lu\n", &line_w, &line_h, &line_flops)){
-                        //read oldest value
-                        if(line_w == w && line_h == h){
-                            latest_flops = line_flops;
-                        }
+            if( fp != NULL ){
+                int line_w = 0;
+                int line_h = 0;
+                long unsigned line_flops = 0;
+                while (!feof (fp) && fscanf (fp, "%d %d %lu\n", &line_w, &line_h, &line_flops)){
+                    //read oldest value
+                    if(line_w == w && line_h == h){
+                        latest_flops = line_flops;
                     }
-                    fclose (fp);
                 }
+                fclose (fp);
+            }
 
-                double flops = (double)latest_flops;
+            double flops = (double)latest_flops;
 #else
-                //write flops to file
+            //write flops to file
 
-                printf("  Add: %"PRI_COST"\n", COST_ADD);
-                printf("  Mul: %"PRI_COST"\n", COST_MUL);
-                printf("  Div: %"PRI_COST"\n", COST_DIV);
-                printf("  Pow: %"PRI_COST"\n", COST_POW);
-                printf("  Abs: %"PRI_COST"\n", COST_ABS);
-                printf("  Sqrt: %"PRI_COST"\n", COST_SQRT);
-                printf("  Other: %"PRI_COST"\n", COST_OTHER);
-                printf("  Cmp: %"PRI_COST"\n", COST_CMP);
-
-                double flops      = COST_ADD + COST_MUL + COST_DIV + COST_POW + COST_ABS + COST_SQRT + COST_OTHER + COST_CMP;
-
-                fp = fopen(file_name,"a"); // read mode
-
-                if( fp != NULL ){
-                    fprintf(fp, "%d %d %lu\n", w, h, (unsigned long)round(flops));
-                    fclose (fp);
-                }
-
-                printf("Approximate Derived Results\n");
+#ifdef COST_MODEL_PERFUNC
+COST_MODEL_LOADF
 #endif
-                double cycles     = perf_data[0].value; // index as in 'events'
-                double cache_load = perf_data[1].value;
-                double cache_miss = perf_data[2].value;
-                printf("  Flops           : %.0lf\n", flops);
-                printf("  Performance     : %.3lf\n", flops/cycles);
-                printf("  Cache Miss Rate : %.3lf\n", cache_miss/cache_load);
 
-                // Cleanup
-                fusion_free(fusion_data);
-            } // fusion alloc succeeded
+            printf("  Loads: %"PRI_COST"\n", COST_LOAD);
+            printf("  Stores: %"PRI_COST"\n", COST_STORE);
+            printf("  Add: %"PRI_COST"\n", COST_ADD);
+            printf("  Mul: %"PRI_COST"\n", COST_MUL);
+            printf("  Div: %"PRI_COST"\n", COST_DIV);
+            printf("  Pow: %"PRI_COST"\n", COST_POW);
+            printf("  Abs: %"PRI_COST" (x2)\n", COST_ABS);
+            printf("  Sqrt: %"PRI_COST" (x10)\n", COST_SQRT);
+            printf("  Exp: %"PRI_COST" (x50)\n", COST_EXP);
 
+            double flops = COST_ADD + COST_MUL + COST_DIV + COST_POW + 2*COST_ABS + 10*COST_SQRT + 50*COST_EXP;
+
+            fp = fopen(file_name,"a"); // read mode
+
+            if( fp != NULL ){
+                fprintf(fp, "%zu %zu %lu\n", w, h, (unsigned long)round(flops));
+                fclose (fp);
+            }
+
+            printf("Approximate Derived Results\n");
+#endif
+            double cycles     = global_perf_data[0].value; // index as in 'events'
+            double cache_load = global_perf_data[1].value;
+            double cache_miss = global_perf_data[2].value;
+            printf("  Flops           : %.0lf\n", flops);
+            printf("  Performance     : %.3lf\n", flops/cycles);
+            printf("  Cache Miss Rate : %.3lf\n", cache_miss/cache_load);
+
+            // Cleanup
+            fusion_free(fusion_data);
+        } // fusion alloc succeeded
+
+        if(w != w_orig && h != h_orig){
             // free target images
             free_rgbs( target_images, img_count );
-        } // heights loop
-    } // widths loop
+        }
+
+
+        //loop logic
+        if(cli_opts->quadratic){
+            w += tc->width_range.step;
+            h += tc->height_range.step;
+        }else{
+            h += tc->height_range.step;
+            if(h > tc->height_range.stop){
+                h = tc->height_range.start;
+                w += tc->width_range.step;
+            }
+        }
+    } // loop
 
     // Cleanup
     tc_free_input_images( input_images, img_count );
-    perf_cleanup(perf_data);
+    perf_cleanup(global_perf_data);
 
     return err;
 }
@@ -324,6 +365,7 @@ int parse_cli(cli_options_t* cli_opts, testconfig_t* testconfig,
             {"threshold",   required_argument, 0, 't'},
             {"width_validate",   required_argument, 0, 'w'},
             {"height_validate",   required_argument, 0, 'h'},
+            {"quadratic", no_argument,       0, 'q'},
             {0,0,0,0}
         };
 
@@ -355,6 +397,9 @@ int parse_cli(cli_options_t* cli_opts, testconfig_t* testconfig,
 //            printf("error is: %lf\n", err);
 //            free_tiff( raster );
 //            free_rgb( debug_rgb_image );
+            break;
+        case 'q':
+            cli_opts->quadratic = true;
             break;
         case 's':
             cli_opts->out_file = optarg;
@@ -422,7 +467,8 @@ int main(int argc, char* argv[]) {
 
     cli_options_t cli_opts = {
         .out_file = NULL,
-        .val_file = NULL
+        .val_file = NULL,
+        .quadratic = false
     };
 
     if ( parse_cli( &cli_opts, &testconfig, argc, argv ) > 0 ) {

@@ -23,6 +23,7 @@ void print_testconfiguration( testconfig_t* tc );
 
 double** tc_read_input_images( size_t* read_imgs, size_t *w, size_t *h,
                                testconfig_t* tc );
+double** tc_read_random_data( size_t nimages, size_t w, size_t h);
 void tc_free_input_images( double** images, size_t n_images );
 
 #endif // READ_TESTCONFIG_H
