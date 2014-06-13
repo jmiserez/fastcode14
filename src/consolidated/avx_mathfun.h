@@ -1,3 +1,6 @@
+#ifndef AVX_MATHFUN_H
+#define AVX_MATHFUN_H
+
 /* 
    AVX implementation of sin, cos, sincos, exp and log
 
@@ -710,3 +713,4 @@ void sincos256_ps(v8sf x, v8sf *s, v8sf *c) {
   *c = _mm256_xor_ps(xmm2, sign_bit_cos);
 }
 
+#endif

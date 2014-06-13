@@ -7,23 +7,24 @@ import os
 my_config = {
     'versions'             : [
 #                               "consolidated.naive_options",
-                               "consolidated.naive",
+#                               "consolidated.naive",
 #                               "consolidated.blocking"
 #                               "consolidated.onestep"
-#                               "consolidated.inline4"
+                               "consolidated.avx"
                              ],
     'do_benchmark'         : True,
     'do_develop'           : False,
     'do_gprof'             : False,
     'logtofile'            : False,
-    'perfunc'              : True,
+    'perfunc'              : False,
+    'weights_only'         : False,
     'openmode'             : 'a',
-    'optimization_flags'   : "-O3 -Ofast -m64 -march=native -fomit-frame-pointer -ffast-math -mno-abm -fno-tree-vectorize",
+    'optimization_flags'   : "-O3 -Ofast -m64 -march=corei7-avx -ffast-math",
 #    'optimization_flags'  : "-O3 -m64 -march=native -mno-abm -fno-tree-vectorize",
 #    'optimization_flags'  : "-O0 -m64 -march=native",
     'warmup_count'         : 1,
     'warmup_dev'           : 1,
-    'warmup_benchmark'     : 2,
+    'warmup_benchmark'     : 4,
      'dev_driver_args'     : "--q --s out --v ../testdata/house_out/dbg_benchmark-3-1.0-1.0-1.0.tif --w 1024 --h 1024 --t 0.1 "
                               "1024:1:1024 1024:1:1024 "
                               "1.0 1.0 1.0 ../testdata/srcImages/dbg_benchmark.0.tif ../testdata/srcImages/dbg_benchmark.1.tif ../testdata/srcImages/dbg_benchmark.2.tif ../testdata/srcImages/dbg_benchmark.3.tif",
@@ -122,6 +123,8 @@ def write_config(version, config):
 			debug += " -DREADFLOPS"
 		if 'perfunc' in config and config['perfunc']:
 			debug += " -DCOST_MODEL_PERFUNC"
+		if 'weights_only' in config and config['weights_only']:
+			debug += " -DNO_PYRAMIDS"
 		add_config("CF_DEBUG", debug, f)
 
 		add_config("CF_CONFIG", "$(CF_OPT) $(CF_COST) $(CF_WARMUP) $(CF_DEBUG)", f)

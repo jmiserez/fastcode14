@@ -219,58 +219,6 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
         }
     }
 
-//    int row_multiplier = 2;
-//    int rows_to_skip = (i_end - i_start) % row_multiplier;
-//    if(rows_to_skip != 0){
-//        //skip ahead a few rows
-//        for(int i = i_start; i < i_start+rows_to_skip; i++){
-//            for(j = j_start; j < j_end; j++){
-//                int center =  i*c+j;
-//                int top    = (i-1)*c+j;
-//                int bottom = (i+1)*c+j;
-//                int left   = i*c+j-1;
-//                int right   = i*c+j+1;
-//                dst[center] = single_pixel(im,
-//                                           3*center,
-//                                           3*top,3*left,3*right,3*bottom);
-//            }
-//        }
-//    }
-
-//    int col_multiplier = 2;
-//    int colss_to_skip = (j_end - j_start) % col_multiplier;
-//    if(colss_to_skip != 0){
-//        //skip ahead a few cols
-//        for(int i = i_start; i < i_end; i++){
-//            for(j = j_start; j < j_start+cols_to_skip; j++){
-//                int center =  i*c+j;
-//                int top    = (i-1)*c+j;
-//                int bottom = (i+1)*c+j;
-//                int left   = i*c+j-1;
-//                int right   = i*c+j+1;
-//                dst[center] = single_pixel(im,
-//                                           3*center,
-//                                           3*top,3*left,3*right,3*bottom);
-//            }
-//        }
-//    }
-
-//    //calculate 4 in one go
-//    //
-//    //
-//    //
-
-//    for(int i = i_start; i < i_end; i+=2){
-//        for(j = j_start; j < j_end; j+=2){
-//            int center =  i*c+j;
-//            int top    = (i-1)*c+j;
-//            int bottom = (i+1)*c+j;
-//            int left   = i*c+j-1;
-//            int right   = i*c+j+1;
-
-//            int c1 = i*c+j
-//        }
-//    }
 }
 
 void convolve_calculate(double* im, uint32_t r, uint32_t c, double* dst){
@@ -283,6 +231,7 @@ void convolve_calculate(double* im, uint32_t r, uint32_t c, double* dst){
     }
     for(int ii = 0; ii < r; ii+=blocksize){
         for(int jj = 0; jj < c; jj+=blocksize){
+            //NOTE: image size MUST be an exact multiple of blocksize
             convolve_block(im,ii,jj,blocksize,r,c,dst);
         }
     }

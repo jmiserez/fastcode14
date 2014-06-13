@@ -257,6 +257,7 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             }
         }
     }
+    i_start = i_start+rows_to_skip;
     j_start = j_start+cols_to_skip;
 
     double rW = 0.2989;
@@ -276,30 +277,49 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
     //
 
     int i = i_start;
-    int j = j_start;
-
-    double c3_prev = im[3*(i*c+j-1)] * rW + im[3*(i*c+j-1)+1] * gW + im[3*(i*c+j-1)+2] * bW;
-    double c4_prev_r = im[3*(i*c+j)];
-    double c4_prev_g = im[3*(i*c+j)+1];
-    double c4_prev_b = im[3*(i*c+j)+2];
-    double c4_prev = c4_prev_r * rW + c4_prev_g * gW + c4_prev_b * bW;
-    double d3_prev = im[3*((i+1)*c+j-1)] * rW + im[3*((i+1)*c+j-1)+1] * gW + im[3*((i+1)*c+j-1)+2] * bW;
-    double d4_prev_r = im[3*((i+1)*c+j)];
-    double d4_prev_g = im[3*((i+1)*c+j)+1];
-    double d4_prev_b = im[3*((i+1)*c+j)+2];
-    double d4_prev = d4_prev_r * rW + d4_prev_g * gW + d4_prev_b * bW;
-
     for(i = i_start; i < i_end; i+=2){
+        int j = j_start;
+
+        int c1c = i*c+j-1; // == c3c of previous iteration
+        int c2c = i*c+j; // == c4c of previous iteration
+        int d1c = (i+1)*c+j-1; // == d3c of previous iteration
+        int d2c = (i+1)*c+j; // == d4c of previous iteration
+
+        int c1x3 = 3*c1c; // == c3c of previous iteration
+        int c2x3 = 3*c2c; // == c4c of previous iteration
+        int d1x3 = 3*d1c; // == d3c of previous iteration
+        int d2x3 = 3*d2c; // == d4c of previous iteration
+
+        double c3_prev =
+                im[c1x3] * rW +
+                im[c1x3+1] * gW +
+                im[c1x3+2] * bW;
+        double c4_prev_r = im[c2x3];
+        double c4_prev_g = im[c2x3+1];
+        double c4_prev_b = im[c2x3+2];
+        double c4_prev =
+                c4_prev_r * rW +
+                c4_prev_g * gW +
+                c4_prev_b * bW;
+        double d3_prev =
+                im[d1x3] * rW +
+                im[d1x3+1] * gW +
+                im[d1x3+2] * bW;
+        double d4_prev_r = im[d2x3];
+        double d4_prev_g = im[d2x3+1];
+        double d4_prev_b = im[d2x3+2];
+        double d4_prev =
+                d4_prev_r * rW +
+                d4_prev_g * gW +
+                d4_prev_b * bW;
         for(j = j_start; j < j_end; j+=2){
 
             int t2c = (i-1)*c+j;
             int t3c = (i-1)*c+j+1;
-//            int c1c = i*c+j-1; // == c3c of previous iteration
-            int c2c = i*c+j; // == c4c of previous iteration
+            c2c = i*c+j; // == c4c of previous iteration
             int c3c = i*c+j+1;
             int c4c = i*c+j+2;
-//            int d1c = (i+1)*c+j-1; // == d3c of previous iteration
-            int d2c = (i+1)*c+j; // == d4c of previous iteration
+            d2c = (i+1)*c+j; // == d4c of previous iteration
             int d3c = (i+1)*c+j+1;
             int d4c = (i+1)*c+j+2;
             int b2c = (i+1)*c+j;
@@ -307,26 +327,12 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
 
             int t2x3 = 3*((i-1)*c+j);
             int t3x3 = 3*((i-1)*c+j+1);
-//            int c1x3 = 3*(i*c+j-1); // == c3c of previous iteration
-//            int c2x3 = 3*(i*c+j); // == c4c of previous iteration
             int c3x3 = 3*(i*c+j+1);
             int c4x3 = 3*(i*c+j+2);
-//            int d1x3 = 3*((i+1)*c+j-1); // == d3c of previous iteration
-//            int d2x3 = 3*((i+1)*c+j); // == d4c of previous iteration
             int d3x3 = 3*((i+1)*c+j+1);
             int d4x3 = 3*((i+1)*c+j+2);
-            int b2x3 = 3*((i+1)*c+j);
-            int b3x3 = 3*((i+1)*c+j+1);
-
-//            dst[c2c] = single_pixel(im,3*c2c,
-//                                       3*t2c,3*c1c,3*c3c,3*d2c);
-//            dst[c3c] = single_pixel(im,3*c3c,
-//                                       3*t3c,3*c2c,3*c4c,3*d3c);
-//            dst[d2c] = single_pixel(im,3*d2c,
-//                                       3*c2c,3*d1c,3*d3c,3*b2c);
-//            dst[d3c] = single_pixel(im,3*d3c,
-//                                       3*c3c,3*d2c,3*d4c,3*b3c);
-
+            int b2x3 = 3*((i+2)*c+j);
+            int b3x3 = 3*((i+2)*c+j+1);
 
             double t2_r = im[t2x3];
             double t2_g = im[t2x3+1];
@@ -436,7 +442,7 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             double c2_gz2 = c2_gz * c2_gz;
             double c2_bz2 = c2_bz * c2_bz;
             double c3_rz2 = c3_rz * c3_rz;
-            double c3_gz2 = c3_rz * c3_gz;
+            double c3_gz2 = c3_gz * c3_gz;
             double c3_bz2 = c3_bz * c3_bz;
             double d2_rz2 = d2_rz * d2_rz;
             double d2_gz2 = d2_gz * d2_gz;
@@ -469,10 +475,10 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             double d2_t2 = fabs(d2_t1);
             double d3_t2 = fabs(d3_t1);
 
-            double c2_t3 = c2_rexp*c2_gexp*c2_gexp;
-            double c3_t3 = c3_rexp*c3_gexp*c3_gexp;
-            double d2_t3 = d2_rexp*d2_gexp*d2_gexp;
-            double d3_t3 = d3_rexp*d3_gexp*d3_gexp;
+            double c2_t3 = c2_rexp*c2_gexp*c2_bexp;
+            double c3_t3 = c3_rexp*c3_gexp*c3_bexp;
+            double d2_t3 = d2_rexp*d2_gexp*d2_bexp;
+            double d3_t3 = d3_rexp*d3_gexp*d3_bexp;
 
             double c2_t4 = fabs(c2_t3);
             double c3_t4 = fabs(c3_t3);
@@ -530,6 +536,7 @@ void convolve_calculate(double* im, uint32_t r, uint32_t c, double* dst){
     }
     for(int ii = 0; ii < r; ii+=blocksize){
         for(int jj = 0; jj < c; jj+=blocksize){
+            //NOTE: image size MUST be an exact multiple of blocksize
             convolve_block(im,ii,jj,blocksize,r,c,dst);
         }
     }

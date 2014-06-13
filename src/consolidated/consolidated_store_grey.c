@@ -42,6 +42,11 @@ PERF_FUNC_ENTER
     weights(nimages,npixels,r,c,I,W,tmp_weights,tmp2_weights);
 PERF_FUNC_EXIT
 
+#ifdef NO_PYRAMIDS
+    //for performance measurements we may choose to focus only on weights
+    return R;
+#endif
+
     pyramids(nimages, nlev, r, c, I, W,
                   tmp_halfsize, tmp_quartsize, tmp2_quartsize,
                   pyrW, pyrW_r, pyrW_c,

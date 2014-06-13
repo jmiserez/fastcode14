@@ -3250,7 +3250,6 @@ wres02.txt
 wres07.txt
 zzz-752x500.tif
 zzz.tif
-consolidated/weights.c
 consolidated/weights.h
 consolidated/general_headers.h
 consolidated/basics.c
@@ -3277,5 +3276,9 @@ consolidated/weights_blocking.c
 consolidated/Make.config.blocking
 consolidated/weights_inline2.c
 consolidated/Make.config.inline2
-consolidated/weights_inline4.c
-consolidated/Make.config.inline4
+consolidated/weights_inline2x2.c
+consolidated/Make.config.inline2x2
+consolidated/weights_avx.c
+consolidated/Make.config.avx
+consolidated/weights_inline2x4.c
+consolidated/Make.config.inline2x4

@@ -42,6 +42,12 @@ PERF_FUNC_ENTER
     weights(nimages,npixels,r,c,I,W,tmp_weights,tmp2_weights);
 PERF_FUNC_EXIT
 
+#ifdef NO_PYRAMIDS
+    //for performance measurements we may choose to focus only on weights
+    return R;
+#endif
+
+
     pyramids(nimages, nlev, r, c, I, W,
                   tmp_halfsize, tmp_quartsize, tmp2_quartsize,
                   pyrW, pyrW_r, pyrW_c,
@@ -52,7 +58,7 @@ PERF_FUNC_EXIT
                pyrI, pyrI_r, pyrI_c);
 
     //reconstruct laplacian pyramid
-    reconstruct_laplacian_pyramid(CHANNELS,nlev,tmp_fullsize,tmp2_fullsize,tmp_halfsize,pyr,pyr_r,pyr_c,r,c,R);
+    reconstruct_laplacian_pyramid(nlev,tmp_fullsize,tmp2_fullsize,tmp_halfsize,pyr,pyr_r,pyr_c,r,c,R);
     return R;
 }
 
