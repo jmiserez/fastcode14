@@ -16,6 +16,7 @@ void reconstruct_laplacian_pyramid(uint32_t nlev, double *tmp_fullsize, double *
 void gaussian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t nlev, double *tmp_halfsize, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
 void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t nlev, double *tmp_halfsize, double *tmp_quartsize, double *tmp2_quartsize, double **pyr, uint32_t *pyr_r, uint32_t *pyr_c);
 void downsample(double *im, uint32_t r, uint32_t c, double *tmp_halfsize, uint32_t down_r, uint32_t down_c, double *dst);
+void downsample_1channel(double *im, uint32_t r, uint32_t c, double *tmp_halfsize, uint32_t down_r, uint32_t down_c, double *dst);
 void upsample(double *im, uint32_t r, uint32_t c, uint32_t up_r, uint32_t up_c, double *tmp_halfsize, double *dst);
 
 #endif
