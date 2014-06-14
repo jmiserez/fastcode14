@@ -1,5 +1,5 @@
 VERSION    = consolidated
-VERSION_SUFFIX = .avx
+VERSION_SUFFIX = .naive_options
 CF_COST    = -DCOST_MEASURE
 CF_WARMUP  = -DWARMUP_COUNT=0
 CF_OPT     = -O3 -m64 -march=corei7-avx

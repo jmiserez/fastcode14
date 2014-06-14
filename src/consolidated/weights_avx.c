@@ -1393,8 +1393,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             __m256d x13_d2345 =  _mm256_add_pd(x12_d2345, eps);
 
             //Store 8 results at once
-            _mm256_storeu_pd(&(target_c[0]),x13_c2345);
-            _mm256_storeu_pd(&(target_d[0]),x13_d2345);
+            _mm256_storeu_pd(&(dst[c2c]),x13_c2345);
+            _mm256_storeu_pd(&(dst[d2c]),x13_d2345);
 
 #ifdef USE_AVX_EXP
             //as per avx_fun.h source code
