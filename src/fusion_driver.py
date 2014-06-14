@@ -24,8 +24,8 @@ my_config = {
     'perfunc'              : True,
     'no_pyramids'          : True,
     'openmode'             : 'a',
-#    'optimization_flags'   : "-O3 -m64 -march=corei7-avx",
-    'optimization_flags'   : "-O3 -m64 -march=corei7-avx -fno-tree-vectorize",
+    'optimization_flags'   : "-O3 -m64 -march=corei7-avx",
+#    'optimization_flags'   : "-O3 -m64 -march=corei7-avx -fno-tree-vectorize",
 #    'optimization_flags'   : "-O3 -Ofast -m64 -march=corei7-avx -ffast-math",
 #    'optimization_flags'  : "-O3 -m64 -march=native -mno-abm -fno-tree-vectorize",
 #    'optimization_flags'  : "-O0 -m64 -march=native",
@@ -132,7 +132,6 @@ def write_config(version, config):
 			debug += " -DCOST_MODEL_PERFUNC"
 		if 'no_pyramids' in config and config['no_pyramids']:
 			debug += " -DNO_PYRAMIDS"
-		debug += " -DFLOPFILENAME=" + '\\"' + str(version) + str(".tmp") + '\\"'
 		add_config("CF_DEBUG", debug, f)
 
 		add_config("CF_CONFIG", "$(CF_OPT) $(CF_COST) $(CF_WARMUP) $(CF_DEBUG)", f)
@@ -190,7 +189,7 @@ def build_and_run(config):
 			binary = "./bin/driver_" + version
 			runfile = version + ".run.log"
 			with open(runfile, config['openmode']) as rf:
-				arg = binary + " " + config['driver_args']
+				arg = binary + " " + config['driver_args'] + " --f " + str(version)
 				#print arg
 				#arg = arg.split()
 				if config['logtofile']:
@@ -250,6 +249,7 @@ if __name__ == "__main__":
 			cfg = config.copy()
 			update_for_benchmark_cost(cfg)
 			build_and_run(cfg)
+			cfg = config.copy()
 			title("BENCHMARK: MEASURING PERFORMANCE")
 			update_for_benchmark_performance(cfg)
 			build_and_run(cfg);

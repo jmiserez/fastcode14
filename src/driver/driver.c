@@ -34,6 +34,7 @@ bool global_perf_measuring = false;
 
 typedef struct {
     char* log_file;
+    char* flop_file;
     char* out_file; ///< output image written, if desired
     char* val_file; ///< comparision image, if desired
     double val_threshold;
@@ -74,6 +75,8 @@ const char* usage_str = "./driver [options] <heights> <widths> "
         "\n"
         " --quadratic"
         "  Use quadratic image sizes and 200%% scaling instead of all combinations\n"
+        "\n"
+        " --flopfile <file>\n"
         "\n\n"
         "Example:\n"
         " $ ./driver --val val.tif --store out.tif "
@@ -269,7 +272,7 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
 
             printf("Cost Model:\n");
 
-            char *file_name = FLOPFILENAME;
+            char *file_name = cli_opts->flop_file;
             FILE *fp = NULL;
 
 #ifdef READFLOPS
@@ -383,6 +386,7 @@ int parse_cli(cli_options_t* cli_opts, testconfig_t* testconfig,
         static struct option long_options[] = {
             {"dbglibtiff", no_argument,       0, 'd'},
             {"store",       required_argument, 0, 's'},
+            {"flopfile",       required_argument, 0, 'f'},
             {"validate",    required_argument, 0, 'v'},
             {"threshold",   required_argument, 0, 't'},
             {"width_validate",   required_argument, 0, 'w'},
@@ -425,6 +429,9 @@ int parse_cli(cli_options_t* cli_opts, testconfig_t* testconfig,
             break;
         case 's':
             cli_opts->out_file = optarg;
+            break;
+        case 'f':
+            cli_opts->flop_file = optarg;
             break;
         case 'v':
             cli_opts->val_file = optarg;
@@ -490,6 +497,7 @@ int main(int argc, char* argv[]) {
     cli_options_t cli_opts = {
         .out_file = NULL,
         .val_file = NULL,
+        .flop_file = NULL,
         .quadratic = false
     };
 

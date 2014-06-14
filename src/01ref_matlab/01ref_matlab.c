@@ -349,6 +349,9 @@ PERF_FUNC_EXIT
         assert(sum_weight >= 0.99 && sum_weight <= 1.01); //ensure all weights sum to one for each pixel
     }
 #endif
+#ifdef NO_PYRAMIDS
+    return R;
+#endif
 #ifdef PRINTPYRAMIDS
     for(int i = 0; i < W_len; i++){
         char fname[50];
