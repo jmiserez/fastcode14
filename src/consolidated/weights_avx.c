@@ -26,6 +26,7 @@ FORCE_INLINE double single_pixel(double *im, int center, int top, int left, int 
     double r4 = im[bottom];
     double g4 = im[bottom+1];
     double b4 = im[bottom+2];
+    COST_INC_LOAD(15);
 
     double rw = 0.2989;
     double gw = 0.5870;
@@ -123,6 +124,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*center,3*center,3*right,3*bottom);
+            COST_INC_LOAD(1);
+            COST_INC_STORE(1);
         }
         if( jj + N == c){
             //top right
@@ -134,6 +137,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*center,3*left,3*center,3*bottom);
+            COST_INC_LOAD(1);
+            COST_INC_STORE(1);
         }
         //need to fill in top row
         int i = 0;
@@ -145,6 +150,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*center,3*left,3*right,3*bottom);
+            COST_INC_LOAD(1);
+            COST_INC_STORE(1);
         }
     }
     if(ii + N == r){
@@ -158,6 +165,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*top,3*center,3*right,3*center);
+            COST_INC_LOAD(1);
+            COST_INC_STORE(1);
         }
         if( jj + N == c){
             //bottom right
@@ -169,6 +178,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*top,3*left,3*center,3*center);
+            COST_INC_LOAD(1);
+            COST_INC_STORE(1);
         }
         //need to fill in bottom row
         int i = r-1;
@@ -180,6 +191,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*top,3*left,3*right,3*center);
+            COST_INC_LOAD(1);
+            COST_INC_STORE(1);
         }
     }
     if( jj == 0){
@@ -193,6 +206,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*top,3*center,3*right,3*bottom);
+            COST_INC_LOAD(1);
+            COST_INC_STORE(1);
         }
     }
     if( jj + N == c){
@@ -206,6 +221,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*top,3*left,3*center,3*bottom);
+            COST_INC_LOAD(1);
+            COST_INC_STORE(1);
         }
     }
 
@@ -240,6 +257,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
                 dst[center] = single_pixel(im,
                                            3*center,
                                            3*top,3*left,3*right,3*bottom);
+                COST_INC_LOAD(1);
+                COST_INC_STORE(1);
             }
         }
     }
@@ -259,6 +278,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
                 dst[center] = single_pixel(im,
                                            3*center,
                                            3*top,3*left,3*right,3*bottom);
+                COST_INC_LOAD(1);
+                COST_INC_STORE(1);
             }
         }
     }
@@ -334,10 +355,6 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
     __m256d eps = _mm256_set1_pd(1.0E-12);
     __m256d minustwelvehalf = _mm256_set1_pd(-12.5);
     __m256d signbit_mask256d = _mm256_set1_pd(-0.); // -0. = 1 << 63
-
-    __attribute__ ((aligned (32)))
-    __attribute__ ((aligned (32))) double target_c[4];
-    __attribute__ ((aligned (32))) double target_d[4];
 
 #ifndef USE_AVX_EXP
     __attribute__ ((aligned (32)))
@@ -977,7 +994,6 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             __m256d gmu_c2345 =  _mm256_sub_pd(g_c2345, mu_c2345);
             __m256d bmu_c2345 =  _mm256_sub_pd(b_c2345, mu_c2345);
 
-
 //            double rmu_d2345_0 = r_d2345_0 - mu_d2345_0;
 //            double rmu_d2345_1 = r_d2345_1 - mu_d2345_1;
 //            double rmu_d2345_2 = r_d2345_2 - mu_d2345_2;
@@ -997,7 +1013,6 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             __m256d gmu_d2345 =  _mm256_sub_pd(g_d2345, mu_d2345);
             __m256d bmu_d2345 =  _mm256_sub_pd(b_d2345, mu_d2345);
 
-
 //            double rmu2_c2345_0 = rmu_c2345_0 * rmu_c2345_0;
 //            double rmu2_c2345_1 = rmu_c2345_1 * rmu_c2345_1;
 //            double rmu2_c2345_2 = rmu_c2345_2 * rmu_c2345_2;
@@ -1016,7 +1031,6 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             __m256d rmu2_c2345 =  _mm256_mul_pd(rmu_c2345, rmu_c2345);
             __m256d gmu2_c2345 =  _mm256_mul_pd(gmu_c2345, gmu_c2345);
             __m256d bmu2_c2345 =  _mm256_mul_pd(bmu_c2345, bmu_c2345);
-
 
 //            double rmu2_d2345_0 = rmu_d2345_0 * rmu_d2345_0;
 //            double rmu2_d2345_1 = rmu_d2345_1 * rmu_d2345_1;
@@ -1088,7 +1102,6 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
 //            double x8_c2345_3 = fabs(x7_c2345_3);
 
             __m256d x8_c2345 =  _mm256_andnot_pd(x7_c2345, signbit_mask256d);
-
 
 //            double x8_d2345_0 = fabs(x7_d2345_0);
 //            double x8_d2345_1 = fabs(x7_d2345_1);
@@ -1299,7 +1312,6 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             __m256d rexpf_d2345 = _mm256_load_pd(&(target_rexp_d[0]));
             __m256d gexpf_d2345 = _mm256_load_pd(&(target_gexp_d[0]));
             __m256d bexpf_d2345 = _mm256_load_pd(&(target_bexp_d[0]));
-
 #endif
 
 //            double x9_c2345_0 = rexpf_c2345_0 * gexpf_c2345_0 * bexpf_c2345_0;
@@ -1380,20 +1392,33 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
 
             __m256d x13_d2345 =  _mm256_add_pd(x12_d2345, eps);
 
-
             //Store 8 results at once
-            _mm256_store_pd(&(target_c[0]),x13_c2345);
-            _mm256_store_pd(&(target_d[0]),x13_d2345);
-            memcpy(&(dst[c2c]),&(target_c[0]),4*sizeof(double));
-            memcpy(&(dst[d2c]),&(target_d[0]),4*sizeof(double));
+            _mm256_storeu_pd(&(target_c[0]),x13_c2345);
+            _mm256_storeu_pd(&(target_d[0]),x13_d2345);
 
-            COST_INC_MUL(160);
-            COST_INC_ADD(144);
-            COST_INC_DIV(16);
+#ifdef USE_AVX_EXP
+            //as per avx_fun.h source code
+            COST_INC_MUL(24*11);
+            COST_INC_ADD(24*15);
+            COST_INC_OTHER(24*3);
+#else
+            COST_INC_LOAD(24);
             COST_INC_EXP(24);
-            COST_INC_SQRT(8);
+            COST_INC_STORE(24);
+#endif
+            COST_INC_MUL(176); //+24*11 => +264 = 440
+            COST_INC_ADD(176); //+24*15 => +360 = 536
+            COST_INC_OTHER(0); //+24*3 => +72 = 72
             COST_INC_ABS(24);
+            COST_INC_DIV(16);
+            COST_INC_SQRT(8);
+
+            COST_INC_LOAD(48);
+            COST_INC_STORE(8);
         }
+        COST_INC_LOAD(16);
+        COST_INC_MUL(16);
+        COST_INC_ADD(16);
     }
 }
 
@@ -1428,11 +1453,14 @@ void weights(uint32_t nimages, uint32_t r, uint32_t c,
                 int at = (i*c+j);
                 double *Wn = W[n];
                 sum += Wn[at]; COST_INC_ADD(1);
+                COST_INC_LOAD(1);
             }
             for (int n = 0; n < nimages; n++){
                 int at = (i*c+j);
                 double *Wn = W[n];
                 Wn[at] = Wn[at] / sum; COST_INC_DIV(1); //beware of division by zero
+                COST_INC_LOAD(1);
+                COST_INC_STORE(1);
             }
         }
     }

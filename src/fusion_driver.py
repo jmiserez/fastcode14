@@ -21,16 +21,16 @@ my_config = {
     'do_develop'           : False,
     'do_gprof'             : False,
     'logtofile'            : False,
-    'perfunc'              : False,
-    'weights_only'         : True,
+    'perfunc'              : True,
+    'no_pyramids'          : False,
     'openmode'             : 'a',
-    'optimization_flags'   : "-O3 -Ofast -m64 -march=corei7-avx -ffast-math",
+    'optimization_flags'   : "-O3 -m64 -march=corei7-avx",
 #    'optimization_flags'   : "-O3 -Ofast -m64 -march=corei7-avx -ffast-math",
 #    'optimization_flags'  : "-O3 -m64 -march=native -mno-abm -fno-tree-vectorize",
 #    'optimization_flags'  : "-O0 -m64 -march=native",
     'warmup_count'         : 1,
     'warmup_dev'           : 0,
-    'warmup_benchmark'     : 1,
+    'warmup_benchmark'     : 2,
      'dev_driver_args'     : "--q --s out --v ../testdata/house_out/dbg_benchmark-3-1.0-1.0-1.0.tif --w 1024 --h 1024 --t 0.1 "
                               "1024:1:1024 1024:1:1024 "
                               "1.0 1.0 1.0 ../testdata/srcImages/dbg_benchmark.0.tif ../testdata/srcImages/dbg_benchmark.1.tif ../testdata/srcImages/dbg_benchmark.2.tif ../testdata/srcImages/dbg_benchmark.3.tif",
@@ -129,7 +129,7 @@ def write_config(version, config):
 			debug += " -DREADFLOPS"
 		if 'perfunc' in config and config['perfunc']:
 			debug += " -DCOST_MODEL_PERFUNC"
-		if 'weights_only' in config and config['weights_only']:
+		if 'no_pyramids' in config and config['no_pyramids']:
 			debug += " -DNO_PYRAMIDS"
 		add_config("CF_DEBUG", debug, f)
 

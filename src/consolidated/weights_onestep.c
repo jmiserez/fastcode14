@@ -23,6 +23,7 @@ FORCE_INLINE double single_pixel(double *im, int center, int top, int left, int 
     double r4 = im[bottom];
     double g4 = im[bottom+1];
     double b4 = im[bottom+2];
+    COST_INC_LOAD(15);
 
     double rw = 0.2989;
     double gw = 0.5870;
@@ -100,6 +101,7 @@ void convolve_calculate(double* im, uint32_t r, uint32_t c, double* dst){
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*top,3*left,3*right,3*bottom);
+            COST_INC_STORE(1);
         }
 
     }
@@ -114,6 +116,7 @@ void convolve_calculate(double* im, uint32_t r, uint32_t c, double* dst){
         dst[center] = single_pixel(im,
                                    3*center,
                                    3*center,3*left,3*right,3*bottom);
+        COST_INC_STORE(1);
     }
     //bottom row
     i = r-1;
@@ -125,6 +128,7 @@ void convolve_calculate(double* im, uint32_t r, uint32_t c, double* dst){
         dst[center] = single_pixel(im,
                                    3*center,
                                    3*top,3*left,3*right,3*center);
+        COST_INC_STORE(1);
     }
     //left edge
     j = 0;
@@ -136,6 +140,7 @@ void convolve_calculate(double* im, uint32_t r, uint32_t c, double* dst){
         dst[center] = single_pixel(im,
                                    3*center,
                                    3*top,3*center,3*right,3*bottom);
+        COST_INC_STORE(1);
     }
     //right edge
     j = c-1;
@@ -147,6 +152,7 @@ void convolve_calculate(double* im, uint32_t r, uint32_t c, double* dst){
         dst[center] = single_pixel(im,
                                    3*center,
                                    3*top,3*left,3*center,3*bottom);
+        COST_INC_STORE(1);
     }
     //corners
     //top left
@@ -158,6 +164,7 @@ void convolve_calculate(double* im, uint32_t r, uint32_t c, double* dst){
     dst[center] = single_pixel(im,
                                3*center,
                                3*center,3*center,3*right,3*bottom);
+    COST_INC_STORE(1);
     //top right
     i = 0;
     j = c-1;
@@ -167,6 +174,7 @@ void convolve_calculate(double* im, uint32_t r, uint32_t c, double* dst){
     dst[center] = single_pixel(im,
                                3*center,
                                3*center,3*left,3*center,3*bottom);
+    COST_INC_STORE(1);
     //bottom left
     i = r-1;
     j = 0;
@@ -176,6 +184,7 @@ void convolve_calculate(double* im, uint32_t r, uint32_t c, double* dst){
     dst[center] = single_pixel(im,
                                3*center,
                                3*top,3*center,3*right,3*center);
+    COST_INC_STORE(1);
     //bottom right
     i = r-1;
     j = c-1;
@@ -185,6 +194,7 @@ void convolve_calculate(double* im, uint32_t r, uint32_t c, double* dst){
     dst[center] = single_pixel(im,
                                3*center,
                                3*top,3*left,3*center,3*center);
+    COST_INC_STORE(1);
 }
 
 void weights(uint32_t nimages, uint32_t r, uint32_t c,
@@ -202,11 +212,14 @@ void weights(uint32_t nimages, uint32_t r, uint32_t c,
                 int at = (i*c+j);
                 double *Wn = W[n];
                 sum += Wn[at]; COST_INC_ADD(1);
+                COST_INC_LOAD(1);
             }
             for (int n = 0; n < nimages; n++){
                 int at = (i*c+j);
                 double *Wn = W[n];
                 Wn[at] = Wn[at] / sum; COST_INC_DIV(1); //beware of division by zero
+                COST_INC_LOAD(1);
+                COST_INC_STORE(1);
             }
         }
     }

@@ -33,6 +33,8 @@ void blend(uint32_t nimages, uint32_t nlev,
                     pyr[v][p_idx3+1] = pyrW[n][v][pW_idx] * pyrI[n][v][pI_idx3+1];
                     pyr[v][p_idx3+2] = pyrW[n][v][pW_idx] * pyrI[n][v][pI_idx3+2];
                     COST_INC_MUL(3);
+                    COST_INC_LOAD(6);
+                    COST_INC_STORE(3);
                 }
             }
         }
@@ -50,6 +52,8 @@ void blend(uint32_t nimages, uint32_t nlev,
                     pyr[v][p_idx3+2] += pyrW[n][v][pW_idx] * pyrI[n][v][pI_idx3+2];
                     COST_INC_ADD(3);
                     COST_INC_MUL(3);
+                    COST_INC_LOAD(9);
+                    COST_INC_STORE(3);
                 }
             }
         }
@@ -62,12 +66,16 @@ void reconstruct_laplacian_pyramid(uint32_t nlev, double *tmp_fullsize, double *
         upsample(pyr[v+1],pyr_r[v+1],pyr_c[v+1],pyr_r[v],pyr_c[v],tmp_halfsize,tmp2_fullsize);
         for(int i = 0; i < pyr_r[v]*pyr_c[v]*3; i++){
             dst[i] = pyr[v][i] + tmp2_fullsize[i]; COST_INC_ADD(1);
+            COST_INC_LOAD(2);
+            COST_INC_STORE(1);
         }
     }
     for (int v = nlev-3; v >= 0; v--){
         upsample(dst,pyr_r[v+1],pyr_c[v+1],pyr_r[v],pyr_c[v],tmp_halfsize,tmp2_fullsize);
         for(int i = 0; i < pyr_r[v]*pyr_c[v]*3; i++){
             dst[i] = pyr[v][i] + tmp2_fullsize[i]; COST_INC_ADD(1);
+            COST_INC_LOAD(2);
+            COST_INC_STORE(1);
         }
     }
 }
@@ -100,6 +108,8 @@ void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t nlev, double
         upsample(tmp2_quartsize,S_r,S_c,pyr_r[v],pyr_c[v],tmp_halfsize,pyr[v]);
         for(int i = 0; i < T_r*T_c*3; i++){
             pyr[v][i] = im[i] - pyr[v][i]; COST_INC_ADD(1);
+            COST_INC_LOAD(2);
+            COST_INC_STORE(1);
         }
         T_r = S_r;
         T_c = S_c;
@@ -114,6 +124,8 @@ void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t nlev, double
         upsample(tmp2_quartsize,S_r,S_c,pyr_r[v],pyr_c[v],tmp_halfsize,pyr[v]);
         for(int i = 0; i < T_r*T_c*3; i++){
             pyr[v][i] = tmp_quartsize[i] - pyr[v][i]; COST_INC_ADD(1);
+            COST_INC_LOAD(2);
+            COST_INC_STORE(1);
         }
         T_r = S_r;
         T_c = S_c;
@@ -121,10 +133,9 @@ void laplacian_pyramid(double *im, uint32_t r, uint32_t c, uint32_t nlev, double
         tmp_quartsize = tmp2_quartsize;
         tmp2_quartsize = tmp;
     }
-//    memcpy(&(pyr[nlev-1][0]),&(tmp_quartsize[0]),T_r*T_c*3*sizeof(double));
-    for(int i = 0; i < T_r*T_c*3; i++){
-        pyr[nlev-1][i] = tmp_quartsize[i];
-    }
+    memcpy(&(pyr[nlev-1][0]),&(tmp_quartsize[0]),T_r*T_c*3*sizeof(double));
+    COST_INC_LOAD(T_r*T_c*3);
+    COST_INC_STORE(T_r*T_c*3);
 }
 
 /**
@@ -163,6 +174,8 @@ void downsample(double *im, uint32_t r, uint32_t c, double *tmp_halfsize, uint32
                         im[i5_idx3+2]*.0625;
                 COST_INC_ADD(12);
                 COST_INC_MUL(15);
+                COST_INC_LOAD(15);
+                COST_INC_STORE(3);
         }
         //left edge
         int j = 0; // 1 0 [0 1 2 ... ]
@@ -173,6 +186,8 @@ void downsample(double *im, uint32_t r, uint32_t c, double *tmp_halfsize, uint32
                     im[((i  )*c+(j+2))*3+k]*.0625;
             COST_INC_ADD(2);
             COST_INC_MUL(3);
+            COST_INC_LOAD(3);
+            COST_INC_STORE(1);
         }
         //right edge
         if((c-2) % 2 == 0){
@@ -185,6 +200,8 @@ void downsample(double *im, uint32_t r, uint32_t c, double *tmp_halfsize, uint32
                         im[((i  )*c+(j+1))*3+k]*.3125;
                 COST_INC_ADD(3);
                 COST_INC_MUL(4);
+                COST_INC_LOAD(4);
+                COST_INC_STORE(1);
             }
         }else{
             j = c-1; // [ ... -2 -1 0] 0 -1
@@ -195,6 +212,8 @@ void downsample(double *im, uint32_t r, uint32_t c, double *tmp_halfsize, uint32
                         im[((i  )*c+(j  ))*3+k]*.625;
                 COST_INC_ADD(2);
                 COST_INC_MUL(3);
+                COST_INC_LOAD(3);
+                COST_INC_STORE(1);
             }
         }
     }
@@ -231,6 +250,8 @@ void downsample(double *im, uint32_t r, uint32_t c, double *tmp_halfsize, uint32
                     tmp_halfsize[i5_idx3+2]*.0625;
             COST_INC_ADD(12);
             COST_INC_MUL(15);
+            COST_INC_LOAD(15);
+            COST_INC_STORE(3);
         }
         //top edge
         int i = 0; // 1 0 [0 1 2 ... ]
@@ -242,6 +263,8 @@ void downsample(double *im, uint32_t r, uint32_t c, double *tmp_halfsize, uint32
                     tmp_halfsize[((i+2)*c+(j  ))*3+k]*.0625;
             COST_INC_ADD(2);
             COST_INC_MUL(3);
+            COST_INC_LOAD(3);
+            COST_INC_STORE(1);
         }
         //bottom edge
         if((r-2) % 2 == 0){
@@ -255,6 +278,8 @@ void downsample(double *im, uint32_t r, uint32_t c, double *tmp_halfsize, uint32
                         tmp_halfsize[((i+1)*c+(j  ))*3+k]*.3125;
                 COST_INC_ADD(3);
                 COST_INC_MUL(4);
+                COST_INC_LOAD(4);
+                COST_INC_STORE(1);
             }
         }else{
             i = r-1; // [ ... -2 -1 0] 0 -1
@@ -266,6 +291,8 @@ void downsample(double *im, uint32_t r, uint32_t c, double *tmp_halfsize, uint32
                         tmp_halfsize[((i  )*c+(j  ))*3+k]*.625;
                 COST_INC_ADD(2);
                 COST_INC_MUL(3);
+                COST_INC_LOAD(3);
+                COST_INC_STORE(1);
             }
         }
     }
@@ -288,6 +315,8 @@ void downsample_1channel(double *im, uint32_t r, uint32_t c, double *tmp_halfsiz
                     im[((i  )*c+(j+2))]*.0625;
             COST_INC_ADD(4);
             COST_INC_MUL(5);
+            COST_INC_LOAD(5);
+            COST_INC_STORE(1);
         }
         //left edge
         int j = 0; // 1 0 [0 1 2 ... ]
@@ -297,6 +326,8 @@ void downsample_1channel(double *im, uint32_t r, uint32_t c, double *tmp_halfsiz
                 im[((i  )*c+(j+2))]*.0625;
         COST_INC_ADD(2);
         COST_INC_MUL(3);
+        COST_INC_LOAD(3);
+        COST_INC_STORE(1);
         //right edge
         if((c-2) % 2 == 0){
             j = c-2; // [ ... -2 -1 0 1] 1
@@ -307,6 +338,8 @@ void downsample_1channel(double *im, uint32_t r, uint32_t c, double *tmp_halfsiz
                     im[((i  )*c+(j+1))]*.3125;
             COST_INC_ADD(3);
             COST_INC_MUL(4);
+            COST_INC_LOAD(4);
+            COST_INC_STORE(1);
         }else{
             j = c-1; // [ ... -2 -1 0] 0 -1
             tmp_halfsize[(i*c2+(j/2))] =
@@ -315,6 +348,8 @@ void downsample_1channel(double *im, uint32_t r, uint32_t c, double *tmp_halfsiz
                     im[((i  )*c+(j  ))]*.625;
             COST_INC_ADD(2);
             COST_INC_MUL(3);
+            COST_INC_LOAD(3);
+            COST_INC_STORE(1);
         }
     }
     //vertical filter
@@ -330,6 +365,8 @@ void downsample_1channel(double *im, uint32_t r, uint32_t c, double *tmp_halfsiz
                     tmp_halfsize[((i+2)*c+(j  ))]*.0625;
             COST_INC_ADD(4);
             COST_INC_MUL(5);
+            COST_INC_LOAD(5);
+            COST_INC_STORE(1);
         }
         //top edge
         int i = 0; // 1 0 [0 1 2 ... ]
@@ -340,6 +377,8 @@ void downsample_1channel(double *im, uint32_t r, uint32_t c, double *tmp_halfsiz
                 tmp_halfsize[((i+2)*c+(j  ))]*.0625;
         COST_INC_ADD(2);
         COST_INC_MUL(3);
+        COST_INC_LOAD(3);
+        COST_INC_STORE(1);
         //bottom edge
         if((r-2) % 2 == 0){
             i = r-2; // [ ... -2 -1 0 1] 1
@@ -351,6 +390,8 @@ void downsample_1channel(double *im, uint32_t r, uint32_t c, double *tmp_halfsiz
                     tmp_halfsize[((i+1)*c+(j  ))]*.3125;
             COST_INC_ADD(3);
             COST_INC_MUL(4);
+            COST_INC_LOAD(4);
+            COST_INC_STORE(1);
         }else{
             i = r-1; // [ ... -2 -1 0] 0 -1
             i2 = i/2+((i-2) % 2);
@@ -360,6 +401,8 @@ void downsample_1channel(double *im, uint32_t r, uint32_t c, double *tmp_halfsiz
                     tmp_halfsize[((i  )*c+(j  ))]*.625;
             COST_INC_ADD(2);
             COST_INC_MUL(3);
+            COST_INC_LOAD(3);
+            COST_INC_STORE(1);
         }
     }
 }
@@ -401,6 +444,8 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t up_r, uint32_t up_c, 
                     im[i5_idx3+2];
             COST_INC_ADD(9);
             COST_INC_MUL(9);
+            COST_INC_LOAD(15);
+            COST_INC_STORE(6);
         }
         //left edge
         int j = 0; // 0 0 [0 1 2 ... ]
@@ -410,6 +455,8 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t up_r, uint32_t up_c, 
                     0.25*im[((i  )*c+(j/2+1))*3+k];
             COST_INC_ADD(1);
             COST_INC_MUL(2);
+            COST_INC_LOAD(2);
+            COST_INC_STORE(1);
         }
         j = 1; // -1 [-1 0 1 2 ... ]
         for(int k = 0; k < 3; k++){
@@ -417,6 +464,8 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t up_r, uint32_t up_c, 
                     im[((i  )*c+(j/2))*3+k] +
                     im[((i  )*c+(j/2+1))*3+k];
             COST_INC_ADD(1);
+            COST_INC_LOAD(2);
+            COST_INC_STORE(1);
         }
         if(up_c % 2 == 0){
             //right edge
@@ -427,12 +476,16 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t up_r, uint32_t up_c, 
                         1.75*im[((i  )*c+(j/2  ))*3+k];
                 COST_INC_ADD(1);
                 COST_INC_MUL(2);
+                COST_INC_LOAD(2);
+                COST_INC_STORE(1);
             }
             j = up_c-1; // [ ... -2 -1 0] 0 0
             for(int k = 0; k < 3; k++){
                 tmp_halfsize[(i*up_c+j)*3+k] =
                         2.0*im[((i  )*c+(j/2))*3+k];
                 COST_INC_MUL(1);
+                COST_INC_LOAD(1);
+                COST_INC_STORE(1);
             }
         } else {
             //right edge (remaining)
@@ -443,6 +496,8 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t up_r, uint32_t up_c, 
                         1.75*im[((i  )*c+(j/2  ))*3+k];
                 COST_INC_ADD(1);
                 COST_INC_MUL(2);
+                COST_INC_LOAD(2);
+                COST_INC_STORE(1);
             }
         }
     }
@@ -479,6 +534,8 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t up_r, uint32_t up_c, 
                     tmp_halfsize[i3_idx3+2]*.25;
             COST_INC_ADD(9);
             COST_INC_MUL(15);
+            COST_INC_LOAD(15);
+            COST_INC_STORE(6);
         }
         //top edge
         int i = 0; // 0 0 [0 1 2 ... ]
@@ -488,6 +545,8 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t up_r, uint32_t up_c, 
                     tmp_halfsize[((i+1)*up_c+(j  ))*3+k]*.0625;
             COST_INC_ADD(1);
             COST_INC_MUL(2);
+            COST_INC_LOAD(2);
+            COST_INC_STORE(1);
         }
         for(int k = 0; k < 3; k++){
             dst[((2*0+1)*up_c+j)*3+k] =
@@ -495,6 +554,8 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t up_r, uint32_t up_c, 
                     tmp_halfsize[((i+1)*up_c+(j  ))*3+k]*.25;
             COST_INC_ADD(1);
             COST_INC_MUL(2);
+            COST_INC_LOAD(2);
+            COST_INC_STORE(1);
         }
         if(up_r % 2 == 0){
             //bottom edge
@@ -505,12 +566,16 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t up_r, uint32_t up_c, 
                         tmp_halfsize[((i  )*up_c+(j  ))*3+k]*.4375;
                 COST_INC_ADD(1);
                 COST_INC_MUL(2);
+                COST_INC_LOAD(2);
+                COST_INC_STORE(1);
             }
             // [ ... -2 -1 0] 0 0
             for(int k = 0; k < 3; k++){
                 dst[((2*i+1)*up_c+j)*3+k] =
                         tmp_halfsize[((i)*up_c+(j  ))*3+k]*.5;
                 COST_INC_MUL(1);
+                COST_INC_LOAD(1);
+                COST_INC_STORE(1);
             }
         }else{
             //bottom edge
@@ -521,6 +586,8 @@ void upsample(double *im, uint32_t r, uint32_t c, uint32_t up_r, uint32_t up_c, 
                         tmp_halfsize[((i  )*up_c+(j  ))*3+k]*.4375;
                 COST_INC_ADD(1);
                 COST_INC_MUL(2);
+                COST_INC_LOAD(2);
+                COST_INC_STORE(1);
             }
         }
     }

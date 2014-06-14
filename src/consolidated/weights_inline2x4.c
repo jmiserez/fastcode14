@@ -23,6 +23,7 @@ FORCE_INLINE double single_pixel(double *im, int center, int top, int left, int 
     double r4 = im[bottom];
     double g4 = im[bottom+1];
     double b4 = im[bottom+2];
+    COST_INC_LOAD(15);
 
     double rw = 0.2989;
     double gw = 0.5870;
@@ -358,7 +359,6 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
         double d3456_9 = im[d1_x3+3];
         double d3456_10 = im[d1_x3+4];
         double d3456_11 = im[d1_x3+5];
-
 
         double c3456_grey_0 = 0;
         double c3456_grey_1 = 0;
@@ -991,12 +991,17 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[d2c+3] = x13_d2345_3;
 
             COST_INC_MUL(160);
-            COST_INC_ADD(144);
+            COST_INC_ADD(152);
             COST_INC_DIV(16);
             COST_INC_EXP(24);
             COST_INC_SQRT(8);
             COST_INC_ABS(24);
+            COST_INC_LOAD(48);
+            COST_INC_STORE(8);
         }
+        COST_INC_MUL(12);
+        COST_INC_ADD(8);
+        COST_INC_LOAD(12);
     }
 }
 
@@ -1031,11 +1036,14 @@ void weights(uint32_t nimages, uint32_t r, uint32_t c,
                 int at = (i*c+j);
                 double *Wn = W[n];
                 sum += Wn[at]; COST_INC_ADD(1);
+                COST_INC_LOAD(1);
             }
             for (int n = 0; n < nimages; n++){
                 int at = (i*c+j);
                 double *Wn = W[n];
                 Wn[at] = Wn[at] / sum; COST_INC_DIV(1); //beware of division by zero
+                COST_INC_LOAD(1);
+                COST_INC_STORE(1);
             }
         }
     }

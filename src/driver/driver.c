@@ -30,6 +30,7 @@
 
 COST_VARIABLES_HERE
 struct perf_data *global_perf_data;
+bool global_perf_measuring = false;
 
 typedef struct {
     char* log_file;
@@ -104,6 +105,7 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
         "CACHE-MISSES",
         NULL
     };
+    global_perf_measuring = false;
 
     ret = perf_init(events, &global_perf_data);
     if (ret < 0) {
@@ -247,8 +249,10 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
 #ifndef COST_MODEL_PERFUNC
             perf_start(global_perf_data);
 #endif
+            global_perf_measuring = true;
             fusion_compute(target_images, tc->contrast,
                     tc->saturation, tc->well_exposed, fusion_data);
+            global_perf_measuring = false;
 #ifndef COST_MODEL_PERFUNC
             perf_stop(global_perf_data);
 #endif
@@ -300,11 +304,20 @@ COST_MODEL_LOADF
             printf("  Mul: %"PRI_COST"\n", COST_MUL);
             printf("  Div: %"PRI_COST"\n", COST_DIV);
             printf("  Pow: %"PRI_COST"\n", COST_POW);
-            printf("  Abs: %"PRI_COST" (x2)\n", COST_ABS);
-            printf("  Sqrt: %"PRI_COST" (x10)\n", COST_SQRT);
-            printf("  Exp: %"PRI_COST" (x50)\n", COST_EXP);
+            printf("  Abs: %"PRI_COST" \n", COST_ABS);
+            printf("  Sqrt: %"PRI_COST" \n", COST_SQRT);
+            printf("  Exp: %"PRI_COST" (x29)\n", COST_EXP);
+            printf("  Other: %"PRI_COST" \n", COST_OTHER);
 
-            double flops = COST_ADD + COST_MUL + COST_DIV + COST_POW + 2*COST_ABS + 10*COST_SQRT + 50*COST_EXP;
+            double flops =
+                    COST_ADD +
+                    COST_MUL +
+                    COST_DIV +
+                    COST_POW +
+                    COST_ABS +
+                    COST_SQRT +
+                    29*COST_EXP +
+                    COST_OTHER;
 
             fp = fopen(file_name,"a"); // read mode
 

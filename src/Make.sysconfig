@@ -1,7 +1,7 @@
 VERSION    = consolidated
 VERSION_SUFFIX = .avx
-CF_COST    = 
-CF_WARMUP  = -DWARMUP_COUNT=1
-CF_OPT     = -O3 -Ofast -m64 -march=corei7-avx -ffast-math
-CF_DEBUG   =  -DNDEBUG -DREADFLOPS -DNO_PYRAMIDS
+CF_COST    = -DCOST_MEASURE
+CF_WARMUP  = -DWARMUP_COUNT=0
+CF_OPT     = -O3 -m64 -march=corei7-avx
+CF_DEBUG   =  -DDEBUG -g -DCOST_MODEL_PERFUNC
 CF_CONFIG  = $(CF_OPT) $(CF_COST) $(CF_WARMUP) $(CF_DEBUG)

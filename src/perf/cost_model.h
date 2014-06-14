@@ -41,6 +41,7 @@
 #define COST_ABS ((const COST_T) 0)
 #define COST_SQRT ((const COST_T) 0)
 #define COST_EXP ((const COST_T) 0)
+#define COST_OTHER ((const COST_T) 0)
 
 #define COSTF_LOAD ((const COST_T) 0)
 #define COSTF_STORE ((const COST_T) 0)
@@ -51,6 +52,7 @@
 #define COSTF_ABS ((const COST_T) 0)
 #define COSTF_SQRT ((const COST_T) 0)
 #define COSTF_EXP ((const COST_T) 0)
+#define COSTF_OTHER ((const COST_T) 0)
 
 
 #define COST_INC_LOAD(x)
@@ -62,6 +64,7 @@
 #define COST_INC_ABS(x)
 #define COST_INC_SQRT(x)
 #define COST_INC_EXP(x)
+#define COST_INC_OTHER(x)
 
 #else
 
@@ -74,6 +77,7 @@ extern COST_T __cost_pow;
 extern COST_T __cost_abs;
 extern COST_T __cost_sqrt;
 extern COST_T __cost_exp;
+extern COST_T __cost_other;
 
 extern COST_T __costF_load;
 extern COST_T __costF_store;
@@ -84,6 +88,7 @@ extern COST_T __costF_pow;
 extern COST_T __costF_abs;
 extern COST_T __costF_sqrt;
 extern COST_T __costF_exp;
+extern COST_T __costF_other;
 
 extern COST_T __costM_load;
 extern COST_T __costM_store;
@@ -94,6 +99,7 @@ extern COST_T __costM_pow;
 extern COST_T __costM_abs;
 extern COST_T __costM_sqrt;
 extern COST_T __costM_exp;
+extern COST_T __costM_other;
 
 #define COST_VARIABLES_HERE  \
     COST_T __costF_load = 0;   \
@@ -105,7 +111,7 @@ extern COST_T __costM_exp;
     COST_T __costF_abs = 0;   \
     COST_T __costF_sqrt = 0;  \
     COST_T __costF_exp = 0;  \
-    COST_T __costF_cmp = 0;   \
+    COST_T __costF_other = 0;   \
     COST_T __costM_load = 0;   \
     COST_T __costM_store = 0;   \
     COST_T __costM_add = 0;   \
@@ -115,7 +121,7 @@ extern COST_T __costM_exp;
     COST_T __costM_abs = 0;   \
     COST_T __costM_sqrt = 0;  \
     COST_T __costM_exp = 0;  \
-    COST_T __costM_cmp = 0;   \
+    COST_T __costM_other = 0;   \
     COST_T __cost_load = 0;   \
     COST_T __cost_store = 0;   \
     COST_T __cost_add = 0;   \
@@ -124,7 +130,8 @@ extern COST_T __costM_exp;
     COST_T __cost_pow = 0;   \
     COST_T __cost_abs = 0;   \
     COST_T __cost_sqrt = 0;  \
-    COST_T __cost_exp = 0;
+    COST_T __cost_exp = 0;  \
+    COST_T __cost_other = 0;
 
 #define COST_MODEL_RESET \
     __costF_load = 0;   \
@@ -136,7 +143,7 @@ extern COST_T __costM_exp;
     __costF_abs = 0;   \
     __costF_sqrt = 0;  \
     __costF_exp = 0;  \
-    __costF_cmp = 0;   \
+    __costF_other = 0;   \
     __costM_load = 0;   \
     __costM_store = 0;   \
     __costM_add = 0;   \
@@ -146,7 +153,7 @@ extern COST_T __costM_exp;
     __costM_abs = 0;   \
     __costM_sqrt = 0;  \
     __costM_exp = 0;  \
-    __costM_cmp = 0;   \
+    __costM_other = 0;   \
     __cost_load = 0;      \
     __cost_store = 0;      \
     __cost_add = 0;      \
@@ -155,7 +162,8 @@ extern COST_T __costM_exp;
     __cost_pow = 0;      \
     __cost_abs = 0;      \
     __cost_sqrt = 0;      \
-    __cost_exp = 0;
+    __cost_exp = 0;      \
+    __cost_other = 0;
 
 #define COST_MODEL_LOADF { __cost_load = __costF_load; \
     __cost_store = __costF_store; \
@@ -165,7 +173,8 @@ extern COST_T __costM_exp;
     __cost_pow = __costF_pow; \
     __cost_abs = __costF_abs; \
     __cost_sqrt = __costF_sqrt; \
-    __cost_exp = __costF_exp; }
+    __cost_exp = __costF_exp; \
+    __cost_other = __costF_other; }
 
 #define COST_LOAD ((const COST_T) __cost_load)
 #define COST_STORE ((const COST_T) __cost_store)
@@ -176,6 +185,7 @@ extern COST_T __costM_exp;
 #define COST_ABS ((const COST_T) __cost_abs)
 #define COST_SQRT ((const COST_T) __cost_sqrt)
 #define COST_EXP ((const COST_T) __cost_exp)
+#define COST_OTHER ((const COST_T) __cost_other)
 
 #define COSTF_LOAD ((const COST_T) __costF_load)
 #define COSTF_STORE ((const COST_T) __costF_store)
@@ -186,6 +196,7 @@ extern COST_T __costM_exp;
 #define COSTF_ABS ((const COST_T) __costF_abs)
 #define COSTF_SQRT ((const COST_T) __costF_sqrt)
 #define COSTF_EXP ((const COST_T) __costF_exp)
+#define COSTF_OTHER ((const COST_T) __costF_other)
 
 #define COST_INC_LOAD(x) {__cost_load += (x);}
 #define COST_INC_STORE(x) {__cost_store += (x);}
@@ -196,6 +207,7 @@ extern COST_T __costM_exp;
 #define COST_INC_ABS(x) {__cost_abs += (x);}
 #define COST_INC_SQRT(x) {__cost_sqrt += (x);}
 #define COST_INC_EXP(x) {__cost_exp += (x);}
+#define COST_INC_OTHER(x) {__cost_other += (x);}
 
 #define COST_FUNC_ENTER {__costM_load = __cost_load; \
                          __costM_store = __cost_store; \
@@ -204,8 +216,9 @@ extern COST_T __costM_exp;
                          __costM_div = __cost_div; \
                          __costM_pow = __cost_pow; \
                          __costM_abs = __cost_abs; \
-                         __costM_sqrt = __cost_sqrt; \
-                         __costM_exp = __cost_exp;}
+                        __costM_sqrt = __cost_sqrt; \
+                        __costM_exp = __cost_exp; \
+                         __costM_other = __cost_other;}
 
 #define COST_FUNC_EXIT {__costF_load += __cost_load-__costM_load; \
                          __costF_store += __cost_store - __costM_store; \
@@ -215,6 +228,7 @@ extern COST_T __costM_exp;
                          __costF_pow += __cost_pow - __costM_pow; \
                          __costF_abs += __cost_abs - __costM_abs; \
                          __costF_sqrt += __cost_sqrt - __costM_sqrt; \
-                         __costF_exp += __cost_exp - __costM_exp;}
+                         __costF_exp += __cost_exp - __costM_exp; \
+                         __costF_other += __cost_other - __costM_other;}
 
 #endif

@@ -23,6 +23,7 @@ FORCE_INLINE double single_pixel(double *im, int center, int top, int left, int 
     double r4 = im[bottom];
     double g4 = im[bottom+1];
     double b4 = im[bottom+2];
+    COST_INC_LOAD(15);
 
     double rw = 0.2989;
     double gw = 0.5870;
@@ -120,6 +121,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*center,3*center,3*right,3*bottom);
+            COST_INC_LOAD(1);
+            COST_INC_STORE(1);
         }
         if( jj + N == c){
             //top right
@@ -131,6 +134,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*center,3*left,3*center,3*bottom);
+            COST_INC_LOAD(1);
+            COST_INC_STORE(1);
         }
         //need to fill in top row
         int i = 0;
@@ -142,6 +147,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*center,3*left,3*right,3*bottom);
+            COST_INC_LOAD(1);
+            COST_INC_STORE(1);
         }
     }
     if(ii + N == r){
@@ -155,6 +162,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*top,3*center,3*right,3*center);
+            COST_INC_LOAD(1);
+            COST_INC_STORE(1);
         }
         if( jj + N == c){
             //bottom right
@@ -166,6 +175,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*top,3*left,3*center,3*center);
+            COST_INC_LOAD(1);
+            COST_INC_STORE(1);
         }
         //need to fill in bottom row
         int i = r-1;
@@ -177,6 +188,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*top,3*left,3*right,3*center);
+            COST_INC_LOAD(1);
+            COST_INC_STORE(1);
         }
     }
     if( jj == 0){
@@ -190,6 +203,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*top,3*center,3*right,3*bottom);
+            COST_INC_LOAD(1);
+            COST_INC_STORE(1);
         }
     }
     if( jj + N == c){
@@ -203,6 +218,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*top,3*left,3*center,3*bottom);
+            COST_INC_LOAD(1);
+            COST_INC_STORE(1);
         }
     }
 
@@ -236,6 +253,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
                 dst[center] = single_pixel(im,
                                            3*center,
                                            3*top,3*left,3*right,3*bottom);
+                COST_INC_LOAD(1);
+                COST_INC_STORE(1);
             }
         }
     }
@@ -254,6 +273,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
                 dst[center] = single_pixel(im,
                                            3*center,
                                            3*top,3*left,3*right,3*bottom);
+                COST_INC_LOAD(1);
+                COST_INC_STORE(1);
             }
         }
     }
@@ -312,6 +333,7 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
                 d4_prev_r * rW +
                 d4_prev_g * gW +
                 d4_prev_b * bW;
+
         for(j = j_start; j < j_end; j+=2){
 
             int t2c = (i-1)*c+j;
@@ -333,6 +355,7 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             int d4x3 = 3*((i+1)*c+j+2);
             int b2x3 = 3*((i+2)*c+j);
             int b3x3 = 3*((i+2)*c+j+1);
+
 
             double t2_r = im[t2x3];
             double t2_g = im[t2x3+1];
@@ -374,6 +397,7 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             double b3_g = im[b3x3+1];
             double b3_b = im[b3x3+2];
 
+
             double t2 = rW * t2_r + gW * t2_g + bW * t2_b;
             double t3 = rW * t3_r + gW * t3_g + bW * t3_b;
             double c1 = c3_prev;
@@ -390,7 +414,6 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             d4_prev = d4;
             double b2 = rW * b2_r + gW * b2_g + bW * b2_b;
             double b3 = rW * b3_r + gW * b3_g + bW * b3_b;
-
 
 
             double c2_mu = (c2_r + c2_g + c2_b) / 3.0;
@@ -424,6 +447,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             double d3_rmu2 = d3_rmu * d3_rmu;
             double d3_gmu2 = d3_gmu * d3_gmu;
             double d3_bmu2 = d3_bmu * d3_bmu;
+
+
 
             double c2_rz = c2_r - 0.5;
             double c2_gz = c2_g - 0.5;
@@ -522,7 +547,11 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             COST_INC_EXP(12);
             COST_INC_SQRT(4);
             COST_INC_ABS(12);
+            COST_INC_LOAD(24);
+            COST_INC_STORE(4);
         }
+        COST_INC_MUL(12);
+        COST_INC_ADD(8);
     }
 }
 
@@ -557,11 +586,14 @@ void weights(uint32_t nimages, uint32_t r, uint32_t c,
                 int at = (i*c+j);
                 double *Wn = W[n];
                 sum += Wn[at]; COST_INC_ADD(1);
+                COST_INC_LOAD(1);
             }
             for (int n = 0; n < nimages; n++){
                 int at = (i*c+j);
                 double *Wn = W[n];
                 Wn[at] = Wn[at] / sum; COST_INC_DIV(1); //beware of division by zero
+                COST_INC_LOAD(1);
+                COST_INC_STORE(1);
             }
         }
     }

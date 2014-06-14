@@ -12,6 +12,7 @@ void weights(uint32_t nimages, uint32_t npixels, uint32_t r, uint32_t c,
             double r = I[n][i*3];
             double g = I[n][i*3+1];
             double b = I[n][i*3+2];
+            COST_INC_LOAD(3);
             double grey = 0.2989 * r + 0.5870 * g + 0.1140 * b; //retain luminance, discard hue and saturation
             COST_INC_ADD(2);
             COST_INC_MUL(3);
@@ -49,8 +50,10 @@ void weights(uint32_t nimages, uint32_t npixels, uint32_t r, uint32_t c,
             COST_INC_MUL(2);
             //store weights for sat and wexp in separate array
             tmp2_weights[i] = factor_sat * factor_wexp;
+            COST_INC_STORE(1);
             //store greyscale image
             tmp_weights[i] = grey;
+            COST_INC_STORE(1);
         }
         conv3x3_mult_monochrome_replicate(tmp_weights,r,c,tmp2_weights,W[n]);
     }
@@ -63,11 +66,14 @@ void weights(uint32_t nimages, uint32_t npixels, uint32_t r, uint32_t c,
                 int at = (i*c+j);
                 double *Wn = W[n];
                 sum += Wn[at]; COST_INC_ADD(1);
+                COST_INC_LOAD(1);
             }
             for (int n = 0; n < nimages; n++){
                 int at = (i*c+j);
                 double *Wn = W[n];
                 Wn[at] = Wn[at] / sum; COST_INC_DIV(1); //beware of division by zero
+                COST_INC_LOAD(1);
+                COST_INC_STORE(1);
             }
         }
     }
@@ -88,6 +94,8 @@ void conv3x3_mult_monochrome_replicate(double* im, uint32_t r, uint32_t c, doubl
              COST_INC_ADD(4);
              COST_INC_MUL(1);
              COST_INC_ABS(1);
+             COST_INC_LOAD(6);
+             COST_INC_STORE(1);
         }
     }
     //edges
@@ -100,6 +108,8 @@ void conv3x3_mult_monochrome_replicate(double* im, uint32_t r, uint32_t c, doubl
         COST_INC_ADD(4);
         COST_INC_MUL(1);
         COST_INC_ABS(1);
+        COST_INC_LOAD(6);
+        COST_INC_STORE(1);
         j = c-1;
         dst[i*c+j] = 1.0E-12 + factors[i*c+j] * fabs(
                 im[(i-1)*c+(j)] +
@@ -108,6 +118,8 @@ void conv3x3_mult_monochrome_replicate(double* im, uint32_t r, uint32_t c, doubl
         COST_INC_ADD(4);
         COST_INC_MUL(1);
         COST_INC_ABS(1);
+        COST_INC_LOAD(6);
+        COST_INC_STORE(1);
     }
     for(int j = 1; j < c-1; j++){
         int i = 0;
@@ -118,6 +130,8 @@ void conv3x3_mult_monochrome_replicate(double* im, uint32_t r, uint32_t c, doubl
         COST_INC_ADD(4);
         COST_INC_MUL(1);
         COST_INC_ABS(1);
+        COST_INC_LOAD(6);
+        COST_INC_STORE(1);
         i = r-1;
         dst[i*c+j] = 1.0E-12 + factors[i*c+j] * fabs(
                 im[(i-1)*c+(j)] +
@@ -126,6 +140,8 @@ void conv3x3_mult_monochrome_replicate(double* im, uint32_t r, uint32_t c, doubl
         COST_INC_ADD(4);
         COST_INC_MUL(1);
         COST_INC_ABS(1);
+        COST_INC_LOAD(6);
+        COST_INC_STORE(1);
     }
     //corners
     //top left
@@ -138,6 +154,8 @@ void conv3x3_mult_monochrome_replicate(double* im, uint32_t r, uint32_t c, doubl
     COST_INC_ADD(4);
     COST_INC_MUL(1);
     COST_INC_ABS(1);
+    COST_INC_LOAD(6);
+    COST_INC_STORE(1);
     //top right
     i = 0;
     j = c-1;
@@ -148,6 +166,8 @@ void conv3x3_mult_monochrome_replicate(double* im, uint32_t r, uint32_t c, doubl
     COST_INC_ADD(4);
     COST_INC_MUL(1);
     COST_INC_ABS(1);
+    COST_INC_LOAD(6);
+    COST_INC_STORE(1);
     //bottom left
     i = r-1;
     j = 0;
@@ -158,6 +178,8 @@ void conv3x3_mult_monochrome_replicate(double* im, uint32_t r, uint32_t c, doubl
     COST_INC_ADD(4);
     COST_INC_MUL(1);
     COST_INC_ABS(1);
+    COST_INC_LOAD(6);
+    COST_INC_STORE(1);
     //bottom right
     i = r-1;
     j = c-1;
@@ -168,7 +190,8 @@ void conv3x3_mult_monochrome_replicate(double* im, uint32_t r, uint32_t c, doubl
     COST_INC_ADD(4);
     COST_INC_MUL(1);
     COST_INC_ABS(1);
-
+    COST_INC_LOAD(6);
+    COST_INC_STORE(1);
 }
 
 #endif
