@@ -296,7 +296,7 @@ double* fusion_compute(double** I,
         assert(W[n] != NULL);
     }
 #endif
-
+PERF_FUNC_ENTER
     //C is used as a temporary variable (1 value/pixel)
     size_t C_len = mem->C_len;
     double* C = mem->C;
@@ -339,6 +339,7 @@ double* fusion_compute(double** I,
     for (int n = 0; n < N; n++){
         elementwise_div(W[n],W_len2,C,W[n]);
     }
+PERF_FUNC_EXIT
 #ifndef NDEBUG
     for(int i = 0; i < W_len2; i++){
         double sum_weight = 0;

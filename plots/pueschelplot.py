@@ -112,7 +112,7 @@ plt.plot(xvals, yvals8, 'mo-', linewidth=2)
 plt.plot(xvals, yvals9, 'go-', linewidth=2)
 plt.gca().set_axisbelow(True)
 
-plt.ylim([0.65, 0.75]) 
+plt.ylim([0, 1.0]) 
 
 plt.savefig('test.png', dpi=300)
 

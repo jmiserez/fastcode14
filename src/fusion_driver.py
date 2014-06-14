@@ -20,11 +20,12 @@ my_config = {
     'do_benchmark'         : True,
     'do_develop'           : False,
     'do_gprof'             : False,
-    'logtofile'            : False,
+    'logtofile'            : True,
     'perfunc'              : True,
-    'no_pyramids'          : False,
+    'no_pyramids'          : True,
     'openmode'             : 'a',
-    'optimization_flags'   : "-O3 -m64 -march=corei7-avx",
+#    'optimization_flags'   : "-O3 -m64 -march=corei7-avx",
+    'optimization_flags'   : "-O3 -m64 -march=corei7-avx -fno-tree-vectorize",
 #    'optimization_flags'   : "-O3 -Ofast -m64 -march=corei7-avx -ffast-math",
 #    'optimization_flags'  : "-O3 -m64 -march=native -mno-abm -fno-tree-vectorize",
 #    'optimization_flags'  : "-O0 -m64 -march=native",
@@ -131,6 +132,7 @@ def write_config(version, config):
 			debug += " -DCOST_MODEL_PERFUNC"
 		if 'no_pyramids' in config and config['no_pyramids']:
 			debug += " -DNO_PYRAMIDS"
+		debug += " -DFLOPFILENAME=" + '\\"' + str(version) + str(".tmp") + '\\"'
 		add_config("CF_DEBUG", debug, f)
 
 		add_config("CF_CONFIG", "$(CF_OPT) $(CF_COST) $(CF_WARMUP) $(CF_DEBUG)", f)
@@ -245,10 +247,6 @@ if __name__ == "__main__":
 		title("DEV: DONE")
 	else:
 		if config['do_benchmark']:
-			try:
-				os.remove("flops.out")
-			except:
-				None
 			cfg = config.copy()
 			update_for_benchmark_cost(cfg)
 			build_and_run(cfg)

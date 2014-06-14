@@ -246,16 +246,17 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
             perf_reset(global_perf_data);
 
             // Run exposure fusion
+            global_perf_measuring = true;
 #ifndef COST_MODEL_PERFUNC
             perf_start(global_perf_data);
 #endif
-            global_perf_measuring = true;
             fusion_compute(target_images, tc->contrast,
                     tc->saturation, tc->well_exposed, fusion_data);
-            global_perf_measuring = false;
 #ifndef COST_MODEL_PERFUNC
             perf_stop(global_perf_data);
 #endif
+            global_perf_measuring = false;
+
             // Print results
             perf_update_values(global_perf_data);
             printf("--- Showing results for: w=%zu, h=%zu, N=%zu\n",
@@ -268,7 +269,7 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
 
             printf("Cost Model:\n");
 
-            char *file_name = "flops.out";
+            char *file_name = FLOPFILENAME;
             FILE *fp = NULL;
 
 #ifdef READFLOPS
@@ -276,23 +277,27 @@ int run_testconfiguration( cli_options_t* cli_opts, testconfig_t* tc ) {
             fp = fopen(file_name,"r"); // read mode
 
             long unsigned latest_flops = 0;
+            long unsigned latest_accesses = 0;
 
             if( fp != NULL ){
                 int line_w = 0;
                 int line_h = 0;
                 long unsigned line_flops = 0;
-                while (!feof (fp) && fscanf (fp, "%d %d %lu\n", &line_w, &line_h, &line_flops)){
+                long unsigned line_accesses = 0;
+                while (!feof (fp) && fscanf (fp, "%d %d %lu %lu\n", &line_w, &line_h, &line_flops, &line_accesses)){
                     //read oldest value
                     if(line_w == w && line_h == h){
                         latest_flops = line_flops;
+                        latest_accesses = line_accesses;
                     }
                 }
                 fclose (fp);
             }
 
             double flops = (double)latest_flops;
+            double accesses = (double)latest_accesses;
 #else
-            //write flops to file
+            //write flops and memory accesses to file
 
 #ifdef COST_MODEL_PERFUNC
 COST_MODEL_LOADF
@@ -319,10 +324,13 @@ COST_MODEL_LOADF
                     29*COST_EXP +
                     COST_OTHER;
 
+            double accesses =
+                    COST_STORE + COST_LOAD;
+
             fp = fopen(file_name,"a"); // read mode
 
             if( fp != NULL ){
-                fprintf(fp, "%zu %zu %lu\n", w, h, (unsigned long)round(flops));
+                fprintf(fp, "%zu %zu %lu %lu\n", w, h, (unsigned long)round(flops), (unsigned long)round(accesses));
                 fclose (fp);
             }
 
@@ -333,6 +341,7 @@ COST_MODEL_LOADF
             double cache_miss = global_perf_data[2].value;
             printf("  Flops           : %.0lf\n", flops);
             printf("  Performance     : %.3lf\n", flops/cycles);
+            printf("  Memory Accesses: %.3lf\n", accesses/cycles);
             printf("  Cache Miss Rate : %.3lf\n", cache_miss/cache_load);
 
             // Cleanup

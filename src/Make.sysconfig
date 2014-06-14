@@ -2,6 +2,6 @@ VERSION    = consolidated
 VERSION_SUFFIX = .avx
 CF_COST    = -DCOST_MEASURE
 CF_WARMUP  = -DWARMUP_COUNT=0
-CF_OPT     = -O3 -m64 -march=corei7-avx
-CF_DEBUG   =  -DDEBUG -g -DCOST_MODEL_PERFUNC
+CF_OPT     = -O3 -m64 -march=corei7-avx -fno-tree-vectorize
+CF_DEBUG   =  -DNDEBUG -DCOST_MODEL_PERFUNC -DNO_PYRAMIDS -DFLOPFILENAME=\"consolidated.avx.tmp\"
 CF_CONFIG  = $(CF_OPT) $(CF_COST) $(CF_WARMUP) $(CF_DEBUG)
