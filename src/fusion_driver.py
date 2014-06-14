@@ -189,7 +189,7 @@ def build_and_run(config):
 			binary = "./bin/driver_" + version
 			runfile = version + ".run.log"
 			with open(runfile, config['openmode']) as rf:
-				arg = binary + " " + config['driver_args'] + " --f " + str(version)
+				arg = binary + " " + config['driver_args'] + " --f " + str(version) + ".tmp"
 				#print arg
 				#arg = arg.split()
 				if config['logtofile']:

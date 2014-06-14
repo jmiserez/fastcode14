@@ -21,7 +21,7 @@ plt.grid(color='grey', alpha=0.5, linewidth=1, linestyle='-', axis='y')
 for spine_name in ['top', 'left', 'right']:
     plt.gca().spines[spine_name].set_color('none')
     
-plt.ylabel('Memory bandwidth [accesses/cycle]',**yprops)
+plt.ylabel('Memory bandwidth used [MiB/s]',**yprops)
 plt.xlabel('Total pixels per input image [pixels]')
 
 plt.gca().tick_params(direction='in', length=3, color='k')
