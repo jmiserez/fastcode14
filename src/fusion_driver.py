@@ -17,8 +17,8 @@ my_config = {
                                "consolidated.inline2x4",
                                "consolidated.avx"
                              ],
-    'do_benchmark'         : False,
-    'do_develop'           : True,
+    'do_benchmark'         : True,
+    'do_develop'           : False,
     'do_gprof'             : False,
     'logtofile'            : False,
     'perfunc'              : True,
