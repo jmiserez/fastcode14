@@ -342,7 +342,7 @@ double* fusion_compute(double** I,
 #ifndef NDEBUG
     for(int i = 0; i < W_len2; i++){
         double sum_weight = 0;
-        for (int n = 0; n < W_len; n++){
+        for (int n = 0; n < mem->W_len; n++){
             sum_weight += W[n][i];
         }
         assert(sum_weight >= 0.99 && sum_weight <= 1.01); //ensure all weights sum to one for each pixel
