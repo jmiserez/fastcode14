@@ -38,6 +38,6 @@
 #define CHANNELS ( 3 )
 
 //NOTE: image size MUST be an exact multiple of blocksize
-#define NB 128
+#define NB 64
 
 #endif

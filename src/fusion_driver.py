@@ -6,23 +6,23 @@ import os
 
 my_config = {
     'versions'             : [
-                               "01ref_matlab",
-                               "consolidated.naive_options",
-                               "consolidated.naive",
-                               "consolidated.store_grey",
-                               "consolidated.onestep",
-                               "consolidated.blocking",
-                               "consolidated.inline2",
-                               "consolidated.inline2x2",
-                               "consolidated.inline2x4",
+#                               "01ref_matlab",
+#                               "consolidated.naive_options",
+#                               "consolidated.naive",
+#                               "consolidated.store_grey",
+#                               "consolidated.onestep",
+#                               "consolidated.blocking",
+#                               "consolidated.inline2",
+#                               "consolidated.inline2x2",
+#                               "consolidated.inline2x4",
                                "consolidated.avx"
                              ],
     'do_benchmark'         : True,
     'do_develop'           : False,
     'do_gprof'             : False,
-    'logtofile'            : True,
+    'logtofile'            : False,
     'perfunc'              : False,
-    'weights_only'         : False,
+    'weights_only'         : True,
     'openmode'             : 'a',
     'optimization_flags'   : "-O3 -Ofast -m64 -march=corei7-avx -ffast-math",
 #    'optimization_flags'   : "-O3 -Ofast -m64 -march=corei7-avx -ffast-math",
@@ -30,7 +30,7 @@ my_config = {
 #    'optimization_flags'  : "-O0 -m64 -march=native",
     'warmup_count'         : 1,
     'warmup_dev'           : 0,
-    'warmup_benchmark'     : 3,
+    'warmup_benchmark'     : 1,
      'dev_driver_args'     : "--q --s out --v ../testdata/house_out/dbg_benchmark-3-1.0-1.0-1.0.tif --w 1024 --h 1024 --t 0.1 "
                               "1024:1:1024 1024:1:1024 "
                               "1.0 1.0 1.0 ../testdata/srcImages/dbg_benchmark.0.tif ../testdata/srcImages/dbg_benchmark.1.tif ../testdata/srcImages/dbg_benchmark.2.tif ../testdata/srcImages/dbg_benchmark.3.tif",
@@ -38,7 +38,7 @@ my_config = {
 #                              "16:1:4096 16:1:4096 "
 #                              "1.0 1.0 1.0 ../testdata/srcImages/benchmark.0.tif ../testdata/srcImages/benchmark.1.tif ../testdata/srcImages/benchmark.2.tif ../testdata/srcImages/benchmark.3.tif"
      'driver_args'         : "--q "
-                              "512:1:4096 512:1:4096 "
+                              "128:1:4096 128:1:4096 "
                               "1.0 1.0 1.0 ../testdata/srcImages/benchmark.0.tif ../testdata/srcImages/benchmark.1.tif ../testdata/srcImages/benchmark.2.tif ../testdata/srcImages/benchmark.3.tif"
 
 }
