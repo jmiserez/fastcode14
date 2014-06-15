@@ -10,15 +10,13 @@
   */
 FORCE_INLINE double single_pixel(
         double *im, int center, int top, int left, int right, int bottom,
-        const double rw,
-        const double gw,
-        const double bw,
+        const __m256i mask1110,
         const __m256d rgb0W,
         const __m256d onehalf,
         const __m256d minustwelvehalf){
-    double r = im[center];
-    double g = im[center+1];
-    double b = im[center+2];
+//    double r = im[center];
+//    double g = im[center+1];
+//    double b = im[center+2];
 
 //    double r1 = im[top];
 //    double g1 = im[top+1];
@@ -33,41 +31,64 @@ FORCE_INLINE double single_pixel(
 //    double g4 = im[bottom+1];
 //    double b4 = im[bottom+2];
 
-    __m256d c = _mm256_loadu_pd(&(im[center]));
+    __m256d c = _mm256_maskload_pd(&(im[center]),mask1110);
     __m256d c1 = _mm256_loadu_pd(&(im[top]));
     __m256d c2 = _mm256_loadu_pd(&(im[left]));
     __m256d c3 = _mm256_loadu_pd(&(im[right]));
     __m256d c4 = _mm256_loadu_pd(&(im[bottom]));
 
-    COST_INC_LOAD(23);
+    COST_INC_LOAD(20);
 
-    double grey = rw * r + gw * g + bw * b;
+//    double grey = rw * r + gw * g + bw * b;
 //    double grey1 = rw * r1 + gw * g1 + bw * b1;
 //    double grey2 = rw * r2 + gw * g2 + bw * b2;
 //    double grey3 = rw * r3 + gw * g3 + bw * b3;
 //    double grey4 = rw * r4 + gw * g4 + bw * b4;
 
+    __m256d greyc = _mm256_mul_pd(c,rgb0W);
     __m256d grey1 = _mm256_mul_pd(c1,rgb0W);
     __m256d grey2 = _mm256_mul_pd(c2,rgb0W);
     __m256d grey3 = _mm256_mul_pd(c3,rgb0W);
     __m256d grey4 = _mm256_mul_pd(c4,rgb0W);
+
+    //AVX: double: horizontal add for 1 vector
+     __m256d c_perm = _mm256_permute2f128_pd(c, c, 0b00100001);//1,2
+     __m256d c_h = _mm256_hadd_pd(c,c_perm);
+     __m128d c_h_lo = _mm256_extractf128_pd (c_h, 0);// lo
+     __m128d c_h_hi = _mm256_extractf128_pd (c_h, 1);// hi
+     double c_hsum_lo = _mm_cvtsd_f64(c_h_lo);
+     double c_hsum_hi = _mm_cvtsd_f64(c_h_hi);
+     double c_hsum = c_hsum_lo + c_hsum_hi;
+
+     //AVX: double: horizontal add for 1 vector
+      __m256d greyc_perm = _mm256_permute2f128_pd(greyc, greyc, 0b00100001);//1,2
+      __m256d greyc_h = _mm256_hadd_pd(greyc,greyc_perm);
+      __m128d greyc_h_lo = _mm256_extractf128_pd (greyc_h, 0);// lo
+      __m128d greyc_h_hi = _mm256_extractf128_pd (greyc_h, 1);// hi
+      double greyc_hsum_lo = _mm_cvtsd_f64(greyc_h_lo);
+      double greyc_hsum_hi = _mm_cvtsd_f64(greyc_h_hi);
+      double greyc_hsum = greyc_hsum_lo + greyc_hsum_hi;
+
+    //AVX: _m256d: horizontal add for 4 vectors at once
     __m256d grey12 = _mm256_hadd_pd(grey1,grey2);
     __m256d grey34 = _mm256_hadd_pd(grey3,grey4);
-    __m256d grey_sum_tmp = _mm256_hadd_pd(grey12,grey34);
-    __m256d grey_sum_tmp2 = _mm256_hadd_pd(grey_sum_tmp,grey_sum_tmp);
+    __m256d grey_1234_blend = _mm256_blend_pd(grey12, grey34, 0b1100); //0011
+    __m256d grey_1234_perm = _mm256_permute2f128_pd(grey12, grey34, 0b00100001);//1,2
+    __m256d grey_1234 =  _mm256_add_pd(grey_1234_perm, grey_1234_blend);
 
-    __m128d grey_sum_tmp2_lo = _mm256_extractf128_pd (grey_sum_tmp2, 0);// lo
-    __m128d grey_sum_tmp2_hi = _mm256_extractf128_pd (grey_sum_tmp2, 1);// hi
+    //AVX: double: horizontal add for 1 vector
+     __m256d grey1234_perm = _mm256_permute2f128_pd(grey_1234, grey_1234, 0b00100001);//1,2
+     __m256d grey1234_h = _mm256_hadd_pd(grey_1234,grey1234_perm);
+     __m128d grey1234_h_lo = _mm256_extractf128_pd (grey1234_h, 0);// lo
+     __m128d grey1234_h_hi = _mm256_extractf128_pd (grey1234_h, 1);// hi
+     double grey1234_hsum_lo = _mm_cvtsd_f64(grey1234_h_lo);
+     double grey1234_hsum_hi = _mm_cvtsd_f64(grey1234_h_hi);
+     double grey1234_sum = grey1234_hsum_lo + grey1234_hsum_hi;
 
-    double grey_sum_tmp2_lo_lo = _mm_cvtsd_f64(grey_sum_tmp2_lo);
-    double grey_sum_tmp2_hi_lo = _mm_cvtsd_f64(grey_sum_tmp2_hi);
+    COST_INC_ADD(10); //+ operations wasted on AVX
+    COST_INC_MUL(15); //+ operations wasted on AVX
 
-    double grey_sum = grey_sum_tmp2_lo_lo + grey_sum_tmp2_hi_lo;
-
-    COST_INC_ADD(10); //+2 operations wasted on AVX
-    COST_INC_MUL(15); //+4 operations wasted on AVX
-
-    double mu = (r + g + b) / 3.0;
+    double mu = c_hsum / 3.0;
     COST_INC_ADD(2);
     COST_INC_DIV(1);
 
@@ -147,7 +168,9 @@ FORCE_INLINE double single_pixel(
     COST_INC_MUL(1);
 
 //    double t6 = -4.0*grey+grey1+grey2+grey3+grey4;
-    double t6 = -4.0*grey+grey_sum;
+
+    double minusfour_times_grey = -4.0*greyc_hsum;
+    double t6 = minusfour_times_grey+grey1234_sum;
 
     COST_INC_MUL(1);
     COST_INC_ADD(2); //2 operations saved due to AVX
@@ -168,9 +191,13 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
     const double rw = 0.2989;
     const double gw = 0.5870;
     const double bw = 0.1140;
-    const __m256d rgb0W = _mm256_set_pd (0, 0.1140, 0.5870, 0.2989); //rgb0
+    const __m256d rgb0W = _mm256_setr_pd (rw,gw,bw,0); //rgb0
     const __m256d onehalf = _mm256_set1_pd(0.5);
     const __m256d minustwelvehalf = _mm256_set1_pd(-12.5);
+    int64_t hi_bit_set = ((int64_t)1) << 63;
+    const __m256i mask1110 = _mm256_setr_epi64x(hi_bit_set,hi_bit_set, hi_bit_set, 0);
+    const __m256i mask0011 = _mm256_setr_epi64x(0, 0, hi_bit_set, hi_bit_set);
+
     const __m256d minus4_256 = _mm256_set1_pd(-4.0);
     const __m256d three = _mm256_set1_pd(3.0);
     const __m256d eps = _mm256_set1_pd(1.0E-12);
@@ -206,7 +233,7 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*center,3*center,3*right,3*bottom,
-                                       rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
+                                       mask1110,rgb0W,onehalf,minustwelvehalf);
             COST_INC_LOAD(1);
             COST_INC_STORE(1);
         }
@@ -220,7 +247,7 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*center,3*left,3*center,3*bottom,
-                                       rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
+                                       mask1110,rgb0W,onehalf,minustwelvehalf);
             COST_INC_LOAD(1);
             COST_INC_STORE(1);
         }
@@ -234,7 +261,7 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*center,3*left,3*right,3*bottom,
-                                       rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
+                                       mask1110,rgb0W,onehalf,minustwelvehalf);
             COST_INC_LOAD(1);
             COST_INC_STORE(1);
         }
@@ -250,7 +277,7 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*top,3*center,3*right,3*center,
-                                       rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
+                                       mask1110,rgb0W,onehalf,minustwelvehalf);
             COST_INC_LOAD(1);
             COST_INC_STORE(1);
         }
@@ -264,7 +291,7 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*top,3*left,3*center,3*center,
-                                       rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
+                                       mask1110,rgb0W,onehalf,minustwelvehalf);
             COST_INC_LOAD(1);
             COST_INC_STORE(1);
         }
@@ -278,7 +305,7 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*top,3*left,3*right,3*center,
-                                       rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
+                                       mask1110,rgb0W,onehalf,minustwelvehalf);
             COST_INC_LOAD(1);
             COST_INC_STORE(1);
         }
@@ -294,7 +321,7 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*top,3*center,3*right,3*bottom,
-                                       rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
+                                       mask1110,rgb0W,onehalf,minustwelvehalf);
             COST_INC_LOAD(1);
             COST_INC_STORE(1);
         }
@@ -310,7 +337,7 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             dst[center] = single_pixel(im,
                                        3*center,
                                        3*top,3*left,3*center,3*bottom,
-                                       rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
+                                       mask1110,rgb0W,onehalf,minustwelvehalf);
             COST_INC_LOAD(1);
             COST_INC_STORE(1);
         }
@@ -347,7 +374,7 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
                 dst[center] = single_pixel(im,
                                            3*center,
                                            3*top,3*left,3*right,3*bottom,
-                                           rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
+                                           mask1110,rgb0W,onehalf,minustwelvehalf);
                 COST_INC_LOAD(1);
                 COST_INC_STORE(1);
             }
@@ -369,7 +396,7 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
                 dst[center] = single_pixel(im,
                                            3*center,
                                            3*top,3*left,3*right,3*bottom,
-                                           rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
+                                           mask1110,rgb0W,onehalf,minustwelvehalf);
                 COST_INC_LOAD(1);
                 COST_INC_STORE(1);
             }
@@ -458,8 +485,6 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
 //        double c3456_10 = im[c1_x3+4];
 //        double c3456_11 = im[c1_x3+5];
 
-        int64_t leftbitset = ((int64_t)1) << 63;
-        __m256i mask0011 = _mm256_setr_epi64x(leftbitset,leftbitset, 0, 0);
         __m256d c3456_4 = _mm256_maskload_pd(&(im[c1_x3-2]),mask0011);
         __m256d c3456_8 = _mm256_loadu_pd(&(im[c1_x3+2]));
 
@@ -510,12 +535,17 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
 //                gW * c3456_10 +
 //                bW * c3456_11;
 
-
-
+        __m256d c3456_grey_0 = zeros;
+        __m256d c3456_grey_1 = zeros;
         __m256d c3456_grey_2 = _mm256_mul_pd(c3456_6,rgb0W);
         __m256d c3456_grey_3 = _mm256_mul_pd(c3456_9,rgb0W);
-        __m256d c3456_grey_tmp0 = _mm256_hadd_pd(c3456_grey_2,c3456_grey_3);
-        __m256d c3456_grey = _mm256_hadd_pd(zeros,c3456_grey_tmp0);
+
+        //AVX: _m256d: horizontal add for 4 vectors at once
+        __m256d c3456_grey_34 = _mm256_hadd_pd(c3456_grey_0,c3456_grey_1);
+        __m256d c3456_grey_56 = _mm256_hadd_pd(c3456_grey_2,c3456_grey_3);
+        __m256d c3456_grey_blend = _mm256_blend_pd(c3456_grey_34, c3456_grey_56, 0b1100); //0011
+        __m256d c3456_grey_perm = _mm256_permute2f128_pd(c3456_grey_34, c3456_grey_56, 0b00100001);//1,2
+        __m256d c3456_grey =  _mm256_add_pd(c3456_grey_perm, c3456_grey_blend);
 
 //        double d3456_grey_0 = 0;
 //        double d3456_grey_1 = 0;
@@ -528,10 +558,17 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
 //                gW * d3456_10 +
 //                bW * d3456_11;
 
+        __m256d d3456_grey_0 = zeros;
+        __m256d d3456_grey_1 = zeros;
         __m256d d3456_grey_2 = _mm256_mul_pd(d3456_6,rgb0W);
         __m256d d3456_grey_3 = _mm256_mul_pd(d3456_9,rgb0W);
-        __m256d d3456_grey_tmp0 = _mm256_hadd_pd(d3456_grey_2,d3456_grey_3);
-        __m256d d3456_grey = _mm256_hadd_pd(zeros,d3456_grey_tmp0);
+
+        //AVX: _m256d: horizontal add for 4 vectors at once
+        __m256d d3456_grey_34 = _mm256_hadd_pd(d3456_grey_0,d3456_grey_1);
+        __m256d d3456_grey_56 = _mm256_hadd_pd(d3456_grey_2,d3456_grey_3);
+        __m256d d3456_grey_blend = _mm256_blend_pd(d3456_grey_34, d3456_grey_56, 0b1100); //0011
+        __m256d d3456_grey_perm = _mm256_permute2f128_pd(d3456_grey_34, d3456_grey_56, 0b00100001);//1,2
+        __m256d d3456_grey =  _mm256_add_pd(d3456_grey_perm, d3456_grey_blend);
 
         for(j = j_start; j < j_end; j+=4){
 
@@ -728,9 +765,12 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             __m256d t2345_grey_2 = _mm256_mul_pd(t2345_6,rgb0W);
             __m256d t2345_grey_3 = _mm256_mul_pd(t2345_9,rgb0W);
 
-            __m256d t2345_grey_tmp1 = _mm256_hadd_pd(t2345_grey_0,t2345_grey_1);
-            __m256d t2345_grey_tmp2 = _mm256_hadd_pd(t2345_grey_2,t2345_grey_3);
-            __m256d t2345_grey = _mm256_hadd_pd(t2345_grey_tmp1,t2345_grey_tmp2);
+            //AVX: _m256d: horizontal add for 4 vectors at once
+            __m256d t2345_grey_01 = _mm256_hadd_pd(t2345_grey_0,t2345_grey_1);
+            __m256d t2345_grey_23 = _mm256_hadd_pd(t2345_grey_2,t2345_grey_3);
+            __m256d t2345_grey_blend = _mm256_blend_pd(t2345_grey_01, t2345_grey_23, 0b1100); //0011
+            __m256d t2345_grey_perm = _mm256_permute2f128_pd(t2345_grey_01, t2345_grey_23, 0b00100001);//1,2
+            __m256d t2345_grey =  _mm256_add_pd(t2345_grey_perm, t2345_grey_blend);
 
 //            double b2345_grey_0 =
 //                    rW * b2345_0 +
@@ -754,9 +794,12 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             __m256d b2345_grey_2 = _mm256_mul_pd(b2345_6,rgb0W);
             __m256d b2345_grey_3 = _mm256_mul_pd(b2345_9,rgb0W);
 
-            __m256d b2345_grey_tmp1 = _mm256_hadd_pd(b2345_grey_0,b2345_grey_1);
-            __m256d b2345_grey_tmp2 = _mm256_hadd_pd(b2345_grey_2,b2345_grey_3);
-            __m256d b2345_grey = _mm256_hadd_pd(b2345_grey_tmp1,b2345_grey_tmp2);
+            //AVX: _m256d: horizontal add for 4 vectors at once
+            __m256d b2345_grey_01 = _mm256_hadd_pd(b2345_grey_0,b2345_grey_1);
+            __m256d b2345_grey_23 = _mm256_hadd_pd(b2345_grey_2,b2345_grey_3);
+            __m256d b2345_grey_blend = _mm256_blend_pd(b2345_grey_01, b2345_grey_23, 0b1100); //0011
+            __m256d b2345_grey_perm = _mm256_permute2f128_pd(b2345_grey_01, b2345_grey_23, 0b00100001);//1,2
+            __m256d b2345_grey =  _mm256_add_pd(b2345_grey_perm, b2345_grey_blend);
 
 //            c3456_grey_0 =
 //                    rW * c3456_0 +
@@ -780,9 +823,12 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             c3456_grey_2 = _mm256_mul_pd(c3456_6,rgb0W);
             c3456_grey_3 = _mm256_mul_pd(c3456_9,rgb0W);
 
-            __m256d c3456_grey_tmp1 = _mm256_hadd_pd(c3456_grey_0,c3456_grey_1);
-            __m256d c3456_grey_tmp2 = _mm256_hadd_pd(c3456_grey_2,c3456_grey_3);
-            c3456_grey = _mm256_hadd_pd(c3456_grey_tmp1,c3456_grey_tmp2);
+            //AVX: _m256d: horizontal add for 4 vectors at once
+            __m256d c3456_grey_01 = _mm256_hadd_pd(c3456_grey_0,c3456_grey_1);
+            __m256d c3456_grey_23 = _mm256_hadd_pd(c3456_grey_2,c3456_grey_3);
+            __m256d c2345_grey_blend = _mm256_blend_pd(c3456_grey_01, c3456_grey_23, 0b1100); //0011
+            __m256d c2345_grey_perm = _mm256_permute2f128_pd(c3456_grey_01, c3456_grey_23, 0b00100001);//1,2
+            c3456_grey =  _mm256_add_pd(c2345_grey_perm, c2345_grey_blend);
 
 //            d3456_grey_0 =
 //                    rW * d3456_0 +
@@ -806,9 +852,12 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             d3456_grey_2 = _mm256_mul_pd(d3456_6,rgb0W);
             d3456_grey_3 = _mm256_mul_pd(d3456_9,rgb0W);
 
-            __m256d d3456_grey_tmp1 = _mm256_hadd_pd(d3456_grey_0,d3456_grey_1);
-            __m256d d3456_grey_tmp2 = _mm256_hadd_pd(d3456_grey_2,d3456_grey_3);
-            d3456_grey = _mm256_hadd_pd(d3456_grey_tmp1,d3456_grey_tmp2);
+            //AVX: _m256d: horizontal add for 4 vectors at once
+            __m256d d3456_grey_01 = _mm256_hadd_pd(d3456_grey_0,d3456_grey_1);
+            __m256d d3456_grey_23 = _mm256_hadd_pd(d3456_grey_2,d3456_grey_3);
+            __m256d d2345_grey_blend = _mm256_blend_pd(d3456_grey_01, d3456_grey_23, 0b1100); //0011
+            __m256d d2345_grey_perm = _mm256_permute2f128_pd(d3456_grey_01, d3456_grey_23, 0b00100001);//1,2
+            d3456_grey =  _mm256_add_pd(d2345_grey_perm, d2345_grey_blend);
 
             // shuffle
 //            double r_c2345_0 = c12_3;
@@ -1428,10 +1477,6 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             //Store 8 results at once
             _mm256_storeu_pd(&(dst[c2c]),x13_c2345);
             _mm256_storeu_pd(&(dst[d2c]),x13_d2345);
-
-            //actual flops if we were using full vectors of 4 doubles
-            //            COST_INC_MUL(176); //+24*11 => +264 = 440
-            //            COST_INC_ADD(176); //+24*15 => +360 = 536
 
             //useful flops counted only
             COST_INC_MUL(160);

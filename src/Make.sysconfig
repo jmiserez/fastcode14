@@ -1,7 +1,7 @@
 VERSION    = consolidated
-VERSION_SUFFIX = .onestep_avx
+VERSION_SUFFIX = .naive_options
 CF_COST    = -DCOST_MEASURE
 CF_WARMUP  = -DWARMUP_COUNT=0
 CF_OPT     = -O3 -m64 -march=corei7-avx
-CF_DEBUG   =  -DDEBUG -g
+CF_DEBUG   =  -DNDEBUG -DCOST_MODEL_PERFUNC -DNO_PYRAMIDS
 CF_CONFIG  = $(CF_OPT) $(CF_COST) $(CF_WARMUP) $(CF_DEBUG)
