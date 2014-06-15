@@ -1,0 +1,252 @@
+=======================================================
+ Runtime
+=======================================================
+#01ref_matlab.run.log
+yvals1 = (
+33995748, 135658003, 551770719, 2242189292, 8806033410, 35537104549, )
+#consolidated.avx.run.log
+yvals2 = (
+6425606, 25604833, 100706255, 397713328, 1560615851, 6299990872, )
+#consolidated.blocking_avx.run.log
+yvals3 = (
+8970440, 41895601, 145412222, 577744711, 2339044313, 9225255203, )
+#consolidated.blocking.run.log
+yvals4 = (
+22722461, 89991086, 359095501, 1434764497, 5736518045, 23021665241, )
+#consolidated.inline2.run.log
+yvals5 = (
+25566892, 102782294, 411846692, 1645138498, 6562646780, 26296095223, )
+#consolidated.inline2x2.run.log
+yvals6 = (
+25227551, 101191623, 405696042, 1617817989, 6493660243, 25993853999, )
+#consolidated.inline2x4.run.log
+yvals7 = (
+26723483, 107177982, 429865100, 1722356104, 6879083928, 27792822215, )
+#consolidated.naive.run.log
+yvals8 = (
+24029447, 96624666, 390611621, 1558283676, 6238397293, 25071269437, )
+#consolidated.onestep_avx.run.log
+yvals9 = (
+9029738, 36071506, 144292601, 577788148, 2313612407, 9227971678, )
+#consolidated.onestep.run.log
+yvals10 = (
+22355574, 89532466, 357932665, 1431027166, 5739623601, 22959065709, )
+#consolidated.store_grey.run.log
+yvals11 = (
+21869445, 86333737, 346119490, 1383367593, 5534847838, 22193508978, )
+=======================================================
+ Performance
+=======================================================
+#01ref_matlab.run.log
+yvals1 = (
+0.817, 0.810, 0.793, 0.778, 0.792, 0.784, )
+#consolidated.avx.run.log
+yvals2 = (
+2.908, 2.917, 2.965, 3.003, 3.061, 3.033, )
+#consolidated.blocking_avx.run.log
+yvals3 = (
+2.173, 1.865, 2.151, 2.166, 2.141, 2.171, )
+#consolidated.blocking.run.log
+yvals4 = (
+0.872, 0.883, 0.885, 0.887, 0.887, 0.885, )
+#consolidated.inline2.run.log
+yvals5 = (
+0.756, 0.753, 0.752, 0.753, 0.755, 0.754, )
+#consolidated.inline2x2.run.log
+yvals6 = (
+0.740, 0.738, 0.736, 0.738, 0.735, 0.735, )
+#consolidated.inline2x4.run.log
+yvals7 = (
+0.700, 0.697, 0.695, 0.693, 0.694, 0.687, )
+#consolidated.naive.run.log
+yvals8 = (
+0.762, 0.760, 0.752, 0.755, 0.754, 0.751, )
+#consolidated.onestep_avx.run.log
+yvals9 = (
+2.159, 2.166, 2.167, 2.166, 2.164, 2.171, )
+#consolidated.onestep.run.log
+yvals10 = (
+0.878, 0.878, 0.880, 0.880, 0.878, 0.878, )
+#consolidated.store_grey.run.log
+yvals11 = (
+0.834, 0.847, 0.846, 0.847, 0.847, 0.845, )
+=======================================================
+ Flops
+=======================================================
+#01ref_matlab.run.log
+yvals1 = (
+27772624, 109929964, 437424904, 1745148964, 6971546944, 27868155484, )
+#consolidated.avx.run.log
+yvals2 = (
+18686060, 74682028, 298629932, 1194349612, 4777084460, 19107736108, )
+#consolidated.blocking_avx.run.log
+yvals3 = (
+19494844, 78114748, 312729532, 1251459004, 5006917564, 20029833148, )
+#consolidated.blocking.run.log
+yvals4 = (
+19822524, 79425468, 317972412, 1272430524, 5090803644, 20365377468, )
+#consolidated.inline2.run.log
+yvals5 = (
+19322556, 77377212, 309681852, 1239072444, 4956978876, 19829292732, )
+#consolidated.inline2x2.run.log
+yvals6 = (
+18667484, 74643100, 298525724, 1194016540, 4775900444, 19103277340, )
+#consolidated.inline2x4.run.log
+yvals7 = (
+18712412, 74726940, 298687388, 1194333852, 4776529052, 19104528540, )
+#consolidated.naive.run.log
+yvals8 = (
+18315196, 73396156, 293855164, 1175961532, 4704927676, 18821873596, )
+#consolidated.onestep_avx.run.log
+yvals9 = (
+19494844, 78114748, 312729532, 1251459004, 5006917564, 20029833148, )
+#consolidated.onestep.run.log
+yvals10 = (
+19625916, 78639036, 314826684, 1259847612, 5040471996, 20164050876, )
+#consolidated.store_grey.run.log
+yvals11 = (
+18249660, 73134012, 292806588, 1171767228, 4688150460, 18754764732, )
+=======================================================
+ Operational intensity
+=======================================================
+#01ref_matlab.run.log
+yvals1 = (
+inf, inf, inf, inf, inf, inf, )
+#consolidated.avx.run.log
+yvals2 = (
+0.391, 0.392, 0.393, 0.393, 0.394, 0.394, )
+#consolidated.blocking_avx.run.log
+yvals3 = (
+0.355, 0.355, 0.355, 0.355, 0.355, 0.355, )
+#consolidated.blocking.run.log
+yvals4 = (
+0.379, 0.379, 0.379, 0.379, 0.378, 0.378, )
+#consolidated.inline2.run.log
+yvals5 = (
+0.384, 0.384, 0.384, 0.384, 0.384, 0.384, )
+#consolidated.inline2x2.run.log
+yvals6 = (
+0.394, 0.394, 0.394, 0.394, 0.394, 0.394, )
+#consolidated.inline2x4.run.log
+yvals7 = (
+0.394, 0.394, 0.394, 0.394, 0.394, 0.394, )
+#consolidated.naive.run.log
+yvals8 = (
+0.350, 0.350, 0.350, 0.350, 0.350, 0.350, )
+#consolidated.onestep_avx.run.log
+yvals9 = (
+0.359, 0.358, 0.358, 0.358, 0.358, 0.358, )
+#consolidated.onestep.run.log
+yvals10 = (
+0.379, 0.379, 0.379, 0.379, 0.379, 0.378, )
+#consolidated.store_grey.run.log
+yvals11 = (
+0.368, 0.367, 0.367, 0.367, 0.367, 0.367, )
+=======================================================
+ Memory bandwidth in bytes/cycle
+=======================================================
+#01ref_matlab.run.log
+yvals1 = (
+0.000, 0.000, 0.000, 0.000, 0.000, 0.000, )
+#consolidated.avx.run.log
+yvals2 = (
+7.442, 7.437, 7.546, 7.634, 7.777, 7.704, )
+#consolidated.blocking_avx.run.log
+yvals3 = (
+6.119, 5.255, 6.064, 6.109, 6.037, 6.124, )
+#consolidated.blocking.run.log
+yvals4 = (
+2.300, 2.330, 2.339, 2.343, 2.345, 2.337, )
+#consolidated.inline2.run.log
+yvals5 = (
+1.966, 1.960, 1.959, 1.962, 1.968, 1.965, )
+#consolidated.inline2x2.run.log
+yvals6 = (
+1.877, 1.871, 1.867, 1.872, 1.865, 1.864, )
+#consolidated.inline2x4.run.log
+yvals7 = (
+1.776, 1.770, 1.764, 1.761, 1.763, 1.745, )
+#consolidated.naive.run.log
+yvals8 = (
+2.175, 2.170, 2.150, 2.157, 2.156, 2.146, )
+#consolidated.onestep_avx.run.log
+yvals9 = (
+6.021, 6.045, 6.053, 6.050, 6.046, 6.064, )
+#consolidated.onestep.run.log
+yvals10 = (
+2.315, 2.318, 2.323, 2.326, 2.320, 2.320, )
+#consolidated.store_grey.run.log
+yvals11 = (
+2.270, 2.307, 2.305, 2.309, 2.309, 2.304, )
+=======================================================
+ Memory bandwidth in MB/s
+=======================================================
+#01ref_matlab.run.log
+yvals1 = (
+0.000, 0.000, 0.000, 0.000, 0.000, 0.000, )
+#consolidated.avx.run.log
+yvals2 = (
+15614.653, 15603.081, 15831.694, 16016.369, 16317.064, 16163.287, )
+#consolidated.blocking_avx.run.log
+yvals3 = (
+12838.616, 11024.872, 12722.416, 12816.729, 12667.055, 12848.903, )
+#consolidated.blocking.run.log
+yvals4 = (
+4826.415, 4888.191, 4906.758, 4915.648, 4919.500, 4904.181, )
+#consolidated.inline2.run.log
+yvals5 = (
+4125.340, 4112.615, 4109.339, 4116.884, 4129.081, 4122.415, )
+#consolidated.inline2x2.run.log
+yvals6 = (
+3938.129, 3925.843, 3916.081, 3927.692, 3913.940, 3910.940, )
+#consolidated.inline2x4.run.log
+yvals7 = (
+3726.604, 3712.932, 3700.991, 3693.758, 3698.798, 3661.748, )
+#consolidated.naive.run.log
+yvals8 = (
+4563.902, 4552.602, 4510.861, 4526.003, 4523.726, 4503.259, )
+#consolidated.onestep_avx.run.log
+yvals9 = (
+12632.485, 12682.964, 12699.160, 12693.921, 12684.580, 12723.057, )
+#consolidated.onestep.run.log
+yvals10 = (
+4856.419, 4864.086, 4873.528, 4879.290, 4867.776, 4868.491, )
+#consolidated.store_grey.run.log
+yvals11 = (
+4763.177, 4840.444, 4836.465, 4843.830, 4844.361, 4833.414, )
+=======================================================
+ Cache miss rate
+=======================================================
+#01ref_matlab.run.log
+yvals1 = (
+0.138, 0.088, 0.172, 0.219, 0.205, 0.207, )
+#consolidated.avx.run.log
+yvals2 = (
+0.278, 0.523, 0.356, 0.349, 0.309, 0.303, )
+#consolidated.blocking_avx.run.log
+yvals3 = (
+0.290, 0.446, 0.380, 0.360, 0.340, 0.307, )
+#consolidated.blocking.run.log
+yvals4 = (
+0.769, 0.521, 0.352, 0.349, 0.330, 0.340, )
+#consolidated.inline2.run.log
+yvals5 = (
+0.369, 0.487, 0.377, 0.388, 0.362, 0.351, )
+#consolidated.inline2x2.run.log
+yvals6 = (
+0.454, 0.489, 0.310, 0.327, 0.326, 0.323, )
+#consolidated.inline2x4.run.log
+yvals7 = (
+0.649, 0.484, 0.336, 0.388, 0.383, 0.400, )
+#consolidated.naive.run.log
+yvals8 = (
+0.105, 0.194, 0.269, 0.273, 0.264, 0.269, )
+#consolidated.onestep_avx.run.log
+yvals9 = (
+0.428, 0.450, 0.582, 0.694, 0.404, 0.316, )
+#consolidated.onestep.run.log
+yvals10 = (
+0.185, 0.526, 0.667, 0.746, 0.448, 0.318, )
+#consolidated.store_grey.run.log
+yvals11 = (
+0.342, 0.332, 0.289, 0.311, 0.266, 0.223, )

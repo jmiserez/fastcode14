@@ -7,7 +7,7 @@ import os
 my_config = {
     'versions'             : [
                                "01ref_matlab",
-                               "consolidated.naive_options",
+#                               "consolidated.naive_options",
                                "consolidated.naive",
                                "consolidated.store_grey",
                                "consolidated.onestep",
@@ -22,9 +22,9 @@ my_config = {
     'do_benchmark'         : True,
     'do_develop'           : False,
     'do_gprof'             : False,
-    'logtofile'            : False,
-    'perfunc'              : True,
-    'no_pyramids'          : True,
+    'logtofile'            : True,
+    'perfunc'              : False,
+    'no_pyramids'          : False,
     'openmode'             : 'a',
     'optimization_flags'   : "-O3 -m64 -march=corei7-avx",
 #    'optimization_flags'   : "-O3 -m64 -march=corei7-avx -fno-tree-vectorize",

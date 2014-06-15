@@ -322,9 +322,9 @@ COST_MODEL_LOADF
                     COST_MUL +
                     COST_DIV +
                     COST_POW +
-                    2*COST_ABS +
-                    10*COST_SQRT +
-                    50*COST_EXP +
+                    COST_ABS +
+                    COST_SQRT +
+                    29*COST_EXP +
                     COST_OTHER;
 
             double accesses =
@@ -343,11 +343,17 @@ COST_MODEL_LOADF
             double cache_load = global_perf_data[1].value;
             double cache_miss = global_perf_data[2].value;
 
+            double cpu_hz = 2200000000.0; //2.2GHz
+            double walltime_s = cycles / cpu_hz;
             double total_bytes_accessed = accesses * 8;
+            double total_mb_accessed = (accesses / (1024*1024)) * 8;
+            double memory_bandwidth_mb_per_s = total_mb_accessed / walltime_s;
 
             printf("  Flops           : %.0lf\n", flops);
             printf("  Performance     : %.3lf\n", flops/cycles);
             printf("  Memory Accesses: %.3lf\n", accesses);
+            printf("  Memory Bandwidth in MiB/s: %.3lf\n", memory_bandwidth_mb_per_s);
+            printf("  Memory Bandwidth in bytes/cycle: %.3lf\n", total_bytes_accessed/cycles);
             printf("  Operational intensity: %.3lf\n", flops/total_bytes_accessed);
             printf("  Cache Miss Rate : %.3lf\n", cache_miss/cache_load);
 

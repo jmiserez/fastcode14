@@ -21,12 +21,12 @@ plt.grid(color='grey', alpha=0.5, linewidth=1, linestyle='-', axis='y')
 for spine_name in ['top', 'left', 'right']:
     plt.gca().spines[spine_name].set_color('none')
     
-plt.ylabel('Cache miss rate',**yprops)
+plt.ylabel('Memory bandwidth [bytes/cycle]',**yprops)
 plt.xlabel('Total pixels per input image [pixels]')
 
 plt.gca().tick_params(direction='in', length=3, color='k')
 
-plt.plot(xvals, yvals1, 'ro-', linewidth=2) #matlab
+#plt.plot(xvals, yvals1, 'ro-', linewidth=2) #matlab
 plt.plot(xvals, yvals2, 'bo-.', linewidth=2) #inline2x4_AVX
 plt.plot(xvals, yvals3, 'co-.', linewidth=2) #blocking_AVX
 plt.plot(xvals, yvals4, 'co-', linewidth=2) #blocking
@@ -39,9 +39,9 @@ plt.plot(xvals, yvals10, 'mo-', linewidth=2) #onestep
 plt.plot(xvals, yvals11, 'yo-', linewidth=2) #storegrey
 plt.gca().set_axisbelow(True)
 
-plt.ylim([0, 1.0]) 
+#plt.ylim([0, 1.0]) 
 
-plt.savefig('cache.png', dpi=300)
+plt.savefig('bandwidth.png', dpi=300)
 
 #plt.show()
 
