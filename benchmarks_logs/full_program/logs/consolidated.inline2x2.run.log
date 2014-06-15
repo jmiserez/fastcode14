@@ -1,0 +1,448 @@
+--- Showing results for: w=128, h=128, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 25779151
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 12630
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 3568
+Cost Model:
+  Loads: 564864
+  Stores: 131088
+  Add: 1343328
+  Mul: 1353424
+  Div: 196640
+  Pow: 12144
+  Abs: 196656 
+  Sqrt: 65552 
+  Exp: 196656 (x29)
+  Other: 0 
+Approximate Derived Results
+  Flops           : 8870768
+  Performance     : 0.344
+  Memory Accesses: 695952.000
+  Memory Bandwidth in MiB/s: 453.131
+  Memory Bandwidth in bytes/cycle: 0.216
+  Operational intensity: 1.593
+  Cache Miss Rate : 0.283
+--- Showing results for: w=256, h=256, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 103209075
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 45807
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 15259
+Cost Model:
+  Loads: 2178688
+  Stores: 524304
+  Add: 5316320
+  Mul: 5340688
+  Div: 786464
+  Pow: 24432
+  Abs: 786480 
+  Sqrt: 262160 
+  Exp: 786480 (x29)
+  Other: 0 
+Approximate Derived Results
+  Flops           : 35324464
+  Performance     : 0.342
+  Memory Accesses: 2702992.000
+  Memory Bandwidth in MiB/s: 439.582
+  Memory Bandwidth in bytes/cycle: 0.210
+  Operational intensity: 1.634
+  Cache Miss Rate : 0.333
+--- Showing results for: w=512, h=512, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 414042403
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 207195
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 50524
+Cost Model:
+  Loads: 8552064
+  Stores: 2097168
+  Add: 21151200
+  Mul: 21216400
+  Div: 3145760
+  Pow: 49008
+  Abs: 3145776 
+  Sqrt: 1048592 
+  Exp: 3145776 (x29)
+  Other: 0 
+Approximate Derived Results
+  Flops           : 140984240
+  Performance     : 0.341
+  Memory Accesses: 10649232.000
+  Memory Bandwidth in MiB/s: 431.704
+  Memory Bandwidth in bytes/cycle: 0.206
+  Operational intensity: 1.655
+  Cache Miss Rate : 0.244
+--- Showing results for: w=1024, h=1024, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 1658239234
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 841568
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 296230
+Cost Model:
+  Loads: 33881728
+  Stores: 8388624
+  Add: 84376544
+  Mul: 84572560
+  Div: 12582944
+  Pow: 98160
+  Abs: 12582960 
+  Sqrt: 4194320 
+  Exp: 12582960 (x29)
+  Other: 0 
+Approximate Derived Results
+  Flops           : 563313328
+  Performance     : 0.340
+  Memory Accesses: 42270352.000
+  Memory Bandwidth in MiB/s: 427.860
+  Memory Bandwidth in bytes/cycle: 0.204
+  Operational intensity: 1.666
+  Cache Miss Rate : 0.352
+--- Showing results for: w=2048, h=2048, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 6614654053
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 3114433
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 856995
+Cost Model:
+  Loads: 134872704
+  Stores: 33554448
+  Add: 337049568
+  Mul: 337703824
+  Div: 50331680
+  Pow: 196464
+  Abs: 50331696 
+  Sqrt: 16777232 
+  Exp: 50331696 (x29)
+  Other: 0 
+Approximate Derived Results
+  Flops           : 2252009648
+  Performance     : 0.340
+  Memory Accesses: 168427152.000
+  Memory Bandwidth in MiB/s: 427.383
+  Memory Bandwidth in bytes/cycle: 0.204
+  Operational intensity: 1.671
+  Cache Miss Rate : 0.275
+--- Showing results for: w=4096, h=4096, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 26685264360
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 13798838
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 3891530
+Cost Model:
+  Loads: 538181248
+  Stores: 134217744
+  Add: 1347284960
+  Mul: 1349642128
+  Div: 201326624
+  Pow: 393072
+  Abs: 201326640 
+  Sqrt: 67108880 
+  Exp: 201326640 (x29)
+  Other: 0 
+Approximate Derived Results
+  Flops           : 9005554864
+  Performance     : 0.337
+  Memory Accesses: 672398992.000
+  Memory Bandwidth in MiB/s: 422.930
+  Memory Bandwidth in bytes/cycle: 0.202
+  Operational intensity: 1.674
+  Cache Miss Rate : 0.282
+./bin/driver_consolidated.inline2x2 --q 128:1:4096 128:1:4096 1.0 1.0 1.0 ../testdata/srcImages/benchmark.0.tif ../testdata/srcImages/benchmark.1.tif ../testdata/srcImages/benchmark.2.tif ../testdata/srcImages/benchmark.3.tif --f consolidated.inline2x2.tmp
+--- Showing results for: w=128, h=128, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 25057666
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 13039
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 93
+Cost Model:
+  Flops           : 8870768
+  Performance     : 0.354
+  Memory Accesses: 695952.000
+  Memory Bandwidth in MiB/s: 466.178
+  Memory Bandwidth in bytes/cycle: 0.222
+  Operational intensity: 1.593
+  Cache Miss Rate : 0.007
+--- Showing results for: w=256, h=256, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 102673091
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 48281
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 23410
+Cost Model:
+  Flops           : 35324464
+  Performance     : 0.344
+  Memory Accesses: 2702992.000
+  Memory Bandwidth in MiB/s: 441.876
+  Memory Bandwidth in bytes/cycle: 0.211
+  Operational intensity: 1.634
+  Cache Miss Rate : 0.485
+--- Showing results for: w=512, h=512, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 406092494
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 205936
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 66530
+Cost Model:
+  Flops           : 140984240
+  Performance     : 0.347
+  Memory Accesses: 10649232.000
+  Memory Bandwidth in MiB/s: 440.155
+  Memory Bandwidth in bytes/cycle: 0.210
+  Operational intensity: 1.655
+  Cache Miss Rate : 0.323
+--- Showing results for: w=1024, h=1024, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 1617328561
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 805991
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 288287
+Cost Model:
+  Flops           : 563313328
+  Performance     : 0.348
+  Memory Accesses: 42270352.000
+  Memory Bandwidth in MiB/s: 438.683
+  Memory Bandwidth in bytes/cycle: 0.209
+  Operational intensity: 1.666
+  Cache Miss Rate : 0.358
+--- Showing results for: w=2048, h=2048, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 6468571068
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 3182143
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 1039393
+Cost Model:
+  Flops           : 2252009648
+  Performance     : 0.348
+  Memory Accesses: 168427152.000
+  Memory Bandwidth in MiB/s: 437.035
+  Memory Bandwidth in bytes/cycle: 0.208
+  Operational intensity: 1.671
+  Cache Miss Rate : 0.327
+--- Showing results for: w=4096, h=4096, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 26470585879
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 15985356
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 6514141
+Cost Model:
+  Flops           : 9005554864
+  Performance     : 0.340
+  Memory Accesses: 672398992.000
+  Memory Bandwidth in MiB/s: 426.360
+  Memory Bandwidth in bytes/cycle: 0.203
+  Operational intensity: 1.674
+  Cache Miss Rate : 0.408
+./bin/driver_consolidated.inline2x2 --q 128:1:4096 128:1:4096 1.0 1.0 1.0 ../testdata/srcImages/benchmark.0.tif ../testdata/srcImages/benchmark.1.tif ../testdata/srcImages/benchmark.2.tif ../testdata/srcImages/benchmark.3.tif --f consolidated.inline2x2.tmp
+--- Showing results for: w=128, h=128, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 25869831
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 13169
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 5175
+Cost Model:
+  Loads: 4444710
+  Stores: 1474344
+  Add: 3617790
+  Mul: 3959278
+  Div: 196640
+  Pow: 12144
+  Abs: 196656 
+  Sqrt: 65552 
+  Exp: 196656 (x29)
+  Other: 0 
+Approximate Derived Results
+  Flops           : 13751084
+  Performance     : 0.532
+  Memory Accesses: 5919054.000
+  Memory Bandwidth in MiB/s: 3840.356
+  Memory Bandwidth in bytes/cycle: 1.830
+  Operational intensity: 0.290
+  Cache Miss Rate : 0.393
+--- Showing results for: w=256, h=256, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 104901070
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 51315
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 15997
+Cost Model:
+  Loads: 17770150
+  Stores: 5898024
+  Add: 14485502
+  Mul: 15828142
+  Div: 786464
+  Pow: 24432
+  Abs: 786480 
+  Sqrt: 262160 
+  Exp: 786480 (x29)
+  Other: 0 
+Approximate Derived Results
+  Flops           : 54981100
+  Performance     : 0.524
+  Memory Accesses: 23668174.000
+  Memory Bandwidth in MiB/s: 3787.020
+  Memory Bandwidth in bytes/cycle: 1.805
+  Operational intensity: 0.290
+  Cache Miss Rate : 0.312
+--- Showing results for: w=512, h=512, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 414101599
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 203101
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 45445
+Cost Model:
+  Loads: 71061414
+  Stores: 23592744
+  Add: 57970686
+  Mul: 63293998
+  Div: 3145760
+  Pow: 49008
+  Abs: 3145776 
+  Sqrt: 1048592 
+  Exp: 3145776 (x29)
+  Other: 0 
+Approximate Derived Results
+  Flops           : 219881324
+  Performance     : 0.531
+  Memory Accesses: 94654158.000
+  Memory Bandwidth in MiB/s: 3836.591
+  Memory Bandwidth in bytes/cycle: 1.829
+  Operational intensity: 0.290
+  Cache Miss Rate : 0.224
+--- Showing results for: w=1024, h=1024, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 1652725707
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 785235
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 211624
+Cost Model:
+  Loads: 284205478
+  Stores: 94371624
+  Add: 231940094
+  Mul: 253138222
+  Div: 12582944
+  Pow: 98160
+  Abs: 12582960 
+  Sqrt: 4194320 
+  Exp: 12582960 (x29)
+  Other: 0 
+Approximate Derived Results
+  Flops           : 879442540
+  Performance     : 0.532
+  Memory Accesses: 378577102.000
+  Memory Bandwidth in MiB/s: 3844.734
+  Memory Bandwidth in bytes/cycle: 1.832
+  Operational intensity: 0.290
+  Cache Miss Rate : 0.270
+--- Showing results for: w=2048, h=2048, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 6653109840
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 3057232
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 740873
+Cost Model:
+  Loads: 1136739750
+  Stores: 377487144
+  Add: 927875070
+  Mul: 1012476718
+  Div: 50331680
+  Pow: 196464
+  Abs: 50331696 
+  Sqrt: 16777232 
+  Exp: 50331696 (x29)
+  Other: 0 
+Approximate Derived Results
+  Flops           : 3517608044
+  Performance     : 0.529
+  Memory Accesses: 1514226894.000
+  Memory Bandwidth in MiB/s: 3820.138
+  Memory Bandwidth in bytes/cycle: 1.821
+  Operational intensity: 0.290
+  Cache Miss Rate : 0.242
+--- Showing results for: w=4096, h=4096, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 26785141691
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 13642739
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 3624598
+Cost Model:
+  Loads: 4546792870
+  Stores: 1509949224
+  Add: 3711729662
+  Mul: 4049753902
+  Div: 201326624
+  Pow: 393072
+  Abs: 201326640 
+  Sqrt: 67108880 
+  Exp: 201326640 (x29)
+  Other: 0 
+Approximate Derived Results
+  Flops           : 14070111340
+  Performance     : 0.525
+  Memory Accesses: 6056742094.000
+  Memory Bandwidth in MiB/s: 3795.403
+  Memory Bandwidth in bytes/cycle: 1.809
+  Operational intensity: 0.290
+  Cache Miss Rate : 0.266
+./bin/driver_consolidated.inline2x2 --q 128:1:4096 128:1:4096 1.0 1.0 1.0 ../testdata/srcImages/benchmark.0.tif ../testdata/srcImages/benchmark.1.tif ../testdata/srcImages/benchmark.2.tif ../testdata/srcImages/benchmark.3.tif --f consolidated.inline2x2.tmp
+--- Showing results for: w=128, h=128, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 25140915
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 12301
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 3801
+Cost Model:
+  Flops           : 13751084
+  Performance     : 0.547
+  Memory Accesses: 5919054.000
+  Memory Bandwidth in MiB/s: 3951.700
+  Memory Bandwidth in bytes/cycle: 1.883
+  Operational intensity: 0.290
+  Cache Miss Rate : 0.309
+--- Showing results for: w=256, h=256, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 101048945
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 42945
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 21007
+Cost Model:
+  Flops           : 54981100
+  Performance     : 0.544
+  Memory Accesses: 23668174.000
+  Memory Bandwidth in MiB/s: 3931.386
+  Memory Bandwidth in bytes/cycle: 1.874
+  Operational intensity: 0.290
+  Cache Miss Rate : 0.489
+--- Showing results for: w=512, h=512, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 405746277
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 205331
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 66549
+Cost Model:
+  Flops           : 219881324
+  Performance     : 0.542
+  Memory Accesses: 94654158.000
+  Memory Bandwidth in MiB/s: 3915.596
+  Memory Bandwidth in bytes/cycle: 1.866
+  Operational intensity: 0.290
+  Cache Miss Rate : 0.324
+--- Showing results for: w=1024, h=1024, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 1615480467
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 784909
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 264497
+Cost Model:
+  Flops           : 879442540
+  Performance     : 0.544
+  Memory Accesses: 378577102.000
+  Memory Bandwidth in MiB/s: 3933.375
+  Memory Bandwidth in bytes/cycle: 1.875
+  Operational intensity: 0.290
+  Cache Miss Rate : 0.337
+--- Showing results for: w=2048, h=2048, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 6464800579
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 3083876
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 987437
+Cost Model:
+  Flops           : 3517608044
+  Performance     : 0.544
+  Memory Accesses: 1514226894.000
+  Memory Bandwidth in MiB/s: 3931.412
+  Memory Bandwidth in bytes/cycle: 1.874
+  Operational intensity: 0.290
+  Cache Miss Rate : 0.320
+--- Showing results for: w=4096, h=4096, N=4
+Performance Counters:
+  perf::PERF_COUNT_HW_CPU_CYCLES:u=1:k=0:mg=0:mh=1   : 25899774482
+  perf::PERF_COUNT_HW_CACHE_REFERENCES:u=1:k=0:mg=0:mh=1 : 13042278
+  perf::PERF_COUNT_HW_CACHE_MISSES:u=1:k=0:mg=0:mh=1 : 4112862
+Cost Model:
+  Flops           : 14070111340
+  Performance     : 0.543
+  Memory Accesses: 6056742094.000
+  Memory Bandwidth in MiB/s: 3925.146
+  Memory Bandwidth in bytes/cycle: 1.871
+  Operational intensity: 0.290
+  Cache Miss Rate : 0.315
+./bin/driver_consolidated.inline2x2 --q 128:1:4096 128:1:4096 1.0 1.0 1.0 ../testdata/srcImages/benchmark.0.tif ../testdata/srcImages/benchmark.1.tif ../testdata/srcImages/benchmark.2.tif ../testdata/srcImages/benchmark.3.tif --f consolidated.inline2x2.tmp
