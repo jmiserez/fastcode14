@@ -3286,3 +3286,5 @@ consolidated/avx_mathfun.h
 consolidated/weights_onestep_avx.c
 consolidated/Make.config.onestep_avx
 consolidated/sse_mathfun.h
+consolidated/weights_blocking_avx.c
+consolidated/Make.config.blocking_avx
