@@ -10,34 +10,34 @@ yvals1 = (
 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, )
 #consolidated.avx.run.log
 yvals2 = (
-7.431, 7.507, 7.584, 7.748, 7.805, 7.465, )
+3.634, 3.277, 2.829, 2.265, 2.007, 1.757, )
 #consolidated.blocking_avx.run.log
 yvals3 = (
-6.127, 6.107, 6.123, 6.135, 6.131, 6.091, )
+2.286, 2.380, 2.385, 1.903, 2.000, 1.849, )
 #consolidated.blocking.run.log
 yvals4 = (
-2.323, 2.338, 2.339, 2.322, 2.338, 2.334, )
+1.789, 1.699, 1.530, 1.419, 1.326, 1.228, )
 #consolidated.inline2.run.log
 yvals5 = (
-1.969, 1.966, 1.961, 1.970, 1.971, 1.964, )
+1.562, 1.431, 1.347, 1.266, 1.161, 1.060, )
 #consolidated.inline2x2.run.log
 yvals6 = (
-1.883, 1.874, 1.866, 1.875, 1.874, 1.871, )
+1.466, 1.413, 1.287, 1.183, 1.101, 1.043, )
 #consolidated.inline2x4.run.log
 yvals7 = (
-1.787, 1.756, 1.767, 1.770, 1.767, 1.766, )
+1.395, 1.329, 1.257, 1.115, 1.036, 0.998, )
 #consolidated.naive.run.log
 yvals8 = (
-2.081, 2.095, 2.108, 2.098, 2.113, 2.106, )
+1.655, 1.630, 1.509, 1.352, 1.273, 1.192, )
 #consolidated.onestep_avx.run.log
 yvals9 = (
-6.075, 6.045, 6.023, 6.005, 6.076, 6.074, )
+3.392, 2.661, 2.693, 2.331, 1.947, 1.814, )
 #consolidated.onestep.run.log
 yvals10 = (
-2.314, 2.316, 2.304, 2.302, 2.264, 2.268, )
+1.554, 1.529, 1.502, 1.377, 1.154, 1.207, )
 #consolidated.store_grey.run.log
 yvals11 = (
-2.308, 2.309, 2.303, 2.308, 2.275, 2.285, )
+1.763, 1.603, 1.507, 1.366, 1.288, 1.217, )
 
 font = {'family' : 'sans-serif',
         'weight' : 'normal',
@@ -71,7 +71,7 @@ plt.plot(xvals, yvals10, 'mo-', linewidth=2) #onestep
 plt.plot(xvals, yvals11, 'yo-', linewidth=2) #storegrey
 plt.gca().set_axisbelow(True)
 
-plt.ylim([0, 8.0]) 
+plt.ylim([0, 4.0]) 
 
 plt.savefig('bandwidth.png', dpi=300)
 

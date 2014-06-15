@@ -7,37 +7,37 @@ xvals = (128*128,256*256,512*512,1024*1024,2048*2048,4096*4096)
 
 #01ref_matlab.run.log
 yvals1 = (
-0.675, 0.660, 0.651, 0.646, 0.648, 0.645, )
+0.368, 0.354, 0.320, 0.278, 0.261, 0.249, )
 #consolidated.avx.run.log
 yvals2 = (
-2.139, 2.169, 2.195, 2.245, 2.263, 2.165, )
+1.046, 0.947, 0.819, 0.656, 0.582, 0.509, )
 #consolidated.blocking_avx.run.log
 yvals3 = (
-1.627, 1.622, 1.626, 1.629, 1.628, 1.617, )
+0.607, 0.632, 0.633, 0.505, 0.531, 0.491, )
 #consolidated.blocking.run.log
 yvals4 = (
-0.662, 0.666, 0.667, 0.662, 0.666, 0.665, )
+0.510, 0.484, 0.436, 0.404, 0.378, 0.350, )
 #consolidated.inline2.run.log
 yvals5 = (
-0.564, 0.563, 0.562, 0.564, 0.564, 0.562, )
+0.448, 0.410, 0.386, 0.363, 0.333, 0.304, )
 #consolidated.inline2x2.run.log
 yvals6 = (
-0.547, 0.544, 0.542, 0.544, 0.544, 0.543, )
+0.426, 0.410, 0.374, 0.344, 0.320, 0.303, )
 #consolidated.inline2x4.run.log
 yvals7 = (
-0.519, 0.510, 0.513, 0.514, 0.513, 0.512, )
+0.405, 0.386, 0.365, 0.323, 0.301, 0.289, )
 #consolidated.naive.run.log
 yvals8 = (
-0.534, 0.537, 0.540, 0.538, 0.541, 0.540, )
+0.424, 0.418, 0.387, 0.346, 0.326, 0.305, )
 #consolidated.onestep_avx.run.log
 yvals9 = (
-1.629, 1.620, 1.614, 1.609, 1.628, 1.628, )
+0.910, 0.713, 0.722, 0.625, 0.522, 0.486, )
 #consolidated.onestep.run.log
 yvals10 = (
-0.658, 0.658, 0.654, 0.654, 0.643, 0.644, )
+0.442, 0.435, 0.427, 0.391, 0.328, 0.343, )
 #consolidated.store_grey.run.log
 yvals11 = (
-0.620, 0.620, 0.618, 0.620, 0.611, 0.613, )
+0.474, 0.430, 0.404, 0.367, 0.346, 0.327, )
 
 font = {'family' : 'sans-serif',
         'weight' : 'normal',
@@ -62,16 +62,16 @@ plt.plot(xvals, yvals1, 'ro-', linewidth=2) #matlab
 plt.plot(xvals, yvals2, 'bo-.', linewidth=2) #inline2x4_AVX
 plt.plot(xvals, yvals3, 'co-.', linewidth=2) #blocking_AVX
 plt.plot(xvals, yvals4, 'co-', linewidth=2) #blocking
-plt.plot(xvals, yvals5, 'co-', linewidth=2) #inline2
-plt.plot(xvals, yvals6, 'co-', linewidth=2) #inline2x2
-plt.plot(xvals, yvals7, 'bo-', linewidth=2) #inline2x4
+#plt.plot(xvals, yvals5, 'co-', linewidth=2) #inline2
+#plt.plot(xvals, yvals6, 'co-', linewidth=2) #inline2x2
+#plt.plot(xvals, yvals7, 'bo-', linewidth=2) #inline2x4
 plt.plot(xvals, yvals8, 'ko-', linewidth=2) #baseline
 plt.plot(xvals, yvals9, 'mo-.', linewidth=2) #onestep_AVX
 plt.plot(xvals, yvals10, 'mo-', linewidth=2) #onestep
-plt.plot(xvals, yvals11, 'yo-', linewidth=2) #storegrey
+#plt.plot(xvals, yvals11, 'yo-', linewidth=2) #storegrey
 plt.gca().set_axisbelow(True)
 
-plt.ylim([0, 2.5]) 
+plt.ylim([0, 1.2]) 
 
 plt.savefig('perf.png', dpi=300)
 
