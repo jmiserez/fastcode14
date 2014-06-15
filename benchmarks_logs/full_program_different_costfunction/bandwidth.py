@@ -71,7 +71,7 @@ plt.plot(xvals, yvals10, 'mo-', linewidth=2) #onestep
 plt.plot(xvals, yvals11, 'yo-', linewidth=2) #storegrey
 plt.gca().set_axisbelow(True)
 
-#plt.ylim([0, 1.0]) 
+plt.ylim([0, 8.0]) 
 
 plt.savefig('bandwidth.png', dpi=300)
 
