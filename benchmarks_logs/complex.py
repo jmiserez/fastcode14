@@ -21,11 +21,12 @@ plt.grid(color='grey', alpha=0.5, linewidth=1, linestyle='-', axis='y')
 for spine_name in ['top', 'left', 'right']:
     plt.gca().spines[spine_name].set_color('none')
     
-plt.ylabel('Memory bandwidth used [MiB/s]',**yprops)
+plt.ylabel('Total flops',**yprops)
 plt.xlabel('Total pixels per input image [pixels]')
 
 plt.gca().tick_params(direction='in', length=3, color='k')
 
+plt.plot(xvals, yvals1, 'ro-.', linewidth=2) #matlab
 plt.plot(xvals, yvals2, 'go-', linewidth=2) #avx
 plt.plot(xvals, yvals3, 'bo-', linewidth=2) #blocking
 plt.plot(xvals, yvals4, 'bo-', linewidth=2) #inline2
@@ -39,7 +40,7 @@ plt.gca().set_axisbelow(True)
 
 #plt.ylim([0, 1.0]) 
 
-plt.savefig('memory.png', dpi=300)
+plt.savefig('complexity.png', dpi=300)
 
 #plt.show()
 

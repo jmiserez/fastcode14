@@ -322,9 +322,9 @@ COST_MODEL_LOADF
                     COST_MUL +
                     COST_DIV +
                     COST_POW +
-                    COST_ABS +
-                    COST_SQRT +
-                    29*COST_EXP +
+                    2*COST_ABS +
+                    10*COST_SQRT +
+                    50*COST_EXP +
                     COST_OTHER;
 
             double accesses =

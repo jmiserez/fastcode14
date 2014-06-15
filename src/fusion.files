@@ -3283,3 +3283,6 @@ consolidated/Make.config.avx
 consolidated/weights_inline2x4.c
 consolidated/Make.config.inline2x4
 consolidated/avx_mathfun.h
+consolidated/weights_onestep_avx.c
+consolidated/Make.config.onestep_avx
+consolidated/sse_mathfun.h

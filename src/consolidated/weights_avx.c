@@ -2,86 +2,157 @@
 #define WEIGHTS_C
 
 #include "weights.h"
-#include "avx_mathfun.h"
-
-#define USE_AVX_EXP
+#define USE_SSE2
+#include "sse_mathfun.h"
 
 /**
   * Calculate all values in one step per pixel. Requires grabbing the neighboring pixels.
   */
-FORCE_INLINE double single_pixel(double *im, int center, int top, int left, int right, int bottom){
+FORCE_INLINE double single_pixel(
+        double *im, int center, int top, int left, int right, int bottom,
+        const double rw,
+        const double gw,
+        const double bw,
+        const __m256d rgb0W,
+        const __m256d onehalf,
+        const __m256d minustwelvehalf){
     double r = im[center];
     double g = im[center+1];
     double b = im[center+2];
 
-    double r1 = im[top];
-    double g1 = im[top+1];
-    double b1 = im[top+2];
-    double r2 = im[left];
-    double g2 = im[left+1];
-    double b2 = im[left+2];
-    double r3 = im[right];
-    double g3 = im[right+1];
-    double b3 = im[right+2];
-    double r4 = im[bottom];
-    double g4 = im[bottom+1];
-    double b4 = im[bottom+2];
-    COST_INC_LOAD(15);
+//    double r1 = im[top];
+//    double g1 = im[top+1];
+//    double b1 = im[top+2];
+//    double r2 = im[left];
+//    double g2 = im[left+1];
+//    double b2 = im[left+2];
+//    double r3 = im[right];
+//    double g3 = im[right+1];
+//    double b3 = im[right+2];
+//    double r4 = im[bottom];
+//    double g4 = im[bottom+1];
+//    double b4 = im[bottom+2];
 
-    double rw = 0.2989;
-    double gw = 0.5870;
-    double bw = 0.1140;
+    __m256d c = _mm256_loadu_pd(&(im[center]));
+    __m256d c1 = _mm256_loadu_pd(&(im[top]));
+    __m256d c2 = _mm256_loadu_pd(&(im[left]));
+    __m256d c3 = _mm256_loadu_pd(&(im[right]));
+    __m256d c4 = _mm256_loadu_pd(&(im[bottom]));
+
+    COST_INC_LOAD(23);
 
     double grey = rw * r + gw * g + bw * b;
-    double grey1 = rw * r1 + gw * g1 + bw * b1;
-    double grey2 = rw * r2 + gw * g2 + bw * b2;
-    double grey3 = rw * r3 + gw * g3 + bw * b3;
-    double grey4 = rw * r4 + gw * g4 + bw * b4;
-    COST_INC_ADD(10);
-    COST_INC_MUL(15);
+//    double grey1 = rw * r1 + gw * g1 + bw * b1;
+//    double grey2 = rw * r2 + gw * g2 + bw * b2;
+//    double grey3 = rw * r3 + gw * g3 + bw * b3;
+//    double grey4 = rw * r4 + gw * g4 + bw * b4;
+
+    __m256d grey1 = _mm256_mul_pd(c1,rgb0W);
+    __m256d grey2 = _mm256_mul_pd(c2,rgb0W);
+    __m256d grey3 = _mm256_mul_pd(c3,rgb0W);
+    __m256d grey4 = _mm256_mul_pd(c4,rgb0W);
+    __m256d grey12 = _mm256_hadd_pd(grey1,grey2);
+    __m256d grey34 = _mm256_hadd_pd(grey3,grey4);
+    __m256d grey_sum_tmp = _mm256_hadd_pd(grey12,grey34);
+    __m256d grey_sum_tmp2 = _mm256_hadd_pd(grey_sum_tmp,grey_sum_tmp);
+
+    __m128d grey_sum_tmp2_lo = _mm256_extractf128_pd (grey_sum_tmp2, 0);// lo
+    __m128d grey_sum_tmp2_hi = _mm256_extractf128_pd (grey_sum_tmp2, 1);// hi
+
+    double grey_sum_tmp2_lo_lo = _mm_cvtsd_f64(grey_sum_tmp2_lo);
+    double grey_sum_tmp2_hi_lo = _mm_cvtsd_f64(grey_sum_tmp2_hi);
+
+    double grey_sum = grey_sum_tmp2_lo_lo + grey_sum_tmp2_hi_lo;
+
+    COST_INC_ADD(10); //+2 operations wasted on AVX
+    COST_INC_MUL(15); //+4 operations wasted on AVX
+
     double mu = (r + g + b) / 3.0;
     COST_INC_ADD(2);
     COST_INC_DIV(1);
-    double rmu = r-mu;
-    double gmu = g-mu;
-    double bmu = b-mu;
-    COST_INC_ADD(3);
-    double rz = r-0.5;
-    double gz = g-0.5;
-    double bz = b-0.5;
-    COST_INC_ADD(3);
-    double rzrz = rz*rz;
-    double gzgz = gz*gz;
-    double bzbz = bz*bz;
-    COST_INC_MUL(3);
-    double re = exp(-12.5*rzrz);
-    double ge = exp(-12.5*gzgz);
-    double be = exp(-12.5*bzbz);
+
+//    double rmu = r-mu;
+//    double gmu = g-mu;
+//    double bmu = b-mu;
+
+    __m256d c_mu = _mm256_set1_pd(mu);
+    __m256d c_rgbmu = _mm256_sub_pd(c,c_mu);
+    COST_INC_ADD(3); //+1 operations wasted on AVX
+
+//    double rz = r-0.5;
+//    double gz = g-0.5;
+//    double bz = b-0.5;
+
+    __m256d c_rgbz = _mm256_sub_pd(c,onehalf);
+    COST_INC_ADD(3); //+1 operations wasted on AVX
+
+//    double rzrz = rz*rz;
+//    double gzgz = gz*gz;
+//    double bzbz = bz*bz;
+
+    __m256d c_rgbz_sq = _mm256_mul_pd(c_rgbz,c_rgbz);
+    COST_INC_MUL(3); //+1 operations wasted on AVX
+
+//    double re = exp(-12.5*rzrz);
+//    double ge = exp(-12.5*gzgz);
+//    double be = exp(-12.5*bzbz);
+
+    __m256d c_rgbe_tmp = _mm256_mul_pd(minustwelvehalf,c_rgbz_sq);
+
+    __m128 c_rgbe_tmp_ps = _mm256_cvtpd_ps(c_rgbe_tmp);
+    __m128 c_rgbe_ps = exp_ps(c_rgbe_tmp_ps);
+    __m256d c_rgbe = _mm256_cvtps_pd(c_rgbe_ps);
+
     COST_INC_EXP(3);
-    COST_INC_MUL(3);
-    double t1 = sqrt((rmu*rmu + gmu*gmu + bmu*bmu)/3.0);
+    COST_INC_MUL(3); //+1 operations wasted on AVX
+
+//    double t1 = sqrt((rmu*rmu + gmu*gmu + bmu*bmu)/3.0);
+    __m256d c_rgbmu_sq = _mm256_mul_pd(c_rgbmu,c_rgbmu);
+
+    __m128d t1_tmp1_lo = _mm256_extractf128_pd (c_rgbmu_sq, 0);// lo
+    __m128d t1_tmp1_hi = _mm256_extractf128_pd (c_rgbmu_sq, 1);// hi
+    __m128d t1_tmp1_lo_sum = _mm_hadd_pd (t1_tmp1_lo, t1_tmp1_lo);
+    double t1_tmp1_hi_lo = _mm_cvtsd_f64(t1_tmp1_hi);
+    double t1_tmp1_lo_sum_lo = _mm_cvtsd_f64(t1_tmp1_lo_sum);
+
+    double t1_tmp1 = t1_tmp1_lo_sum_lo + t1_tmp1_hi_lo;
+
+    double t1_tmp2 = t1_tmp1 / 3.0;
+    double t1 = sqrt(t1_tmp2);
+
     COST_INC_SQRT(1);
     COST_INC_ADD(3);
-    COST_INC_MUL(3);
+    COST_INC_MUL(3); //+1 operations wasted on AVX
     COST_INC_DIV(1);
     double t2 = fabs(t1);
-    COST_INC_POW(1);
     COST_INC_ABS(1);
-    double t3 = re*ge*be;
+
+//    double t3 = re*ge*be;
+
+    __m128d t3_tmp1_lo = _mm256_extractf128_pd (c_rgbe, 0);// lo
+    __m128d t3_tmp1_hi = _mm256_extractf128_pd (c_rgbe, 1);// hi
+
+    double t3_tmp1_lo_lo = _mm_cvtsd_f64(t3_tmp1_lo);
+    double t3_tmp1_hi_lo = _mm_cvtsd_f64(t3_tmp1_hi);
+    __m128d t3_tmp1_lo_swapped = _mm_permute_pd(t3_tmp1_lo, 1);// swap
+    double t3_tmp1_lo_hi = _mm_cvtsd_f64(t3_tmp1_lo_swapped);
+
+    double t3 = t3_tmp1_lo_lo * t3_tmp1_lo_hi * t3_tmp1_hi_lo;
+
     COST_INC_MUL(2);
     double t4 = fabs(t3);
-    COST_INC_POW(1);
     COST_INC_ABS(1);
 
     double t5 = t2 * t4;
     COST_INC_MUL(1);
 
-    double t6 = -4.0*grey+grey1+grey2+grey3+grey4;
+//    double t6 = -4.0*grey+grey1+grey2+grey3+grey4;
+    double t6 = -4.0*grey+grey_sum;
+
     COST_INC_MUL(1);
-    COST_INC_ADD(4);
+    COST_INC_ADD(2); //2 operations saved due to AVX
 
     double t7 = fabs(t6);
-    COST_INC_POW(1);
     COST_INC_ABS(1);
 
     double t8 = t5 * t7;
@@ -94,6 +165,17 @@ FORCE_INLINE double single_pixel(double *im, int center, int top, int left, int 
 }
 
 FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, uint32_t c, double* dst){
+    const double rw = 0.2989;
+    const double gw = 0.5870;
+    const double bw = 0.1140;
+    const __m256d rgb0W = _mm256_set_pd (0, 0.1140, 0.5870, 0.2989); //rgb0
+    const __m256d onehalf = _mm256_set1_pd(0.5);
+    const __m256d minustwelvehalf = _mm256_set1_pd(-12.5);
+    const __m256d minus4_256 = _mm256_set1_pd(-4.0);
+    const __m256d three = _mm256_set1_pd(3.0);
+    const __m256d eps = _mm256_set1_pd(1.0E-12);
+    const __m256d signbit_mask256d = _mm256_set1_pd(-0.); // -0. = 1 << 63
+    const __m256d zeros = _mm256_setzero_pd();
 
     //determine non-special case boundaries
     int i_start = ii;
@@ -123,7 +205,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             int right   = i*c+j+1;
             dst[center] = single_pixel(im,
                                        3*center,
-                                       3*center,3*center,3*right,3*bottom);
+                                       3*center,3*center,3*right,3*bottom,
+                                       rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
             COST_INC_LOAD(1);
             COST_INC_STORE(1);
         }
@@ -136,7 +219,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             int left   = i*c+j-1;
             dst[center] = single_pixel(im,
                                        3*center,
-                                       3*center,3*left,3*center,3*bottom);
+                                       3*center,3*left,3*center,3*bottom,
+                                       rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
             COST_INC_LOAD(1);
             COST_INC_STORE(1);
         }
@@ -149,7 +233,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             int right   = i*c+j+1;
             dst[center] = single_pixel(im,
                                        3*center,
-                                       3*center,3*left,3*right,3*bottom);
+                                       3*center,3*left,3*right,3*bottom,
+                                       rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
             COST_INC_LOAD(1);
             COST_INC_STORE(1);
         }
@@ -164,7 +249,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             int right   = i*c+j+1;
             dst[center] = single_pixel(im,
                                        3*center,
-                                       3*top,3*center,3*right,3*center);
+                                       3*top,3*center,3*right,3*center,
+                                       rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
             COST_INC_LOAD(1);
             COST_INC_STORE(1);
         }
@@ -177,7 +263,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             int left   = i*c+j-1;
             dst[center] = single_pixel(im,
                                        3*center,
-                                       3*top,3*left,3*center,3*center);
+                                       3*top,3*left,3*center,3*center,
+                                       rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
             COST_INC_LOAD(1);
             COST_INC_STORE(1);
         }
@@ -190,7 +277,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             int right   = i*c+j+1;
             dst[center] = single_pixel(im,
                                        3*center,
-                                       3*top,3*left,3*right,3*center);
+                                       3*top,3*left,3*right,3*center,
+                                       rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
             COST_INC_LOAD(1);
             COST_INC_STORE(1);
         }
@@ -205,7 +293,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             int right   = i*c+j+1;
             dst[center] = single_pixel(im,
                                        3*center,
-                                       3*top,3*center,3*right,3*bottom);
+                                       3*top,3*center,3*right,3*bottom,
+                                       rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
             COST_INC_LOAD(1);
             COST_INC_STORE(1);
         }
@@ -220,7 +309,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             int left   = i*c+j-1;
             dst[center] = single_pixel(im,
                                        3*center,
-                                       3*top,3*left,3*center,3*bottom);
+                                       3*top,3*left,3*center,3*bottom,
+                                       rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
             COST_INC_LOAD(1);
             COST_INC_STORE(1);
         }
@@ -256,7 +346,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
                 int right   = i*c+j+1;
                 dst[center] = single_pixel(im,
                                            3*center,
-                                           3*top,3*left,3*right,3*bottom);
+                                           3*top,3*left,3*right,3*bottom,
+                                           rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
                 COST_INC_LOAD(1);
                 COST_INC_STORE(1);
             }
@@ -277,7 +368,8 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
                 int right   = i*c+j+1;
                 dst[center] = single_pixel(im,
                                            3*center,
-                                           3*top,3*left,3*right,3*bottom);
+                                           3*top,3*left,3*right,3*bottom,
+                                           rw,gw,bw,rgb0W,onehalf,minustwelvehalf);
                 COST_INC_LOAD(1);
                 COST_INC_STORE(1);
             }
@@ -343,28 +435,6 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
     //
     //  Load c3456, d3456, t2345, b2345 every iteration. Shuffle the rest.
     //
-
-//    double rW = 0.2989;
-//    double gW = 0.5870;
-//    double bW = 0.1140;
-
-    __m256d rgb0W = _mm256_set_pd (0, 0.1140, 0.5870, 0.2989); //rgb0
-    __m256d minus4_256 = _mm256_set1_pd(-4.0);
-    __m256d three = _mm256_set1_pd(3.0);
-    __m256d onehalf = _mm256_set1_pd(0.5);
-    __m256d eps = _mm256_set1_pd(1.0E-12);
-    __m256d minustwelvehalf = _mm256_set1_pd(-12.5);
-    __m256d signbit_mask256d = _mm256_set1_pd(-0.); // -0. = 1 << 63
-
-#ifndef USE_AVX_EXP
-    __attribute__ ((aligned (32)))
-    __attribute__ ((aligned (32))) double target_rexp_c[4];
-    __attribute__ ((aligned (32))) double target_gexp_c[4];
-    __attribute__ ((aligned (32))) double target_bexp_c[4];
-    __attribute__ ((aligned (32))) double target_rexp_d[4];
-    __attribute__ ((aligned (32))) double target_gexp_d[4];
-    __attribute__ ((aligned (32))) double target_bexp_d[4];
-#endif
 
     int i = i_start;
     for(i = i_start; i < i_end; i+=2){
@@ -440,7 +510,7 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
 //                gW * c3456_10 +
 //                bW * c3456_11;
 
-        __m256d zeros = _mm256_setzero_pd();
+
 
         __m256d c3456_grey_2 = _mm256_mul_pd(c3456_6,rgb0W);
         __m256d c3456_grey_3 = _mm256_mul_pd(c3456_9,rgb0W);
@@ -1256,63 +1326,26 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
 //            double bexpf_d2345_2 = exp(bexp_d2345_2);
 //            double bexpf_d2345_3 = exp(bexp_d2345_3);
 
+            //using sse_fun.h library here, this is single precision only
+            __m128 rexp_c2345_single = _mm256_cvtpd_ps(rexp_c2345);
+            __m128 rexpf_c2345_single = exp_ps(rexp_c2345_single);
+            __m256d rexpf_c2345 = _mm256_cvtps_pd(rexpf_c2345_single);
+            __m128 gexp_c2345_single = _mm256_cvtpd_ps(gexp_c2345);
+            __m128 gexpf_c2345_single = exp_ps(gexp_c2345_single);
+            __m256d gexpf_c2345 = _mm256_cvtps_pd(gexpf_c2345_single);
+            __m128 bexp_c2345_single = _mm256_cvtpd_ps(bexp_c2345);
+            __m128 bexpf_c2345_single = exp_ps(bexp_c2345_single);
+            __m256d bexpf_c2345 = _mm256_cvtps_pd(bexpf_c2345_single);
 
-#ifdef USE_AVX_EXP
-            //using avx_fun.h library here, unfortunately this is single precision only
-            //casts do not generate code
-            __m256d rexpf_c2345 =  _mm256_castps_pd(exp256_ps(_mm256_castpd_ps (rexp_c2345)));
-            __m256d gexpf_c2345 =  _mm256_castps_pd(exp256_ps(_mm256_castpd_ps (gexp_c2345)));
-            __m256d bexpf_c2345 =  _mm256_castps_pd(exp256_ps(_mm256_castpd_ps (bexp_c2345)));
-
-            __m256d rexpf_d2345 =  _mm256_castps_pd(exp256_ps(_mm256_castpd_ps (rexp_d2345)));
-            __m256d gexpf_d2345 =  _mm256_castps_pd(exp256_ps(_mm256_castpd_ps (gexp_d2345)));
-            __m256d bexpf_d2345 =  _mm256_castps_pd(exp256_ps(_mm256_castpd_ps (bexp_d2345)));
-#else
-            //This is very slow. Most of the performance gain from using AVX disappears if we do this.
-            _mm256_store_pd(&(target_rexp_c[0]),rexp_c2345);
-            _mm256_store_pd(&(target_gexp_c[0]),gexp_c2345);
-            _mm256_store_pd(&(target_bexp_c[0]),bexp_c2345);
-            _mm256_store_pd(&(target_rexp_d[0]),rexp_d2345);
-            _mm256_store_pd(&(target_gexp_d[0]),gexp_d2345);
-            _mm256_store_pd(&(target_bexp_d[0]),bexp_d2345);
-
-            target_rexp_c[0] = exp(target_rexp_c[0]);
-            target_rexp_c[1] = exp(target_rexp_c[1]);
-            target_rexp_c[2] = exp(target_rexp_c[2]);
-            target_rexp_c[3] = exp(target_rexp_c[3]);
-
-            target_gexp_c[0] = exp(target_gexp_c[0]);
-            target_gexp_c[1] = exp(target_gexp_c[1]);
-            target_gexp_c[2] = exp(target_gexp_c[2]);
-            target_gexp_c[3] = exp(target_gexp_c[3]);
-
-            target_bexp_c[0] = exp(target_bexp_c[0]);
-            target_bexp_c[1] = exp(target_bexp_c[1]);
-            target_bexp_c[2] = exp(target_bexp_c[2]);
-            target_bexp_c[3] = exp(target_bexp_c[3]);
-
-            target_rexp_d[0] = exp(target_rexp_d[0]);
-            target_rexp_d[1] = exp(target_rexp_d[1]);
-            target_rexp_d[2] = exp(target_rexp_d[2]);
-            target_rexp_d[3] = exp(target_rexp_d[3]);
-
-            target_gexp_d[0] = exp(target_gexp_d[0]);
-            target_gexp_d[1] = exp(target_gexp_d[1]);
-            target_gexp_d[2] = exp(target_gexp_d[2]);
-            target_gexp_d[3] = exp(target_gexp_d[3]);
-
-            target_bexp_d[0] = exp(target_bexp_d[0]);
-            target_bexp_d[1] = exp(target_bexp_d[1]);
-            target_bexp_d[2] = exp(target_bexp_d[2]);
-            target_bexp_d[3] = exp(target_bexp_d[3]);
-
-            __m256d rexpf_c2345 = _mm256_load_pd(&(target_rexp_c[0]));
-            __m256d gexpf_c2345 = _mm256_load_pd(&(target_gexp_c[0]));
-            __m256d bexpf_c2345 = _mm256_load_pd(&(target_bexp_c[0]));
-            __m256d rexpf_d2345 = _mm256_load_pd(&(target_rexp_d[0]));
-            __m256d gexpf_d2345 = _mm256_load_pd(&(target_gexp_d[0]));
-            __m256d bexpf_d2345 = _mm256_load_pd(&(target_bexp_d[0]));
-#endif
+            __m128 rexp_d2345_single = _mm256_cvtpd_ps(rexp_d2345);
+            __m128 rexpf_d2345_single = exp_ps(rexp_d2345_single);
+            __m256d rexpf_d2345 = _mm256_cvtps_pd(rexpf_d2345_single);
+            __m128 gexp_d2345_single = _mm256_cvtpd_ps(gexp_d2345);
+            __m128 gexpf_d2345_single = exp_ps(gexp_d2345_single);
+            __m256d gexpf_d2345 = _mm256_cvtps_pd(gexpf_d2345_single);
+            __m128 bexp_d2345_single = _mm256_cvtpd_ps(bexp_d2345);
+            __m128 bexpf_d2345_single = exp_ps(bexp_d2345_single);
+            __m256d bexpf_d2345 = _mm256_cvtps_pd(bexpf_d2345_single);
 
 //            double x9_c2345_0 = rexpf_c2345_0 * gexpf_c2345_0 * bexpf_c2345_0;
 //            double x9_c2345_1 = rexpf_c2345_1 * gexpf_c2345_1 * bexpf_c2345_1;
@@ -1396,19 +1429,14 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             _mm256_storeu_pd(&(dst[c2c]),x13_c2345);
             _mm256_storeu_pd(&(dst[d2c]),x13_d2345);
 
-#ifdef USE_AVX_EXP
-            //as per avx_fun.h source code
-            COST_INC_MUL(24*11);
-            COST_INC_ADD(24*15);
-            COST_INC_OTHER(24*3);
-#else
-            COST_INC_LOAD(24);
+            //actual flops if we were using full vectors of 4 doubles
+            //            COST_INC_MUL(176); //+24*11 => +264 = 440
+            //            COST_INC_ADD(176); //+24*15 => +360 = 536
+
+            //useful flops counted only
+            COST_INC_MUL(160);
+            COST_INC_ADD(152);
             COST_INC_EXP(24);
-            COST_INC_STORE(24);
-#endif
-            COST_INC_MUL(176); //+24*11 => +264 = 440
-            COST_INC_ADD(176); //+24*15 => +360 = 536
-            COST_INC_OTHER(0); //+24*3 => +72 = 72
             COST_INC_ABS(24);
             COST_INC_DIV(16);
             COST_INC_SQRT(8);
@@ -1417,7 +1445,7 @@ FORCE_INLINE void convolve_block(double* im, int ii, int jj, int N, uint32_t r, 
             COST_INC_STORE(8);
         }
         COST_INC_LOAD(16);
-        COST_INC_MUL(16);
+        COST_INC_MUL(12);
         COST_INC_ADD(16);
     }
 }
