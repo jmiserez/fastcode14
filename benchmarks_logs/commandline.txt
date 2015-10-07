@@ -7,27 +7,31 @@ gcc (Ubuntu/Linaro 4.8.1-10ubuntu9) 4.8.1
 
 Complete command-line passed to GCC:
 gcc 
-  -O3 
-  -m64 
-  -march=corei7-avx 
-  -std=c99 
+  -std=c99
   -Wall
-  -Winline 
-  -D_GNU_SOURCE 
-  -DNDEBUG 
-  -DCOST_MEASURE 
-  -DWARMUP_COUNT=0 
-  -DL1_CACHE_KB=32 
-  -DL2_CACHE_KB=256 
-  -DLLC_CACHE_KB=6144 
-  -DCACHE_LINE_BYTES=64 
-  -Itiff-4.0.2/libtiff 
-  -Ilibpfm-4.5.0/include 
-  -Idriver 
-  -Iperf 
-  -I. 
-
+  -Winline
+  -D_GNU_SOURCE
+  -DL1_CACHE_KB=32
+  -DL2_CACHE_KB=256
+  -DLLC_CACHE_KB=6144
+  -DCACHE_LINE_BYTES=64
+  -O3
+  -m64
+  -march=corei7-avx
+  -DWARMUP_COUNT=2
+  -DNDEBUG-DREADFLOPS
+  -Ltiff-4.0.2/libtiff/.libs
+  -Llibpfm-4.5.0/lib
+  -Wl,-Bstatic
+  -ltiff 
+  -lpfm
+  -Wl,-Bdynamic -lm
+  -Itiff-4.0.2/libtiff
+  -Ilibpfm-4.5.0/include
+  -Idriver
+  -Iperf
+  -I.
+  
 Optimization specific options are -O3 -m64 -march=corei7-avx
 
-For no-tree-vectorize folders, additionally -fno-tree-vectorize is passed.
-For weights_only folders, additionally -DNO_PYRAMIDS is passed.
+For weights_only folder, additionally -DNO_PYRAMIDS is passed.
